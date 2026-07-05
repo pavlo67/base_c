@@ -1,0 +1,1 @@
+echo "$(git rev-parse --short HEAD)" > _commit.txt

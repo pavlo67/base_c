@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+
+zip -r vision_new_cpp ./ -x "cmake-build-debug/*" -x "cmake-build-release/*" -x "build/*" -x ".idea/*" -x ".git/*" -x ".vscode/*"

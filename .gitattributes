@@ -1,0 +1,9 @@
+*.htm linguist-detectable=false
+*.html linguist-detectable=false
+*.css linguist-detectable=false
+*.js linguist-detectable=false
+*.c linguist-detectable=true
+*.h linguist-detectable=true
+*.cpp linguist-detectable=true
+*.hpp linguist-detectable=true
+*.go linguist-detectable=false

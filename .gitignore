@@ -1,0 +1,55 @@
+# Configs
+**/_env/*.json
+**/_env/*.yaml
+_defines.h
+
+# Video artifacts
+*.jpg
+*.jpeg
+*.png
+*.mp4
+
+# CMake & IDE files
+cmake-build-debug/*
+cmake-build-release/*
+build/*
+.idea/*
+.codex/*
+
+# Log files, reports, archives
+*.xls*
+*.tab*
+*.log*
+*.zip
+
+# Executables
+*.exe
+*.out
+*.app
+_bin/*
+bin/*
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
