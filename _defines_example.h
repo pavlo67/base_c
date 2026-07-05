@@ -18,5 +18,7 @@ extern std::string COMMIT;
 #define PROCESS_INFO_STEP  400
 #define SAVE_IMAGES_EXT    ".png"
 
+#define RUN_PROBE false
+
 #endif // BASE__DEFINES_H
 
