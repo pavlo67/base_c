@@ -1,6 +1,7 @@
 #include "pan_tlt_stepper.h"
 
 #include "_defines.h"
+#include "hardware/hardware.h"
 
 #include <chrono>
 #include <thread>
@@ -17,15 +18,6 @@ constexpr uint8_t PIN_STEP_TLT       = 25; // GPIO18 -> PUL- TLT
 constexpr uint8_t PIN_DIR_TLT        = 26; // GPIO23 -> DIR- TLT
 constexpr uint8_t PIN_ENA_TLT        = 27; // GPIO24 -> ENA- TLT
 
-#if SYSTEM_IS_RPI4
-    #include <pigpio.h>
-#else
-    #define gpioWrite(pin, value)
-    #define gpioSetMode(pin, mode)
-    #define gpioInitialise()  1
-    #define gpioTerminate()
-
-#endif
 
 // constexpr int STEPS = 800;         // залежить від microstep на DM542
 
