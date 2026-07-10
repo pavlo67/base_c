@@ -54,11 +54,11 @@ find_package(jsoncpp)
 
 add_library(jsoncpp_lib STATIC IMPORTED)
 
-if (SYSTEM STREQUAL "DESKTOP")
-    set_target_properties(jsoncpp_lib PROPERTIES IMPORTED_LOCATION "/usr/local/lib/x86_64-linux-gnu/libjsoncpp.a")
-else()
-    set_target_properties(jsoncpp_lib PROPERTIES IMPORTED_LOCATION "/usr/local/lib/aarch64-linux-gnu/libjsoncpp.a")
-endif()
+#if (SYSTEM STREQUAL "DESKTOP")
+#    set_target_properties(jsoncpp_lib PROPERTIES IMPORTED_LOCATION "/usr/local/lib/x86_64-linux-gnu/libjsoncpp.a")
+#else()
+#    set_target_properties(jsoncpp_lib PROPERTIES IMPORTED_LOCATION "/usr/local/lib/aarch64-linux-gnu/libjsoncpp.a")
+#endif()
 
 # find_package(fmt REQUIRED)
 # find_package(yaml-cpp)
