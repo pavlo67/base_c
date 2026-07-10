@@ -1,8 +1,8 @@
 add_executable(rpi4_probe
         rpi4/rpi4_probe.cpp
 )
-if (SYSTEM STREQUAL "rpi4")
-    target_link_libraries(rpi4_probe PRIVATE pigpio)
+if (SYSTEM STREQUAL "RPI4")
+    target_link_libraries(rpi4_probe PRIVATE pigpio rt)
 endif()
 
 # -----------------------------------------------------

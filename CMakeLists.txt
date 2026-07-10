@@ -52,8 +52,7 @@ endif()
 
 find_package(jsoncpp)
 
-add_library(jsoncpp_lib STATIC IMPORTED)
-
+# add_library(jsoncpp_lib STATIC IMPORTED)
 #if (SYSTEM STREQUAL "DESKTOP")
 #    set_target_properties(jsoncpp_lib PROPERTIES IMPORTED_LOCATION "/usr/local/lib/x86_64-linux-gnu/libjsoncpp.a")
 #else()
