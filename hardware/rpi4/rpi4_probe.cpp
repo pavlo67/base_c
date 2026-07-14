@@ -32,10 +32,17 @@ void testOnePin(unsigned pin, const char* name) {
     }
 }
 
-int main() {
-    // std::signal(SIGINT, handleSignal);
-    // std::signal(SIGTERM, handleSignal);
+constexpr unsigned STEP_DELAY_US = 800;
+constexpr unsigned PIN_STEP = PIN_IN1;
 
+void pulse() {
+    gpioWrite(PIN_STEP, 1);
+    usleep(STEP_DELAY_US);
+    gpioWrite(PIN_STEP, 0);
+    usleep(STEP_DELAY_US);
+}
+
+int main() {
     if (gpioInitialise() < 0) {
         std::fprintf(stderr, "gpioInitialise() failed\n");
         return EXIT_FAILURE;
@@ -43,15 +50,11 @@ int main() {
 
     gpioSetMode(PIN_IN1, PI_OUTPUT);
 
-    // gpioSetMode(PIN_IN2, PI_OUTPUT);
-    // gpioSetMode(PIN_IN3, PI_OUTPUT);
-    // setAll(0);
-    // std::printf("Sequential test\n");
+    // testOnePin(PIN_IN1, "IN1");
 
-    testOnePin(PIN_IN1, "IN1");
-
-    // testOnePin(PIN_IN2, "IN2");
-    // testOnePin(PIN_IN3, "IN3");
+    for (int i = 0; i++ < 10000; ) {
+        pulse();
+    }
 
     gpioTerminate();
 
