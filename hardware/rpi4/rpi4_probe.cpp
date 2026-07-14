@@ -21,14 +21,14 @@ constexpr unsigned PIN_IN1 = 17;  // BCM GPIO17, фізичний пін 11
 
 void testOnePin(unsigned pin, const char* name) {
 
-    for (int i = 0; i++ < 5; ) {
+    for (int i = 0; i++ < 50; ) {
         printf("%s ON\n", name);
         gpioWrite(pin, 1);
-        sleep(1);
+        usleep(500000);
 
         printf("%s OFF\n", name);
         gpioWrite(pin, 0);
-        sleep(1);
+        usleep(500000);
     }
 }
 
