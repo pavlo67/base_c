@@ -2,9 +2,10 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
-#include "hardware/hardware.h"
 
-using namespace std::chrono_literals;
+#include "lib/time.h"
+
+#include "hardware/hardware.h"
 
 constexpr int PIN_STEP = 18; // GPIO18 -> PUL-
 constexpr int PIN_DIR  = 23; // GPIO23 -> DIR-
@@ -15,9 +16,9 @@ constexpr int STEPS = 800;         // залежить від microstep на DM5
 
 void pulse() {
     gpioWrite(PIN_STEP, 1);
-    std::this_thread::sleep_for(std::chrono::microseconds(STEP_DELAY_US));
+    usleep(STEP_DELAY_US * MICROSECOND);
     gpioWrite(PIN_STEP, 0);
-    std::this_thread::sleep_for(std::chrono::microseconds(STEP_DELAY_US));
+    std::this_thread::sleep_for(std::chrono::microseconds(STEP_DELAY_US * MICROSECOND);
 }
 
 void moveSteps(int steps) {

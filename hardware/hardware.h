@@ -3,13 +3,16 @@
 
 #if SYSTEM_IS_RPI4
     #include <pigpio.h>
+
 #else
-    #define gpioWrite(pin, value)
-    #define gpioSetMode(pin, mode)
-    #define gpioInitialise()  1
-    #define gpioTerminate()
+    #define PI_INPUT  0
+    #define PI_OUTPUT 1
+
+    inline int  gpioWrite  (unsigned pin, unsigned value) { return 0; }
+    inline int  gpioSetMode(unsigned pin, unsigned mode)  { return 0; }
+    inline int  gpioInitialise()                          { return 1; }
+    inline void gpioTerminate()                           { }
 
 #endif
-
 
 #endif //BASE_CPP_HARDWARE_H
