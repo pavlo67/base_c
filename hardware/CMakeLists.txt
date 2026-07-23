@@ -7,9 +7,6 @@ endif()
 
 # -----------------------------------------------------
 
-add_executable(stepper_motor_probe
-        stepper_motor/main_probe.cpp
-)
 add_executable(pan_tlt_probe
         pan_tlt/pan_tlt_probe.cpp
         pan_tlt/pan_tlt_stepper/pan_tlt_stepper.cpp
