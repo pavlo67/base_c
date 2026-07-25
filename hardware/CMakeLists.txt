@@ -20,10 +20,12 @@ add_executable(pan_tlt_probe
 
 add_library(stepper_motor
         stepper_motor/stepper_motor.cpp
+        stepper_motor/pulse_series.cpp
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads)
 
 add_executable(stepper_motor_probe
         stepper_motor/stepper_motor_probe.cpp
+        stepper_motor/pulse_series.cpp
 )
 target_link_libraries(stepper_motor_probe PRIVATE stepper_motor)
