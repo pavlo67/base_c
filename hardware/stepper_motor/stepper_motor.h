@@ -15,24 +15,24 @@ struct stepper_options_t {
     float degreesPerPulse = 0.0;      // deg/pulse for the configured motor mode
 };
 
+enum class pulse_interval_algorithm_t {
+    constantAcceleration,
+    linearIntervalFallback
+};
+
 struct pulse_series_t {
     std::uint64_t pulseCount = 0;
-    float initialIntervalSec = 0.0;
-    float intervalChangePerPulse = 0.0;
+    pulse_interval_algorithm_t intervalAlgorithm = pulse_interval_algorithm_t::constantAcceleration;
+    float initialSpeed = 0.0;              // absolute deg/s
+    float acceleration = 0.0;              // signed deg/s^2
+    float initialIntervalSec = 0.0;         // fallback only
+    float intervalChangePerPulse = 0.0;     // fallback only
     bool directionForward = true;
 
-    float changeDeg(const stepper_options_t& stepperOpts)  {
-        // TODO!!!
-        return 0;
-    }
-
-    float targetSpeed(const stepper_options_t& stepperOpts)  {
-        // TODO!!!
-        return 0;
-    }
-    void limitWithDeg(float targetDeg, const stepper_options_t& stepperOpts)  {
-        // TODO!!!
-    }
+    float changeDeg(const stepper_options_t& stepperOpts) const;
+    float intervalSec(std::uint64_t pulseIndex, const stepper_options_t& stepperOpts) const;
+    float targetSpeed(const stepper_options_t& stepperOpts) const;
+    void limitWithDeg(float targetDeg, const stepper_options_t& stepperOpts);
 
 };
 
@@ -50,9 +50,23 @@ struct series_evaluation_t {
 
 bool optionsIsOk(const stepper_options_t& stepperOpts, std::string& error);
 
-pulse_series_t   getFastestSeries(float currentSpeed, float changeSpeed, const stepper_options_t& stepperOpts);
-bool             getAcceleratedSequence(std::vector<pulse_series_t>& seriesSequence, float currentSpeed, float targetChangeDeg, const stepper_options_t& stepperOpts);
-stepper_action_t calculateAction(float currentSpeed, float targetChangeDeg, float targetSpeed, const stepper_options_t& stepperOpts);
+pulse_series_t getFastestSeries(
+        float currentSpeed,
+        float changeSpeed,
+        const stepper_options_t& stepperOpts,
+        pulse_interval_algorithm_t intervalAlgorithm = pulse_interval_algorithm_t::constantAcceleration);
+bool getAcceleratedSequence(
+        std::vector<pulse_series_t>& seriesSequence,
+        float currentSpeed,
+        float targetChangeDeg,
+        const stepper_options_t& stepperOpts,
+        pulse_interval_algorithm_t intervalAlgorithm = pulse_interval_algorithm_t::constantAcceleration);
+stepper_action_t calculateAction(
+        float currentSpeed,
+        float targetChangeDeg,
+        float targetSpeed,
+        const stepper_options_t& stepperOpts,
+        pulse_interval_algorithm_t intervalAlgorithm = pulse_interval_algorithm_t::constantAcceleration);
 
 
 series_evaluation_t evaluateSeries(const pulse_series_t& series, float currentSpeed, float degreesPerPulse);
