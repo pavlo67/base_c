@@ -28,4 +28,4 @@ add_executable(stepper_motor_probe
         stepper_motor/stepper_motor_probe.cpp
         stepper_motor/pulse_series.cpp
 )
-target_link_libraries(stepper_motor_probe PRIVATE stepper_motor)
+target_link_libraries(stepper_motor_probe PRIVATE stepper_motor GTest::gtest_main)
