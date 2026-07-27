@@ -2,7 +2,7 @@
 #include "lib/mathlib.h"
 
 StepperSeries::StepperSeries(
-    std::uint64_t pulseCount, float firstSpeedDegPerSec, float lastSpeedDegPerSec, bool directionForward,
+    uint64_t pulseCount, float firstSpeedDegPerSec, float lastSpeedDegPerSec, bool directionForward,
     const stepper_options_t& stepperOpts, interval_algorithm_t intervalAlgorithm
 ) {
 
@@ -36,7 +36,7 @@ float StepperSeries::totalRotationDeg(const stepper_options_t& stepperOpts) cons
     return direction * static_cast<float>(pulseCount_) * stepperOpts.degreesPerPulse;
 }
 
-float StepperSeries::intervalSec(std::uint64_t pulseIndex, const stepper_options_t& stepperOpts) const {
+float StepperSeries::intervalSec(uint64_t pulseIndex, const stepper_options_t& stepperOpts) const {
     if (pulseIndex >= pulseCount_) {
         return 0.0F;
     }
@@ -59,6 +59,15 @@ float StepperSeries::intervalSec(std::uint64_t pulseIndex, const stepper_options
     const float speedSum    = speedBefore + speedAfter;
     return speedSum > EPS ? 2.0F * stepperOpts.degreesPerPulse / speedSum : 0.0F;
 }
+
+float StepperSeries::totalSec(const stepper_options_t& stepperOpts) const {
+    float t = 0;
+    for (uint64_t pulseIndex = 0; pulseIndex < pulseCount_; ++pulseIndex) {
+        t += intervalSec(pulseIndex, stepperOpts);
+    }
+    return t;
+}
+
 
 float StepperSeries::finalSpeed(const stepper_options_t& stepperOpts) const {
     if (pulseCount_ == 0) {

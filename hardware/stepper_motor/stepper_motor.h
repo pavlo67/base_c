@@ -7,16 +7,17 @@
 #include <string>
 #include <vector>
 
-const float SPEED_DEG_PER_SEC_EPS = 0.1;
+const float RESULT_EPS_RATIO = 0.01;
+const float SPEED_EPS        = 0.01;
+const float ACCELERATION_EPS = 0.01;
 
 struct stepper_options_t {
-    float freqMax = 0.0;              // pulses/s, motor/driver specification
-    float freqMaxAllowed = 0.0;       // pulses/s, software limit, <= freqMax
-    float accelMax = 0.0;             // deg/s^2, construction/motor limit
+    float freqMax         = 0.0;      // pulses/s, motor/driver specification
+    float speedMax        = 0.0;      // deg/s,    video software limit
+    float accelMax        = 0.0;      // deg/s^2,  construction/motor limit
     float degreesPerPulse = 0.0;      // deg/pulse for the configured motor mode
 
-
-    [[nodiscard]] std::uint64_t pulsesForDeg(float changeDeg, bool directionForward) const {
+    [[nodiscard]] uint64_t pulsesForDeg(float changeDeg, bool directionForward) const {
         return changeDeg * (directionForward ? 1.F : -1.F) >= 0 ? std::llround(std::abs(changeDeg) / degreesPerPulse) : 0;
     }
 
@@ -40,27 +41,27 @@ class StepperSeries {
 public:
 
     StepperSeries(
-        std::uint64_t pulseCount,  float firstSpeedDegPerSec,  float lastSpeedDegPerSec,  bool directionForward, const stepper_options_t& stepperOpts,
+        uint64_t pulseCount,  float firstSpeedDegPerSec,  float lastSpeedDegPerSec,  bool directionForward, const stepper_options_t& stepperOpts,
         interval_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION
     );
 
-    [[nodiscard]] float intervalSec(std::uint64_t pulseIndex, const stepper_options_t& stepperOpts) const;
+    [[nodiscard]] float intervalSec(uint64_t pulseIndex, const stepper_options_t& stepperOpts) const;
     [[nodiscard]] float finalSpeed(const stepper_options_t& stepperOpts) const;
     [[nodiscard]] float totalRotationDeg(const stepper_options_t& stepperOpts) const;
+    [[nodiscard]] float totalSec(const stepper_options_t& stepperOpts) const;
 
     void limitWithDeg(float targetDeg, const stepper_options_t& stepperOpts);
 
     // removed "private" to simplify tests
     // private:
 
-    std::uint64_t pulseCount_               = 0;
-    interval_algorithm_t intervalAlgorithm_ = CONSTANT_ACCELERATION;
+    uint64_t pulseCount_          = 0;
     float initialSpeedDegPerSec_  = 0.0;    // signed deg/s
     float accelerationDegPerSec2_ = 0.0;    // signed deg/s^2
     float initialIntervalSec_     = 0.0;    // fallback only
     float intervalChangePerPulse_ = 0.0;    // fallback only
     bool  directionForward_       = true;
-
+    interval_algorithm_t intervalAlgorithm_ = CONSTANT_ACCELERATION;
 };
 
 struct stepper_sequence_t {
@@ -78,7 +79,7 @@ StepperSeries getFastestSeries(
 bool getAcceleratedSequence(
         std::vector<StepperSeries>& seriesSequence,
         float baseSpeedDegPerSec,
-        float totalRotationDeg,
+        float targetRotationDeg,
         const stepper_options_t& stepperOpts,
         interval_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
 stepper_sequence_t calculateSequence(

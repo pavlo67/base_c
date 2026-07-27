@@ -7,40 +7,46 @@
 #include "lib/mathlib.h"
 
 StepperSeries getFastestSeries(float initialSpeedDegPerSec, float finalSpeedDegPerSec, const stepper_options_t& stepperOpts, interval_algorithm_t intervalAlgorithm) {
+    const float speedMax = std::min(stepperOpts.speedMax,stepperOpts.freqMax * stepperOpts.degreesPerPulse);
+    if (std::abs(finalSpeedDegPerSec) > speedMax) {
+        finalSpeedDegPerSec = finalSpeedDegPerSec >= 0 ? speedMax : -speedMax;
+    }
+
     const float directionSpeed = std::abs(finalSpeedDegPerSec) > EPS ? finalSpeedDegPerSec : initialSpeedDegPerSec;
     const bool directionForward = directionSpeed >= 0.0F;
 
     const float distanceDeg = std::abs(finalSpeedDegPerSec * finalSpeedDegPerSec - initialSpeedDegPerSec * initialSpeedDegPerSec) / (2.0F * stepperOpts.accelMax);
-    const std::uint64_t pulseCount = std::max<std::uint64_t>(1, static_cast<std::uint64_t>(std::ceil(distanceDeg / stepperOpts.degreesPerPulse)));
+    const uint64_t pulseCount = std::max<uint64_t>(1, static_cast<uint64_t>(std::ceil(distanceDeg / stepperOpts.degreesPerPulse)));
 
     StepperSeries s(pulseCount, initialSpeedDegPerSec,finalSpeedDegPerSec, directionForward, stepperOpts, intervalAlgorithm);
 
     return s;
 }
 
-bool getAcceleratedSequence(std::vector<StepperSeries>& seriesSequence, float baseSpeedDegPerSec, float totalRotationDeg, const stepper_options_t& stepperOpts, interval_algorithm_t intervalAlgorithm) {
-    if (std::abs(totalRotationDeg) < stepperOpts.degreesPerPulse / 2.0F) { return true; }
+bool getAcceleratedSequence(std::vector<StepperSeries>& seriesSequence, float baseSpeedDegPerSec, float targetRotationDeg, const stepper_options_t& stepperOpts, interval_algorithm_t intervalAlgorithm) {
+    const float         baseSpeed        = std::abs(baseSpeedDegPerSec);
+    const float         speedMax         = std::min(stepperOpts.speedMax,stepperOpts.freqMax * stepperOpts.degreesPerPulse);
+    const bool          directionForward = targetRotationDeg > 0.0F;
+    const uint64_t totalPulses      = stepperOpts.pulsesForDeg(targetRotationDeg, directionForward);
 
-    if (totalRotationDeg * baseSpeedDegPerSec < -EPS) { return false; }
+    if (std::abs(targetRotationDeg) < stepperOpts.degreesPerPulse) {
+        return true;
+    } else if (targetRotationDeg * baseSpeedDegPerSec < 0) {
+        return false;
+    } else if (baseSpeed > speedMax + EPS) {
+        return false;
+    } else if (totalPulses == 0) {
+        return true;
+    }
 
-    const bool directionForward = totalRotationDeg > 0.0F;
-    const float baseSpeed = std::abs(baseSpeedDegPerSec);
-    const float speedMaxAllowed = stepperOpts.freqMaxAllowed * stepperOpts.degreesPerPulse;
+    const float totalRotationDeg = static_cast<float>(totalPulses) * stepperOpts.degreesPerPulse;
+    const float peakSpeed        = std::sqrt(baseSpeed * baseSpeed + stepperOpts.accelMax * totalRotationDeg); // кінематичне рівняння для totalRotationDeg/2
+    const float peakSpeedAllowed = std::min(speedMax, peakSpeed);
+    const float accelerationDeg  = std::max(0.0F,(peakSpeedAllowed * peakSpeedAllowed - baseSpeed * baseSpeed) / (2.0F * stepperOpts.accelMax));
 
-    if (baseSpeed > speedMaxAllowed + EPS) { return false; }
-
-    const std::uint64_t totalPulses = stepperOpts.pulsesForDeg(totalRotationDeg, directionForward);
-    if (totalPulses == 0) { return true; }
-
-    const float totalDeg = static_cast<float>(totalPulses) * stepperOpts.degreesPerPulse;
-    const float peakByDistance = std::sqrt(baseSpeed * baseSpeed + stepperOpts.accelMax * totalDeg);
-    const float peakSpeed = std::min(speedMaxAllowed, peakByDistance);
-    const float accelerationDeg = std::max(0.0F,(peakSpeed * peakSpeed - baseSpeed * baseSpeed) / (2.0F * stepperOpts.accelMax));
-
-    auto accelerationPulses = static_cast<std::uint64_t>(std::floor(accelerationDeg / stepperOpts.degreesPerPulse));
-    accelerationPulses = std::min(accelerationPulses, totalPulses / 2);
-    const std::uint64_t cruisePulses = totalPulses - 2 * accelerationPulses;
-    const float actualPeakSpeed = std::sqrt(baseSpeed * baseSpeed + 2.0F * stepperOpts.accelMax  * static_cast<float>(accelerationPulses) * stepperOpts.degreesPerPulse);
+    const uint64_t accelerationPulses = std::min(static_cast<uint64_t>(std::floor(accelerationDeg / stepperOpts.degreesPerPulse)), totalPulses / 2);
+    const uint64_t cruisePulses       = totalPulses - 2 * accelerationPulses;
+    const float    actualPeakSpeed    = std::sqrt(baseSpeed * baseSpeed + 2.0F * stepperOpts.accelMax  * static_cast<float>(accelerationPulses) * stepperOpts.degreesPerPulse);
 
     if (accelerationPulses) {
         seriesSequence.push_back(StepperSeries(accelerationPulses, baseSpeed,actualPeakSpeed, directionForward, stepperOpts, intervalAlgorithm));
@@ -60,8 +66,8 @@ bool optionsIsOk(const stepper_options_t& stepperOpts, std::string& error) {
         error = "freqMax must be finite and greater than zero";
         return false;
     }
-    if (!isFinitePositive(stepperOpts.freqMaxAllowed) || stepperOpts.freqMaxAllowed > stepperOpts.freqMax) {
-        error = "freqAllowed must be finite, greater than zero and <= freqMax";
+    if (!isFinitePositive(stepperOpts.speedMax)) {
+        error = "freqAllowed must be finite positive";
         return false;
     }
     if (!isFinitePositive(stepperOpts.accelMax)) {
@@ -90,14 +96,14 @@ stepper_sequence_t calculateSequence(
         return result;
     }
 
-    const float speedMaxAllowed = stepperOpts.freqMaxAllowed * stepperOpts.degreesPerPulse;
-    if (std::abs(targetSpeedDegPerSec) > speedMaxAllowed) {
+    const float speedMax = std::min(stepperOpts.speedMax,stepperOpts.freqMax * stepperOpts.degreesPerPulse);
+    if (std::abs(targetSpeedDegPerSec) > speedMax) {
         result.error = "targetSpeed must not exceed freqAllowed * degreesPerPulse";
         return result;
     }
 
     // sad if so, but we can't change the actual state of the system
-    // if (std::abs(currentSpeed) > speedMaxAllowed)
+    // if (std::abs(currentSpeed) > speedMax)
 
     const bool targetDirectionForward = totalRotationDeg > 0.0;
     if (currentSpeedDegPerSec * (targetDirectionForward ? 1. : -1.) < -EPS) {
@@ -110,8 +116,7 @@ stepper_sequence_t calculateSequence(
         return result;
     }
 
-
-    if (std::abs(targetSpeedDegPerSec - currentSpeedDegPerSec) < SPEED_DEG_PER_SEC_EPS) {
+    if (std::abs(targetSpeedDegPerSec - currentSpeedDegPerSec) <= std::max(SPEED_EPS, std::abs(targetSpeedDegPerSec) * RESULT_EPS_RATIO)) {
         if (!getAcceleratedSequence(result.seriesSequence, currentSpeedDegPerSec, totalRotationDeg, stepperOpts, intervalAlgorithm)) {
             result.error = "accelerationSequence for fixed speed isn't calculated correctly";
         }
@@ -122,9 +127,15 @@ stepper_sequence_t calculateSequence(
 
     float changeDegMin = fastestSeries.totalRotationDeg(stepperOpts);
     if (std::abs(changeDegMin - totalRotationDeg) < stepperOpts.degreesPerPulse) {
+
+        printf("A");
+
         result.seriesSequence.push_back(fastestSeries);
         return result;
     } else if (std::abs(changeDegMin) > std::abs(totalRotationDeg)) {
+
+        printf("B");
+
         fastestSeries.limitWithDeg(totalRotationDeg, stepperOpts);
         float changeDeg = fastestSeries.totalRotationDeg(stepperOpts);
         result.error = (std::abs(changeDeg - totalRotationDeg) < stepperOpts.degreesPerPulse)
@@ -132,6 +143,9 @@ stepper_sequence_t calculateSequence(
         result.seriesSequence.push_back(fastestSeries);
         return result;
     } else if (std::abs(targetSpeedDegPerSec) > std::abs(currentSpeedDegPerSec)) {
+
+        printf("C");
+
         result.seriesSequence.push_back(fastestSeries);
         const float remainingChangeDeg = totalRotationDeg - fastestSeries.totalRotationDeg(stepperOpts);
         if (!getAcceleratedSequence(result.seriesSequence, fastestSeries.finalSpeed(stepperOpts), remainingChangeDeg, stepperOpts, intervalAlgorithm)) {
@@ -139,6 +153,9 @@ stepper_sequence_t calculateSequence(
         }
         return result;
     } else {
+
+        printf("D");
+
         const float remainingChangeDeg = totalRotationDeg - fastestSeries.totalRotationDeg(stepperOpts);
         if (!getAcceleratedSequence(result.seriesSequence, currentSpeedDegPerSec, remainingChangeDeg, stepperOpts, intervalAlgorithm)) {
             result.error = "accelerationSequence for current speed isn't calculated correctly";
@@ -218,7 +235,7 @@ stepper_sequence_t calculateSequence(
 //     }
 //
 //     auto nextPulseTime = std::chrono::steady_clock::now();
-//     for (std::uint64_t pulseIndex = 0; pulseIndex < series.pulseCount; ++pulseIndex) {
+//     for (uint64_t pulseIndex = 0; pulseIndex < series.pulseCount; ++pulseIndex) {
 //         const double intervalSec = series.initialIntervalSec
 //                 + series.intervalChangePerPulse * static_cast<double>(pulseIndex);
 //         if (!isFinitePositive(intervalSec)) {
