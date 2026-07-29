@@ -24,8 +24,10 @@ add_library(stepper_motor
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads)
 
-add_executable(stepper_motor_probe
-        stepper_motor/stepper_motor_probe.cpp
+add_executable(stepper_motor_test
+        stepper_motor/stepper_motor_test.cpp
         stepper_motor/pulse_series.cpp
 )
-target_link_libraries(stepper_motor_probe PRIVATE stepper_motor GTest::gtest_main)
+target_link_libraries(stepper_motor_test PRIVATE stepper_motor GTest::gtest_main)
+add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
+

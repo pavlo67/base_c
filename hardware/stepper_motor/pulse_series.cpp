@@ -47,9 +47,10 @@ float StepperSeries::intervalSec(uint64_t pulseIndex, const stepper_options_t& s
     }
 
     const float distanceBefore = static_cast<float>(pulseIndex) * stepperOpts.degreesPerPulse;
-    const float distanceAfter = distanceBefore + stepperOpts.degreesPerPulse;
     const float speedBeforeSquared = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * distanceBefore;
-    const float speedAfterSquared  = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * distanceAfter;
+    // const float speedAfterSquared  = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * (distanceBefore + stepperOpts.degreesPerPulse);
+    const float speedAfterSquared  = speedBeforeSquared + 2.0F * accelerationDegPerSec2_ * stepperOpts.degreesPerPulse;
+
     if (speedBeforeSquared < -EPS || speedAfterSquared < -EPS) {
         return 0.0F;
     }
