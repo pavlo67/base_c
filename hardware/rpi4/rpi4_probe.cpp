@@ -32,7 +32,7 @@ void testOnePin(unsigned pin, const char* name) {
     }
 }
 
-constexpr unsigned STEP_DELAY_US = 800;
+constexpr unsigned STEP_DELAY_US = 1e6;
 constexpr unsigned PIN_STEP = PIN_IN1;
 
 void pulse() {
@@ -52,7 +52,7 @@ int main() {
 
     // testOnePin(PIN_IN1, "IN1");
 
-    for (int i = 0; i++ < 10000; ) {
+    for (int i = 0; i++ < 5; ) {
         pulse();
     }
 
