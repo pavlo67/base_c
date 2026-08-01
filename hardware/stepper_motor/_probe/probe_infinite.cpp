@@ -6,12 +6,12 @@
 
 #include "hardware/hardware.h"
 
-constexpr int PIN_STEP = 18; // GPIO18 -> PUL-
+constexpr int PIN_STEP = 17; // GPIO18 -> PUL-
 constexpr int PIN_DIR  = 23; // GPIO23 -> DIR-
 constexpr int PIN_ENA  = 24; // GPIO24 -> ENA-
 
-constexpr int PULSE_HIGH_US =   20; // повільно і безпечно
-constexpr int STEP_DELAY_US = 1000; //
+constexpr int PULSE_HIGH_US =  20;
+constexpr int STEP_DELAY_US = 605;
 
 void pulse() {
     gpioWrite(PIN_STEP, 1);
