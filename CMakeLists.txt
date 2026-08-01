@@ -29,7 +29,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch
         message("RPI4")
         add_compile_definitions(SYSTEM_IS_RPI4=1)
         set(SYSTEM "RPI4")
-
+        list(APPEND RPI_LIBS pigpio rt)
     endif()
 
 else()
@@ -38,6 +38,7 @@ else()
     set(SYSTEM "DESKTOP")
 
 endif()
+
 
 # external libs --------------------------------------------------------
 

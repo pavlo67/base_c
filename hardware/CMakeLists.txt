@@ -1,9 +1,7 @@
 add_executable(rpi4_probe
         rpi4/rpi4_probe.cpp
 )
-if (SYSTEM STREQUAL "RPI4")
-    target_link_libraries(rpi4_probe PRIVATE pigpio rt)
-endif()
+target_link_libraries(rpi4_probe PRIVATE ${RPI_LIBS})
 
 # -----------------------------------------------------
 
@@ -37,6 +35,6 @@ add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
 add_executable(stepper_motor_probe
         stepper_motor/_probe/main_probe.cpp
 )
-target_link_libraries(stepper_motor_test PRIVATE stepper_motor)
+target_link_libraries(stepper_motor_test PRIVATE stepper_motor ${RPI_LIBS})
 
 
