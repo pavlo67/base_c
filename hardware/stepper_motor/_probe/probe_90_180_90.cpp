@@ -59,6 +59,7 @@ int main() {
     usleep(500);
 
     gpioWrite(PIN_ENA, 1);   // stop / disable
+    gpioWrite(PIN_DIR, 0);
 
     gpioTerminate();
     return 0;
