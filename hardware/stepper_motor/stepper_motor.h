@@ -13,8 +13,8 @@ const float ACCELERATION_EPS = 0.01;
 
 struct stepper_options_t {
     float freqMax         = 0.0;      // pulses/s, motor/driver specification
-    float speedMax        = 0.0;      // deg/s,    video software limit
-    float accelMax        = 0.0;      // deg/s^2,  construction/motor limit
+    float speedMaxDegPerSec        = 0.0;      // deg/s,    video software limit
+    float accelMaxDegPerSec2        = 0.0;      // deg/s^2,  construction/motor limit
     float degreesPerPulse = 0.0;      // deg/pulse for the configured motor mode
 
     [[nodiscard]] uint64_t pulsesForDeg(float changeDeg, bool directionForward) const {
@@ -26,7 +26,7 @@ struct stepper_options_t {
     }
 
     [[nodiscard]] float speedAfterOnePulse() const {
-        return std::sqrt(2.0F * accelMax * degreesPerPulse);
+        return std::sqrt(2.0F * accelMaxDegPerSec2 * degreesPerPulse);
     }
 
 };
