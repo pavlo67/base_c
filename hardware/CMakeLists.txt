@@ -35,6 +35,6 @@ add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
 add_executable(stepper_motor_probe
         stepper_motor/_probe/main_probe.cpp
 )
-target_link_libraries(stepper_motor_test PRIVATE stepper_motor ${RPI_LIBS})
+target_link_libraries(stepper_motor_probe PRIVATE stepper_motor ${RPI_LIBS})
 
 
