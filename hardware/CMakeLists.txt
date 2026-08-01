@@ -22,19 +22,17 @@ add_library(stepper_motor
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads)
 
-# stepper_motor_test ----------------------------------
+# probe_90_180_90 -------------------------------------
 
-add_executable(stepper_motor_test
-        stepper_motor/stepper_motor_test.cpp
+add_executable(probe_90_180_90
+        stepper_motor/_probe/probe_90_180_90.cpp
 )
-target_link_libraries(stepper_motor_test PRIVATE stepper_motor GTest::gtest_main)
-add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
+target_link_libraries(probe_90_180_90 PRIVATE stepper_motor ${RPI_LIBS})
 
-# stepper_motor_probe ---------------------------------
+# probe_infinite --------------------------------------
 
-add_executable(stepper_motor_probe
-        stepper_motor/_probe/main_probe.cpp
+add_executable(probe_infinite
+        stepper_motor/_probe/probe_infinite.cpp
 )
-target_link_libraries(stepper_motor_probe PRIVATE stepper_motor ${RPI_LIBS})
-
+target_link_libraries(probe_infinite PRIVATE stepper_motor ${RPI_LIBS})
 
