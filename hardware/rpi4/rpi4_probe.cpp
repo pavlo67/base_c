@@ -32,7 +32,7 @@ void testOnePin(unsigned pin, const char* name) {
     }
 }
 
-constexpr unsigned STEP_DELAY_US = 1e6;
+constexpr unsigned STEP_DELAY_US = 5e5;
 constexpr unsigned PIN_STEP = PIN_IN1;
 
 void pulse() {
@@ -53,11 +53,12 @@ int main() {
     // testOnePin(PIN_IN1, "IN1");
 
     for (int i = 0; i++ < 5; ) {
+        printf("%d\n", i);
         pulse();
     }
 
     gpioTerminate();
 
-    std::printf("\nStopped\n");
+    printf("\nStopped\n");
     return EXIT_SUCCESS;
 }
