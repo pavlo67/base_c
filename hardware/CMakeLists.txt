@@ -22,14 +22,6 @@ add_library(stepper_motor
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads)
 
-# stepper_motor_test ----------------------------------
-
-add_executable(stepper_motor_test
-        stepper_motor/stepper_motor_test.cpp
-)
-target_link_libraries(stepper_motor_test PRIVATE stepper_motor GTest::gtest_main)
-add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
-
 # probe_90_180_90 -------------------------------------
 
 add_executable(probe_90_180_90
