@@ -7,7 +7,7 @@
 #include "hardware/hardware.h"
 
 constexpr int PIN_STEP = 17; // GPIO18 -> PUL-
-constexpr int PIN_DIR  = 23; // GPIO23 -> DIR-
+constexpr int PIN_DIR  = 25; // GPIO25 -> DIR-
 constexpr int PIN_ENA  = 24; // GPIO24 -> ENA-
 
 constexpr int PULSE_HIGH_US =  20;
