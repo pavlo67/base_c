@@ -10,10 +10,6 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 set(CTEST_PARALLEL_LEVEL 1)
-#option(BUILD_TESTS "Build tests and fetch test dependencies" OFF)
-#if(BUILD_TESTS)
-#    enable_testing()
-#endif()
 enable_testing()
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
@@ -29,7 +25,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch
         message("RPI4")
         add_compile_definitions(SYSTEM_IS_RPI4=1)
         set(SYSTEM "RPI4")
-        list(APPEND RPI_LIBS pigpio rt)
+        list(APPEND RPI_LIBS ${PIGIO} rt)
     endif()
 
 else()
@@ -42,7 +38,6 @@ endif()
 
 # external libs --------------------------------------------------------
 
-#if(BUILD_TESTS)
 include(FetchContent)
 FetchContent_Declare(
         googletest
@@ -50,7 +45,6 @@ FetchContent_Declare(
         GIT_TAG v1.17.0
 )
 FetchContent_MakeAvailable(googletest)
-#endif()
 
 find_package(jsoncpp)
 

@@ -11,10 +11,10 @@
 #include "lib/mathlib.h"
 
 const stepper_options_t STEPPER_OPTS {
-    .freqMax         = 20'000.0F,
-    .speedMax        = 180.0F,
-    .accelMax        = 720.0F,
-    .degreesPerPulse = 0.045F
+    .freqMax            = 1600,
+    .speedMaxDegPerSec  = 180.0F,
+    .accelMaxDegPerSec2 = 720.0F,
+    .degreesPerPulse    = 0.225F
 };
 
 const float INITIAL_SPEED     =  0.0F;

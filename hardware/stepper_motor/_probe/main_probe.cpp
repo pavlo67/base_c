@@ -10,8 +10,8 @@ constexpr int PIN_STEP = 18; // GPIO18 -> PUL-
 constexpr int PIN_DIR  = 23; // GPIO23 -> DIR-
 constexpr int PIN_ENA  = 24; // GPIO24 -> ENA-
 
-constexpr int STEP_DELAY_US = 800; // повільно і безпечно
-constexpr int STEPS = 100;         // залежить від microstep на DM542
+constexpr int STEP_DELAY_US = 625; // повільно і безпечно
+constexpr int STEPS         = 800; // залежить від microstep на DM542
 
 void pulse() {
     gpioWrite(PIN_STEP, 1);
@@ -26,7 +26,9 @@ void moveSteps(int steps) {
     usleep(5);
 
     for (int i = 0; i < std::abs(steps); ++i) {
-        printf("%d\n", i);
+        if (i % 100 == 0) {
+            printf("%d\n", i);
+        }
         pulse();
     }
 }
