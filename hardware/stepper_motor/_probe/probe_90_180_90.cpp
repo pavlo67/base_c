@@ -16,7 +16,7 @@ void pulse() {
     usleep(STEP_DELAY_US);
 }
 
-void moveSteps(int steps) {
+void moveSeries(int steps) {
     bool dir = steps >= 0;
     gpioWrite(PIN_DIR, dir ? 1 : 0);
     usleep(PULSE_HIGH_US_MIN);
@@ -39,17 +39,16 @@ int main() {
     gpioSetMode(PIN_DIR,  PI_OUTPUT);
     gpioSetMode(PIN_ENA,  PI_OUTPUT);
 
-    // Для більшості DM542: ENA LOW = enabled, але перевір по своєму драйверу.
-    gpioWrite(PIN_ENA, 0);
+    gpioWrite(PIN_ENA, 0); // Для більшості DM542: ENA LOW = enabled
     usleep(500);
 
-    moveSteps(+STEPS);       // вправо
+    moveSeries(+STEPS);       // вправо
     usleep(500);
 
-    moveSteps(-2 * STEPS);   // вліво
+    moveSeries(-2 * STEPS);   // вліво
     usleep(500);
 
-    moveSteps(+STEPS);       // назад у вихідну
+    moveSeries(+STEPS);       // назад у вихідну
     usleep(500);
 
     gpioWrite(PIN_ENA, 1);   // stop / disable

@@ -25,7 +25,7 @@ constexpr float DEG_PULSE_DEFAULT  = 0.225F;
 constexpr float SPEED_MAX_DEG_SEC =  180.0F;
 constexpr float ACCEL_MAX_DEG_SEC2 = 720.0F;
 
-constexpr int PULSE_HIGH_US_MIN = 10;
+constexpr int PULSE_HIGH_US_MIN = 15;
 
 
 #endif //BASE_CPP_HARDWARE_H

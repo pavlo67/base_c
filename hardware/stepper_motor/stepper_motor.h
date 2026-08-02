@@ -50,6 +50,18 @@ public:
     [[nodiscard]] float totalRotationDeg(const stepper_options_t& stepperOpts) const;
     [[nodiscard]] float totalSec(const stepper_options_t& stepperOpts) const;
 
+    void log(const stepper_options_t& stepperOpts, const char* verboseLabel) const {
+        printf("\n%s: pulseCount           : %5lu\n",  verboseLabel, pulseCount_);
+        printf("%s: initialSpeedDegPerSec  : %9.3f\n", verboseLabel, initialSpeedDegPerSec_);
+        printf("%s: totalRotationDeg       : %9.3f\n", verboseLabel, totalRotationDeg(stepperOpts));
+        printf("%s: totalSec               : %9.3f\n", verboseLabel, totalSec(stepperOpts));
+        printf("%s: finalSpeed             : %9.3f\n", verboseLabel, finalSpeed(stepperOpts));
+        printf("%s: directionForward       : %5d\n",   verboseLabel, directionForward_);
+        printf("%s: intervalAlgorithm      : %5d\n",   verboseLabel, intervalAlgorithm_);
+        printf("%s: accelerationDegPerSec2 : %9.3f\n", verboseLabel, accelerationDegPerSec2_);
+    }
+
+
     void limitWithDeg(float targetDeg, const stepper_options_t& stepperOpts);
 
     // removed "private" to simplify tests

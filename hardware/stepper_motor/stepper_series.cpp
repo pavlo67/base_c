@@ -6,6 +6,8 @@ StepperSeries::StepperSeries(
     const stepper_options_t& stepperOpts, interval_algorithm_t intervalAlgorithm
 ) {
 
+    // printf("pulseCount: %d, firstSpeedDegPerSec: %f, lastSpeedDegPerSec: %f, directionForward: %d\n", pulseCount, firstSpeedDegPerSec, lastSpeedDegPerSec, directionForward);
+
     pulseCount_            = pulseCount;
     intervalAlgorithm_     = intervalAlgorithm;
     initialSpeedDegPerSec_ = firstSpeedDegPerSec;

@@ -28,14 +28,7 @@ const float TARGET_CHANGE_DEG = 91.0F;
 
 void testSeries(const StepperSeries& series, float totalRotationDegExpected, float finalSpeedDegPerSecExpected, bool directionForwardExpected, stepper_options_t stepperOpts, interval_algorithm_t intervalAlgorithm, const std::string& verboseLabel) {
     if (!verboseLabel.empty()) {
-        printf("\n%s: pulseCount           : %5lu\n",  verboseLabel.c_str(), series.pulseCount_);
-        printf("%s: initialSpeedDegPerSec  : %9.3f\n", verboseLabel.c_str(), series.initialSpeedDegPerSec_);
-        printf("%s: totalRotationDeg       : %9.3f\n", verboseLabel.c_str(), series.totalRotationDeg(stepperOpts));
-        printf("%s: totalSec               : %9.3f\n", verboseLabel.c_str(), series.totalSec(stepperOpts));
-        printf("%s: finalSpeed             : %9.3f\n", verboseLabel.c_str(), series.finalSpeed(stepperOpts));
-        printf("%s: directionForward       : %5d\n",   verboseLabel.c_str(), series.directionForward_);
-        printf("%s: intervalAlgorithm      : %5d\n",   verboseLabel.c_str(), series.intervalAlgorithm_);
-        printf("%s: accelerationDegPerSec2 : %9.3f\n", verboseLabel.c_str(), series.accelerationDegPerSec2_);
+        series.log(stepperOpts, verboseLabel.c_str());
     }
 
     ASSERT_EQ(series.directionForward_, directionForwardExpected);
@@ -63,16 +56,16 @@ void testSeries(const StepperSeries& series, float totalRotationDegExpected, flo
     float intervalPrev  = series.initialSpeedDegPerSec_ < EPS ? 0 :  STEPPER_OPTS.degPulse / series.initialSpeedDegPerSec_;
 
     for (uint64_t pulseIndex = 0; pulseIndex < series.pulseCount_; ++pulseIndex) {
-        const float interval  = series.intervalSec(pulseIndex, STEPPER_OPTS);
-        const float nextSpeed = 2.0F * STEPPER_OPTS.degPulse / interval - speed;
-        const float accel     = std::abs(interval - intervalPrev) <= EPS ? 0
-                              : (nextSpeed * nextSpeed - speed * speed) / (2.0F * STEPPER_OPTS.degPulse);
+        const float intervalSec = series.intervalSec(pulseIndex, STEPPER_OPTS);
+        const float nextSpeed   = 2.0F * STEPPER_OPTS.degPulse / intervalSec - speed;
+        const float accel       = std::abs(intervalSec - intervalPrev) <= EPS ? 0
+                                : (nextSpeed * nextSpeed - speed * speed) / (2.0F * STEPPER_OPTS.degPulse);
 
-        // printf("interval: %f, speed: %f, nextSpeed: %f, accel: %f, accelerationDegPerSec2_: %f, accelErrorMax: %f\n", interval, speed, nextSpeed, accel, series.accelerationDegPerSec2_, accelErrorMax);
+        // printf("intervalSec: %f, speed: %f, nextSpeed: %f, accel: %f, accelerationDegPerSec2_: %f, accelErrorMax: %f\n", interval, speed, nextSpeed, accel, series.accelerationDegPerSec2_, accelErrorMax);
 
         accelErrorMax = std::max(accelErrorMax,std::abs(accel - series.accelerationDegPerSec2_));
         speed         = nextSpeed;
-        intervalPrev  = interval;
+        intervalPrev  = intervalSec;
     }
     ASSERT_LE(accelErrorMax, std::max(ACCELERATION_EPS, std::abs(series.accelerationDegPerSec2_) * RESULT_EPS_RATIO));
 
@@ -117,7 +110,7 @@ TEST(stepper_motor_test, stepper_motor_test) {
     int i = 0;
     for (const StepperSeries& series : sequenceCalculated.seriesSequence) {
         calculatedTotalRotationDeg += series.totalRotationDeg(STEPPER_OPTS);
-        testSeries(series, NAN, NAN, DIRECTION_FORWARD, STEPPER_OPTS, CONSTANT_ACCELERATION, "calculated" + std::to_string(i++));
+        testSeries(series, NAN, NAN, TARGET_CHANGE_DEG >= 0, STEPPER_OPTS, CONSTANT_ACCELERATION, "calculated" + std::to_string(i++));
     }
 
     testResult(calculatedTotalRotationDeg);
