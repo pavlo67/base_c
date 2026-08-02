@@ -19,7 +19,6 @@ constexpr int PIN_STEP = 17; // GPIO17 -> PUL-
 constexpr int PIN_DIR  = 25; // GPIO25 -> DIR-
 constexpr int PIN_ENA  = 24; // GPIO24 -> ENA-
 
-
 constexpr float FREQ_MAX_DEFAULT   = 8000;   // 5 rpm * 1600 microsteps per rotation
 constexpr float DEG_PULSE_DEFAULT  = 0.225F;
 

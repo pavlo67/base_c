@@ -15,7 +15,7 @@ const stepper_options_t STEPPER_OPTS {
     .freqMax         = FREQ_MAX_DEFAULT,
     .degPulse        = DEG_PULSE_DEFAULT,
     .speedMaxDegSec  = SPEED_MAX_DEG_SEC,
-    .accelMaxDegSec2 = ACCEL_MAX_DEG_SEC2,
+    .accelMaxDegSec2 = ACCEL_MAX_DEG_SEC2
 };
 
 const float INITIAL_SPEED     =  0.0F;
