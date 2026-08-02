@@ -6,16 +6,11 @@
 
 #include "hardware/hardware.h"
 
-constexpr int PIN_STEP = 17; // GPIO18 -> PUL-
-constexpr int PIN_DIR  = 25; // GPIO25 -> DIR-
-constexpr int PIN_ENA  = 24; // GPIO24 -> ENA-
-
-constexpr int PULSE_HIGH_US =  20;
 constexpr int STEP_DELAY_US = 605;
 
 void pulse() {
     gpioWrite(PIN_STEP, 1);
-    usleep(PULSE_HIGH_US);
+    usleep(PULSE_HIGH_US_MIN);
     gpioWrite(PIN_STEP, 0);
     usleep(STEP_DELAY_US);
 }

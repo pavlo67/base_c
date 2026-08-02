@@ -81,7 +81,7 @@ endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/_bin)
 
-include_directories(.)
+include_directories(./)
 add_subdirectory(hardware/)
 
 

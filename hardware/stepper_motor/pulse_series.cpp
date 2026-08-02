@@ -19,7 +19,7 @@ StepperSeries::StepperSeries(
         return;
     }
 
-    const float distanceDeg = static_cast<float>(pulseCount) * stepperOpts.degreesPerPulse;
+    const float distanceDeg = static_cast<float>(pulseCount) * stepperOpts.degPulse;
     accelerationDegPerSec2_ = distanceDeg > 0.0F
                             ? (lastSpeedDegPerSec * lastSpeedDegPerSec - initialSpeedDegPerSec_ * initialSpeedDegPerSec_) / (2.0F * distanceDeg)
                             : 0.0F;
@@ -33,7 +33,7 @@ StepperSeries::StepperSeries(
 
 float StepperSeries::totalRotationDeg(const stepper_options_t& stepperOpts) const {
     const float direction = directionForward_ ? 1.0F : -1.0F;
-    return direction * static_cast<float>(pulseCount_) * stepperOpts.degreesPerPulse;
+    return direction * static_cast<float>(pulseCount_) * stepperOpts.degPulse;
 }
 
 float StepperSeries::intervalSec(uint64_t pulseIndex, const stepper_options_t& stepperOpts) const {
@@ -46,10 +46,10 @@ float StepperSeries::intervalSec(uint64_t pulseIndex, const stepper_options_t& s
         return isFinitePositive(interval) ? interval : 0.0F;
     }
 
-    const float distanceBefore = static_cast<float>(pulseIndex) * stepperOpts.degreesPerPulse;
+    const float distanceBefore = static_cast<float>(pulseIndex) * stepperOpts.degPulse;
     const float speedBeforeSquared = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * distanceBefore;
     // const float speedAfterSquared  = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * (distanceBefore + stepperOpts.degreesPerPulse);
-    const float speedAfterSquared  = speedBeforeSquared + 2.0F * accelerationDegPerSec2_ * stepperOpts.degreesPerPulse;
+    const float speedAfterSquared  = speedBeforeSquared + 2.0F * accelerationDegPerSec2_ * stepperOpts.degPulse;
 
     if (speedBeforeSquared < -EPS || speedAfterSquared < -EPS) {
         return 0.0F;
@@ -58,7 +58,7 @@ float StepperSeries::intervalSec(uint64_t pulseIndex, const stepper_options_t& s
     const float speedBefore = std::sqrt(std::max(0.0F, speedBeforeSquared));
     const float speedAfter  = std::sqrt(std::max(0.0F, speedAfterSquared));
     const float speedSum    = speedBefore + speedAfter;
-    return speedSum > EPS ? 2.0F * stepperOpts.degreesPerPulse / speedSum : 0.0F;
+    return speedSum > EPS ? 2.0F * stepperOpts.degPulse / speedSum : 0.0F;
 }
 
 float StepperSeries::totalSec(const stepper_options_t& stepperOpts) const {
@@ -81,9 +81,9 @@ float StepperSeries::finalSpeed(const stepper_options_t& stepperOpts) const {
         if (!isFinitePositive(lastInterval)) {
             return 0.0F;
         }
-        speed = stepperOpts.degreesPerPulse / lastInterval;
+        speed = stepperOpts.degPulse / lastInterval;
     } else {
-        const float distanceDeg = static_cast<float>(pulseCount_) * stepperOpts.degreesPerPulse;
+        const float distanceDeg = static_cast<float>(pulseCount_) * stepperOpts.degPulse;
         const float speedSquared = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * distanceDeg;
         if (speedSquared < -EPS) {
             return 0.0F;

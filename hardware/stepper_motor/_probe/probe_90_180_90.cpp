@@ -6,18 +6,12 @@
 
 #include "hardware/hardware.h"
 
-constexpr int PIN_STEP = 17; // GPIO17 -> PUL-
-constexpr int PIN_DIR  = 25; // GPIO25 -> DIR-
-constexpr int PIN_ENA  = 24; // GPIO24 -> ENA-
-
-constexpr int PULSE_HIGH_US =  20;
 constexpr int STEP_DELAY_US = 605;
-
 constexpr int STEPS = 800;
 
 void pulse() {
     gpioWrite(PIN_STEP, 1);
-    usleep(PULSE_HIGH_US);
+    usleep(PULSE_HIGH_US_MIN);
     gpioWrite(PIN_STEP, 0);
     usleep(STEP_DELAY_US);
 }
@@ -25,7 +19,7 @@ void pulse() {
 void moveSteps(int steps) {
     bool dir = steps >= 0;
     gpioWrite(PIN_DIR, dir ? 1 : 0);
-    usleep(PULSE_HIGH_US);
+    usleep(PULSE_HIGH_US_MIN);
 
     for (int i = 0; i < std::abs(steps); ++i) {
         if (i % 100 == 0) {

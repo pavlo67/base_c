@@ -1,4 +1,5 @@
 #include "stepper_motor.h"
+#include "hardware/hardware.h"
 
 #include "gtest/gtest.h"
 
@@ -11,10 +12,10 @@
 #include "lib/mathlib.h"
 
 const stepper_options_t STEPPER_OPTS {
-    .freqMax            = 1600,
-    .speedMaxDegPerSec  = 180.0F,
-    .accelMaxDegPerSec2 = 720.0F,
-    .degreesPerPulse    = 0.225F
+    .freqMax         = FREQ_MAX_DEFAULT,
+    .degPulse        = DEG_PULSE_DEFAULT,
+    .speedMaxDegSec  = SPEED_MAX_DEG_SEC,
+    .accelMaxDegSec2 = ACCEL_MAX_DEG_SEC2,
 };
 
 const float INITIAL_SPEED     =  0.0F;
@@ -44,7 +45,7 @@ void testSeries(const StepperSeries& series, float totalRotationDegExpected, flo
         ASSERT_NEAR(series.finalSpeed(stepperOpts), finalSpeedDegPerSecExpected, std::max(SPEED_EPS, std::abs(finalSpeedDegPerSecExpected) * RESULT_EPS_RATIO));
     }
     if (!isnanf(totalRotationDegExpected)) {
-        ASSERT_NEAR(series.totalRotationDeg(stepperOpts), totalRotationDegExpected, std::max(stepperOpts.degreesPerPulse, totalRotationDegExpected * RESULT_EPS_RATIO));
+        ASSERT_NEAR(series.totalRotationDeg(stepperOpts), totalRotationDegExpected, std::max(stepperOpts.degPulse, totalRotationDegExpected * RESULT_EPS_RATIO));
     }
 
     if (series.pulseCount_ > 1) {
@@ -59,13 +60,13 @@ void testSeries(const StepperSeries& series, float totalRotationDegExpected, flo
 
     float speed         = series.initialSpeedDegPerSec_;
     float accelErrorMax = 0;
-    float intervalPrev  = series.initialSpeedDegPerSec_ < EPS ? 0 :  STEPPER_OPTS.degreesPerPulse / series.initialSpeedDegPerSec_;
+    float intervalPrev  = series.initialSpeedDegPerSec_ < EPS ? 0 :  STEPPER_OPTS.degPulse / series.initialSpeedDegPerSec_;
 
     for (uint64_t pulseIndex = 0; pulseIndex < series.pulseCount_; ++pulseIndex) {
         const float interval  = series.intervalSec(pulseIndex, STEPPER_OPTS);
-        const float nextSpeed = 2.0F * STEPPER_OPTS.degreesPerPulse / interval - speed;
+        const float nextSpeed = 2.0F * STEPPER_OPTS.degPulse / interval - speed;
         const float accel     = std::abs(interval - intervalPrev) <= EPS ? 0
-                              : (nextSpeed * nextSpeed - speed * speed) / (2.0F * STEPPER_OPTS.degreesPerPulse);
+                              : (nextSpeed * nextSpeed - speed * speed) / (2.0F * STEPPER_OPTS.degPulse);
 
         // printf("interval: %f, speed: %f, nextSpeed: %f, accel: %f, accelerationDegPerSec2_: %f, accelErrorMax: %f\n", interval, speed, nextSpeed, accel, series.accelerationDegPerSec2_, accelErrorMax);
 
@@ -84,8 +85,8 @@ void testSeries(const StepperSeries& series, float totalRotationDegExpected, flo
 }
 
 void testResult(float calculatedTotalRotationDeg) {
-    ASSERT_NEAR(calculatedTotalRotationDeg, TARGET_CHANGE_DEG, std::max(STEPPER_OPTS.degreesPerPulse, TARGET_CHANGE_DEG * RESULT_EPS_RATIO));
-    printf("\nRESULT!!! calculatedTotalRotationDeg: %f, TARGET_CHANGE_DEG: %f, STEPPER_OPTS.degreesPerPulse: %f\n\n", calculatedTotalRotationDeg, TARGET_CHANGE_DEG, STEPPER_OPTS.degreesPerPulse);
+    ASSERT_NEAR(calculatedTotalRotationDeg, TARGET_CHANGE_DEG, std::max(STEPPER_OPTS.degPulse, TARGET_CHANGE_DEG * RESULT_EPS_RATIO));
+    printf("\nRESULT!!! calculatedTotalRotationDeg: %f, TARGET_CHANGE_DEG: %f, STEPPER_OPTS.degreesPerPulse: %f\n\n", calculatedTotalRotationDeg, TARGET_CHANGE_DEG, STEPPER_OPTS.degPulse);
 }
 
 TEST(stepper_motor_test, stepper_motor_test) {
