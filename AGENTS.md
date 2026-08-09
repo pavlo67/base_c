@@ -1,12 +1,15 @@
 # Repository Instructions
 
-Read info.md / task.md files and source code only within the scope explicitly specified by the user. Do not proactively explore the repository outside that scope.
+## View
 
-Expand the scope only when there is a clear technical dependency or when the requested change cannot be implemented safely with the information available in the specified area.
+* Read info.md / task.md files and source code only within the scope explicitly specified by the user. Do not proactively explore the repository outside that scope.
 
-When expanding the scope, inspect only the minimum additional files or directories required.
+* Expand the scope only when there is a clear technical dependency or when the requested change cannot be implemented safely with the information available in the specified area.
+
+* When expanding the scope, inspect only the minimum additional files or directories required.
 
 
+## Analysis
 
 For code analysis, treat info.md in its directory as the primary source of information and if it is missing, look for it higher in the hierarchy (up to first-level subtree info.md)
 
@@ -18,7 +21,7 @@ Read source code only when:
 - the task requires modifying the code;
 - info.md appears incomplete, inconsistent, or outdated.
 
-
+## Actions
 
 Before every non-trivial action, first analyze the task and discuss likely difficulties, nuances, and specification gaps with the user. Do not start that action until the user initiates it with an explicit formal command.
 
@@ -34,7 +37,10 @@ Don't create `info.md` in `_docs`, `_env`, `_bin`, `_sessions` and other undersc
 
 Don't describe static functions in `info.md`.
 
+Do not show diffs.
 
+
+## Coding style
 
 Wherever possible, use error codes/messages instead of throwing exceptions.
 
@@ -46,6 +52,5 @@ Wrap error outputs as described in `_docs/common_rules.md`.
 
 All csv-files must be stored with .xls-extension
 
+Write all tests with GTest
 
-
-Do not show diffs.

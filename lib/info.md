@@ -295,3 +295,21 @@
 ### `Vec2D` / `dot()` / `len()` / `normalized()` / `angleToHorizontalRad()`
 
 Базові helpers для 2D-векторів і кутів. `normalized()` стабілізує напрямок вектора так, щоб він не дивився в ліву півплощину; `angleToHorizontalRad()` повертає гострий кут між вектором і горизонталлю.
+
+## http
+
+`http/http.h/.cpp` — тонка обгортка над cpp-httplib для простого HTTP-сервера.
+
+### `void startServerHTTP(uint32_t ipV4Host, uint16_t port)`
+
+Прив'язує сервер до IPv4-адреси у host byte order і запускає `listen_after_bind()` у внутрішньому потоці. Функція повертається після успішного bind. Помилки друкуються в stderr з префіксом `on startServerHTTP():`.
+
+### `void stopServerHTTP()`
+
+Зупиняє сервер і очікує завершення внутрішнього потоку. Якщо сервер не запущено, нічого не робить.
+
+### `void addHandler(HTTP_METHOD method, const std::string& route, HTTPHandler callback)`
+
+Реєструє callback для маршруту. `HTTP_METHOD` підтримує `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`, `HEAD`. Callback має сигнатуру `void(const httplib::Request&, httplib::Response&)`. Для `HEAD` використовується GET-route cpp-httplib, який автоматично формує HEAD-відповідь без body.
+
+`http/_example/hello.cpp` містить мінімальний text/plain GET-приклад. `http/test_scenario.cpp` стартує loopback-сервер і клієнт, виконує GET та перевіряє status і ключовий рядок у body; `../test_run.cpp` є пускачем сценарію.
