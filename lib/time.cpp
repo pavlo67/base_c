@@ -12,6 +12,8 @@ std::string formatTimeCustom(std::time_t t) {
     return timeString;
 }
 
+static const uint64_t startedAtMs = monotonicNowMs();
+
 moment now() {
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -22,6 +24,16 @@ uint64_t nowMs() {
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
+}
+
+uint64_t monotonicNowMs() {
+    timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
+}
+
+uint32_t internal32Ms() {
+    return monotonicNowMs() - startedAtMs;
 }
 
 Timing::Timing(uint afterCnt, uint resetEachCnt) {

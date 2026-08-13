@@ -18,6 +18,8 @@ const duration MINUTE      = SECOND * 60;
 std::string formatTimeCustom(time_t t);
 moment      now();
 uint64_t    nowMs();
+uint64_t    monotonicNowMs();
+uint32_t    internal32Ms();
 
 // Timing -------------------------------------------------------------------------
 
