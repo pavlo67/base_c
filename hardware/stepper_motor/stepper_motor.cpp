@@ -4,7 +4,7 @@
 #include <chrono>
 #include <cmath>
 
-#include "_defines.h"
+#include "_base_defines.h"
 #include "lib/mathlib.h"
 
 StepperSeries getFastestSeries(float initialSpeedDegPerSec, float finalSpeedDegPerSec, const stepper_options_t& stepperOpts, interval_algorithm_t intervalAlgorithm) {

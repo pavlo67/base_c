@@ -1,10 +1,6 @@
 #include <ctime>
 
-#include "time.h"
-
-#include <chrono>
-
-// !!! std::time_t now = std::time(nullptr)
+#include "timelib.h"
 
 std::string formatTimeCustom(std::time_t t) {
     char timeString[std::size("yyyy-mm-ddThh:mm:ss")];
@@ -15,20 +11,29 @@ std::string formatTimeCustom(std::time_t t) {
 static const uint64_t startedAtMs = monotonicNowMs();
 
 moment now() {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
     timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) [[unlikely]] {
+        return 0;
+    }
     return ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
 uint64_t nowMs() {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
     timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) [[unlikely]] {
+        return 0;
+    }
     return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
 }
 
 uint64_t monotonicNowMs() {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
     timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) [[unlikely]] {
+        return 0;
+    }
     return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
 }
 
@@ -36,7 +41,7 @@ uint32_t internal32Ms() {
     return monotonicNowMs() - startedAtMs;
 }
 
-Timing::Timing(uint afterCnt, uint resetEachCnt) {
+TimingStat::TimingStat(uint afterCnt, uint resetEachCnt) {
     afterCnt_     = afterCnt;
     resetEachCnt_ = resetEachCnt;
     cnt_    = 0;
@@ -45,7 +50,7 @@ Timing::Timing(uint afterCnt, uint resetEachCnt) {
     max_    = 0;
 };
 
-void Timing::add(moment started_at) {
+void TimingStat::add(moment started_at) {
     duration once = now() - started_at;
 
     cnt_++;
@@ -72,13 +77,13 @@ void Timing::add(moment started_at) {
     }
 }
 
-timing_stat Timing::get() {
+timing_stat TimingStat::get() {
     return {cnt_, (cnt_ ? sum_ / duration(cnt_) : 0), min_, max_};
 }
 
 std::string SHOW_TITLE = "timing/%s: cnt = %6d, avg = %8llu us, max = %8llu us, min = %8llu us";
 
-void Timing::show(const std::string& label, bool showFPS, FILE* fLog) {
+void TimingStat::show(const std::string& label, bool showFPS, FILE* fLog) {
     timing_stat s = get();
     std::string title = (SHOW_TITLE + (showFPS ? ", fps = " + std::to_string(double(SECOND) / double(s.avg)) : "")) + "\n";
 

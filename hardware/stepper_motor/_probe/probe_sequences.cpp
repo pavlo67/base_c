@@ -2,7 +2,7 @@
 #include <iostream>
 #include <unistd.h>
 
-#include "lib/time.h"
+#include "lib/timelib.h"
 #include "lib/mathlib.h"
 
 #include "hardware/hardware.h"

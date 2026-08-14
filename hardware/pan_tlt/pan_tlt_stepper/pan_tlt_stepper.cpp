@@ -1,6 +1,6 @@
 #include "pan_tlt_stepper.h"
 
-#include "_defines.h"
+#include "_base_defines.h"
 #include "hardware/hardware.h"
 
 #include <chrono>

@@ -30,10 +30,10 @@ typedef struct {
     duration max;
 } timing_stat;
 
-class Timing {
+class TimingStat {
 public:
 
-    explicit    Timing(uint afterCnt = 0, uint resetEachCnt = 0);
+    explicit    TimingStat(uint afterCnt = 0, uint resetEachCnt = 0);
     void        add(moment started_at);
     timing_stat get();
     void        show(const std::string& label, bool showFPS = false, FILE* fLog = nullptr);

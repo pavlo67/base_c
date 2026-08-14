@@ -1,5 +1,5 @@
-#ifndef BASE__DEFINES_H
-#define BASE__DEFINES_H
+#ifndef BASE_DEFINES_H
+#define BASE_DEFINES_H
 
 #include <string>
 
@@ -18,7 +18,7 @@ extern std::string COMMIT;
 #define PROCESS_INFO_STEP  400
 #define SAVE_IMAGES_EXT    ".png"
 
-#define RUN_PROBE false
+#define RUN_PROBE true
 
-#endif // BASE__DEFINES_H
+#endif // BASE_DEFINES_H
 

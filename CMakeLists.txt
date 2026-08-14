@@ -29,6 +29,7 @@ if(NOT PAN_TILT_ROOT)
     )
     FetchContent_MakeAvailable(googletest)
 
+    find_package(yaml-cpp)
     find_package(jsoncpp)
     # add_library(jsoncpp_lib STATIC IMPORTED)
     #if (SYSTEM STREQUAL "DESKTOP")

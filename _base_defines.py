@@ -2,8 +2,8 @@
 from pathlib import Path
 import json
 
-src = Path(__file__).with_name("_defines.h")
-dst = Path(__file__).with_name("_defines_copy.h")
+src = Path(__file__).with_name("_base_defines.h")
+dst = Path(__file__).with_name("_base_defines_copy.h")
 
 # читаємо і відкидаємо рядки, що починаються з //
 lines = src.read_text(encoding="utf-8").splitlines()
@@ -20,12 +20,12 @@ text = "\n".join(filtered_lines) + "\n"
 cpp_string = json.dumps(text, ensure_ascii=False)
 
 dst.write_text(
-    f"""#ifndef VISION__DEFINES_COPY_H
-#define VISION__DEFINES_COPY_H
+f"""#ifndef BASE_DEFINES_COPY_H
+#define BASE_DEFINES_COPY_H
 
 #include <string_view>
 
-inline constexpr std::string_view VISION_DEFINES_COPY = {cpp_string};
+inline constexpr std::string_view BASE_DEFINES_COPY = {cpp_string};
 
 #endif
 """,
