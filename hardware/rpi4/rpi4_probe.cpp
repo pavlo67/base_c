@@ -5,39 +5,44 @@
 #include <cstdlib>
 #include <unistd.h>
 
-void testOnePin(unsigned pin, const char* name) {
-
-    for (int i = 0; i++ < 50; ) {
-        printf("%s ON\n", name);
-        gpioWrite(pin, 1);
-        usleep(500000);
-
-        printf("%s OFF\n", name);
-        gpioWrite(pin, 0);
-        usleep(500000);
-    }
-}
+// void testOnePin(unsigned pin, const char* name) {
+//
+//     for (int i = 0; i++ < 50; ) {
+//         printf("%s ON\n", name);
+//         gpioWrite(pin, 1);
+//         usleep(500000);
+//
+//         printf("%s OFF\n", name);
+//         gpioWrite(pin, 0);
+//         usleep(500000);
+//     }
+// }
 
 constexpr unsigned STEP_DELAY_US = 5e5;
 
-void pulse() {
-    gpioWrite(PIN_STEP, 1);
+void pulse(int pin) {
+    gpioWrite(pin, 1);
     usleep(STEP_DELAY_US);
-    gpioWrite(PIN_STEP, 0);
+    gpioWrite(pin, 0);
     usleep(STEP_DELAY_US);
 }
 
+const int pin = PIN_DIR;
+
 int main() {
+
+    printf("pin: %d\n", pin);
+
     if (gpioInitialise() < 0) {
         std::fprintf(stderr, "gpioInitialise() failed\n");
         return EXIT_FAILURE;
     }
 
-    gpioSetMode(PIN_STEP, PI_OUTPUT);
+    gpioSetMode(pin, PI_OUTPUT);
 
     for (int i = 0; i++ < 5; ) {
         printf("%d\n", i);
-        pulse();
+        pulse(pin);
     }
 
     gpioTerminate();
