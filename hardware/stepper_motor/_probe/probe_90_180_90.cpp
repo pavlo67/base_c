@@ -19,6 +19,8 @@ void pulse() {
 void moveSeries(int steps) {
     bool dir = steps >= 0;
     gpioWrite(PIN_DIR, dir ? 1 : 0);
+    printf("DIR: %d\n", dir);
+
     usleep(PULSE_HIGH_US_MIN);
 
     for (int i = 0; i < std::abs(steps); ++i) {
