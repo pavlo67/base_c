@@ -36,12 +36,12 @@ add_executable(probe_infinite
 )
 target_link_libraries(probe_infinite PRIVATE stepper_motor ${RPI_LIBS})
 
-# probe_90_180_90 -------------------------------------
+# probe_180_360_180 -------------------------------------
 
-add_executable(probe_90_180_90
-        stepper_motor/_probe/probe_90_180_90.cpp
+add_executable(probe_180_360_180
+        stepper_motor/_probe/probe_180_360_180.cpp
 )
-target_link_libraries(probe_90_180_90 PRIVATE stepper_motor ${RPI_LIBS})
+target_link_libraries(probe_180_360_180 PRIVATE stepper_motor ${RPI_LIBS})
 
 # probe_sequences -------------------------------------
 

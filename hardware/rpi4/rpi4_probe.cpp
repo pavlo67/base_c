@@ -27,26 +27,31 @@ void pulse(int pin) {
     usleep(STEP_DELAY_US);
 }
 
-const int pin = PIN_DIR;
+constexpr int PINS[] = {PIN_STEP, PIN_DIR, PIN_ENA};
+constexpr int PINS_CNT = sizeof(PINS) / sizeof(PINS[0]);
 
 int main() {
-
-    printf("pin: %d\n", pin);
 
     if (gpioInitialise() < 0) {
         std::fprintf(stderr, "gpioInitialise() failed\n");
         return EXIT_FAILURE;
     }
 
-    gpioSetMode(pin, PI_OUTPUT);
+    for (int pinI = 0; pinI < PINS_CNT; pinI++) {
+        int pin = PINS[pinI];
+        printf("\npin: %d\n", pin);
 
-    for (int i = 0; i++ < 5; ) {
-        printf("%d\n", i);
-        pulse(pin);
+        gpioSetMode(pin, PI_OUTPUT);
+
+        for (int i = 0; i < 5; i++) {
+            printf("%d\n", i);
+            pulse(pin);
+        }
     }
 
     gpioTerminate();
 
     printf("\nStopped\n");
     return EXIT_SUCCESS;
+
 }
