@@ -31,7 +31,7 @@ Always look for helper functions in lib/ and hardware/ first (using correspondin
 
 Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat CSV/text, bool/string conversion, math, filesystem, and formatting helpers as reusable by default.
 
-Describe any specific behavior in `info.md` inside first-level subtree info.md (except for directory subtrees listed below). If the document is missing information, contains inaccuracies, or does not reflect the current code, inspect the subtree contents and create an info_add_<timestamp_ms>.md file with the missing information and corrections.
+Describe any specific behavior in `info.md` inside first-level subtree info.md (or deeper if corresponding info.md already exists). If the document is missing information, contains inaccuracies, or does not reflect the current code, inspect the subtree contents and create an info_add_<timestamp_ms>.md file with the missing information and corrections.
 
 Don't create `info.md` in `_docs`, `_env`, `_bin`, `_sessions` and other underscored directories and its subdirectories.
 

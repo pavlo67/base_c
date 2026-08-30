@@ -16,6 +16,9 @@ build/*
 .idea/*
 .codex/*
 
+# Agents history
+ai.md
+
 # Log files, reports, archives
 *.xls*
 *.tab*

@@ -48,6 +48,22 @@ if(NOT PAN_TILT_ROOT)
     )
     FetchContent_MakeAvailable(cpp_httplib)
 
+    FetchContent_Declare(
+            mongoose_source
+            GIT_REPOSITORY https://github.com/cesanta/mongoose.git
+            GIT_TAG 7.22
+    )
+    FetchContent_GetProperties(mongoose_source)
+    if(NOT mongoose_source_POPULATED)
+        FetchContent_Populate(mongoose_source)
+    endif()
+
+    if(NOT TARGET mongoose)
+        add_library(mongoose STATIC ${mongoose_source_SOURCE_DIR}/mongoose.c)
+        set_source_files_properties(${mongoose_source_SOURCE_DIR}/mongoose.c PROPERTIES LANGUAGE CXX)
+        target_include_directories(mongoose PUBLIC ${mongoose_source_SOURCE_DIR})
+    endif()
+
     # find_package(fmt REQUIRED)
     # find_package(yaml-cpp)
     # pkg_check_modules(LZ4 REQUIRED liblz4)
