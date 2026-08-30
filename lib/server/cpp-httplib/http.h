@@ -7,17 +7,7 @@
 
 #include <httplib.h>
 
-enum class HTTP_METHOD {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    PATCH,
-    OPTIONS,
-    HEAD
-};
-
-std::string ipV4ToString(uint32_t ipV4Host);
+#include "../server.h"
 
 using HTTPHandler = std::function<void(const httplib::Request&, httplib::Response&)>;
 

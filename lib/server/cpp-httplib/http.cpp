@@ -6,19 +6,6 @@
 #include <thread>
 #include <utility>
 
-std::string ipV4ToString(uint32_t ipV4Host) {
-    in_addr address{};
-    address.s_addr = htonl(ipV4Host);
-
-    char buffer[INET_ADDRSTRLEN] = {};
-    if (inet_ntop(AF_INET, &address, buffer, sizeof(buffer)) == nullptr) {
-        fprintf(stderr, "on ipV4ToString(): can't convert IPv4 address\n");
-        return {};
-    }
-
-    return buffer;
-}
-
 namespace {
     httplib::Server server;
     std::thread     serverThread;

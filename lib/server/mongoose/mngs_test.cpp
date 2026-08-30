@@ -1,4 +1,4 @@
-#include "lib/server/mongoose/mong.h"
+#include "lib/server/mongoose/mngs.h"
 
 #include <arpa/inet.h>
 #include <chrono>
@@ -75,7 +75,7 @@ namespace {
 } // namespace
 
 TEST(Server, HTTPAndWebSocket) {
-    addServerHTTPHandler(SERVER_HTTP_METHOD::GET, HTTP_PATH, [](const ServerRequest&, ServerResponse& response) {
+    addServerHTTPHandler(HTTP_METHOD::GET, HTTP_PATH, [](const ServerRequest&, ServerResponse& response) {
         response.body = "server response: HTTP_TEST_KEY\n";
     });
 

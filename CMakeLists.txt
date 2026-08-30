@@ -31,13 +31,7 @@ if(NOT PAN_TILT_ROOT)
 
     find_package(yaml-cpp)
     find_package(jsoncpp)
-    # add_library(jsoncpp_lib STATIC IMPORTED)
-    #if (SYSTEM STREQUAL "DESKTOP")
-    #    set_target_properties(jsoncpp_lib PROPERTIES IMPORTED_LOCATION "/usr/local/lib/x86_64-linux-gnu/libjsoncpp.a")
-    #else()
-    #    set_target_properties(jsoncpp_lib PROPERTIES IMPORTED_LOCATION "/usr/local/lib/aarch64-linux-gnu/libjsoncpp.a")
-    #endif()
-
+    # find_package(fmt REQUIRED)
 
     set(HTTPLIB_REQUIRE_ZSTD OFF CACHE BOOL "" FORCE)
     set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
@@ -55,18 +49,16 @@ if(NOT PAN_TILT_ROOT)
     )
     FetchContent_GetProperties(mongoose_source)
     if(NOT mongoose_source_POPULATED)
-        FetchContent_Populate(mongoose_source)
+        FetchContent_MakeAvailable(mongoose_source)
+        # FetchContent_Populate(mongoose_source) // deprecated method
     endif()
 
     if(NOT TARGET mongoose)
-        add_library(mongoose STATIC ${mongoose_source_SOURCE_DIR}/mongoose.c)
+        add_library(mongoose STATIC ${mongoose_source_SOURCE_DIR}/mongoose.c
+                lib/server/server.cpp)
         set_source_files_properties(${mongoose_source_SOURCE_DIR}/mongoose.c PROPERTIES LANGUAGE CXX)
         target_include_directories(mongoose PUBLIC ${mongoose_source_SOURCE_DIR})
     endif()
-
-    # find_package(fmt REQUIRED)
-    # find_package(yaml-cpp)
-    # pkg_check_modules(LZ4 REQUIRED liblz4)
 
 endif()
 

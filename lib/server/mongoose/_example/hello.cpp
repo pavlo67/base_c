@@ -1,4 +1,4 @@
-#include "lib/server/mongoose/mong.h"
+#include "lib/server/mongoose/mngs.h"
 
 #include <arpa/inet.h>
 #include <cstdio>
@@ -10,7 +10,7 @@ constexpr std::string HTTP_PATH = "/hello";
 constexpr std::string WS_PATH = "/ws";
 
 int main() {
-    addServerHTTPHandler(SERVER_HTTP_METHOD::GET, HTTP_PATH, [](const ServerRequest&, ServerResponse& response) {
+    addServerHTTPHandler(HTTP_METHOD::GET, HTTP_PATH, [](const ServerRequest&, ServerResponse& response) {
         response.body = "Hello from Mongoose server\n";
     });
 
@@ -18,11 +18,11 @@ int main() {
         response = "server received: " + message;
     });
 
-    startServer(ntohl(inet_addr(HOST.c_str())), PORT);
+    if (!startServer(ntohl(inet_addr(HOST.c_str())), PORT)) {
+        return EXIT_FAILURE;
+    }
 
-    printf("\nHTTP page: http://%s:%d%s\nWebSocket: ws://%s:%d%s\npress Enter to stop example server...\n",
-           HOST.c_str(), PORT, HTTP_PATH.c_str(), HOST.c_str(), PORT, WS_PATH.c_str());
     getchar();
     stopServer();
-    return 0;
+    return EXIT_SUCCESS;
 }

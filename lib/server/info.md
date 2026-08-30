@@ -1,6 +1,6 @@
 # lib/server
 
-`server.h` contains implementation-independent request, response, method, and callback types. `server/mongoose/mong.h/.cpp` is a thin C++ wrapper over Mongoose 7.22 for an HTTP + WebSocket server on one listener and one internal event-loop thread.
+`server.h` contains implementation-independent request, response, method, and callback types. `server/mongoose/mngs.h/.cpp` is a thin C++ wrapper over Mongoose 7.22 for an HTTP + WebSocket server on one listener and one internal event-loop thread.
 
 ## lib/server/mongoose
 
@@ -14,7 +14,7 @@ Requests the event-loop thread to stop and joins it. If the server is not runnin
 
 ## HTTP
 
-### `void addServerHTTPHandler(SERVER_HTTP_METHOD method, const std::string& route, ServerHTTPHandler callback)`
+### `void addServerHTTPHandler(HTTP_METHOD method, const std::string& route, ServerHTTPHandler callback)`
 
 Registers an exact-path HTTP handler. Handlers must be registered before `startServer()`. The callback receives a copied `ServerRequest` (`method`, `uri`, `body`) and fills `ServerResponse` (`status`, `contentType`, `body`). Unknown routes return 404.
 
@@ -24,7 +24,7 @@ Registers an exact-path HTTP handler. Handlers must be registered before `startS
 
 Registers an exact-path WebSocket endpoint before server start. Each text message is passed to the callback. If the callback writes a non-empty response string, it is sent back as a text WebSocket frame.
 
-`server/mongoose/_example/hello.cpp` demonstrates both a GET endpoint and `/ws` WebSocket echo-style handling on the same port. `mongoose/mong_test.cpp` uses GTest and a Mongoose client manager to verify both HTTP and WebSocket paths.
+`server/mongoose/_example/hello.cpp` demonstrates both a GET endpoint and `/ws` WebSocket echo-style handling on the same port. `mongoose/mngs_test.cpp` uses GTest and a Mongoose client manager to verify both HTTP and WebSocket paths.
 
 Mongoose is pinned to tag `7.22` by top-level CMake FetchContent and is compiled as C++ because the top-level project enables only the CXX language.
 
