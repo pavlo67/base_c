@@ -22,7 +22,6 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    getchar();
-    stopServer();
+    waitForServerStopped();
     return EXIT_SUCCESS;
 }

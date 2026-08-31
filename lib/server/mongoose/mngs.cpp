@@ -11,10 +11,11 @@
 
 #include <mongoose.h>
 
+
 namespace {
+    std::thread                 serverThread;
     std::vector<HTTPRoute>      httpRoutes;
     std::vector<WebSocketRoute> webSocketRoutes;
-    std::thread                 serverThread;
     std::mutex                  serverMutex;
     std::condition_variable     serverStartedCondition;
     bool                        serverStarted = false;
@@ -104,7 +105,7 @@ bool startServer(uint32_t ipV4Host, uint16_t port) {
 
     if (serverThread.joinable()) {
         fprintf(stderr, "%sserver is already running\n", ON_START_SERVER.c_str());
-        return false;
+        return true;
     }
 
     const std::string host = ipV4ToString(ipV4Host);
@@ -166,24 +167,24 @@ bool startServer(uint32_t ipV4Host, uint16_t port) {
 }
 
 void stopServer() {
-    std::thread threadToJoin;
-
-    {
-        std::lock_guard<std::mutex> lock(serverMutex);
-        if (!serverThread.joinable()) {
-            return;
-        }
-
-        serverStopRequested = true;
-        threadToJoin = std::move(serverThread);
+    std::lock_guard<std::mutex> lock(serverMutex);
+    if (!serverThread.joinable()) {
+        return;
     }
 
-    threadToJoin.join();
+    serverStopRequested = true;
+}
 
+void waitForServerStopped() {
+    if (!serverThread.joinable()) {
+        return;
+    }
+    serverThread.join();
     std::lock_guard<std::mutex> lock(serverMutex);
     serverStarted = false;
     serverStartFailed = false;
     serverStopRequested = false;
+
 }
 
 const std::string ON_ADD_SERVER_HTTP_HANDLER = "on addServerHTTPHandler(): ";

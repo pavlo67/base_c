@@ -4,7 +4,7 @@
 
 ## lib/server/mongoose
 
-### `void startServer(uint32_t ipV4Host, uint16_t port)`
+### `std::thread startServer(uint32_t ipV4Host, uint16_t port)`
 
 Starts the Mongoose manager and HTTP listener in an internal thread. `ipV4Host` is IPv4 in host byte order. The function returns after the listener has either started or failed. The network thread uses blocking `mg_mgr_poll()` and does not busy-poll.
 
