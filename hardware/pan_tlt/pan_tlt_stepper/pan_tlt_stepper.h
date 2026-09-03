@@ -1,6 +1,8 @@
 #ifndef BASE_CPP_PANTILTSTEPPER_H
 #define BASE_CPP_PANTILTSTEPPER_H
 
+#include <json/value.h>
+
 #include "hardware/pan_tlt/pan_tlt.h"
 
 class PanTltStepper : public PanTlt {

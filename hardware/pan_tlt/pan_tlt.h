@@ -3,7 +3,7 @@
 
 #include "lib/info.h"
 
-#include "config/config.h"
+#include "lib/config/config.h"
 
 class PanTlt : public Config {
 public:

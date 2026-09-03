@@ -12,11 +12,10 @@ add_executable(server_http_hello
 target_link_libraries(server_http_hello PRIVATE lib_server_http)
 
 add_executable(server_http_test
-        ../test_run.cpp
         server/cpp-httplib/http_test.cpp
         server/server.cpp
 )
-target_link_libraries(server_http_test PRIVATE lib_server_http) # GTest::gtest_main
+target_link_libraries(server_http_test PRIVATE lib_server_http GTest::gtest_main)
 add_test(NAME http_test COMMAND http_test)
 
 add_library(lib_server_http_mngs
@@ -33,9 +32,8 @@ add_executable(server_http_mngs_hello
 target_link_libraries(server_http_mngs_hello PRIVATE lib_server_http_mngs)
 
 add_executable(server_http_mngs_test
-        ../test_run.cpp
         server/mongoose/mngs_test.cpp
         server/server.cpp
 )
-target_link_libraries(server_http_mngs_test PRIVATE lib_server_http_mngs)  # GTest::gtest_main
+target_link_libraries(server_http_mngs_test PRIVATE lib_server_http_mngs GTest::gtest_main)
 add_test(NAME server_http_mngs_test COMMAND server_http_mngs_test)
