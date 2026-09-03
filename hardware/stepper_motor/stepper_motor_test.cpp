@@ -1,7 +1,7 @@
 #include "stepper_motor.h"
 #include "hardware/hardware.h"
 
-#include "gtest/gtest.h"
+#include "test/test.h"
 
 #include <algorithm>
 #include <cassert>

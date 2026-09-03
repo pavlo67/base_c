@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <string>
 
-#include <gtest/gtest.h>
+#include "test/test.h"
 #include <mongoose.h>
 
 namespace {

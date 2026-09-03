@@ -52,5 +52,5 @@ Wrap error outputs as described in `_docs/common_rules.md`.
 
 All csv-files must be stored with .xls-extension
 
-Write all tests with GTest
+Write all tests with the lightweight test helper in base/test/test.h and CTest
 
