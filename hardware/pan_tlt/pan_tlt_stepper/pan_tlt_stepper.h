@@ -18,6 +18,7 @@ public:
     void show()                                  final;
 
 private:
+    bool initialized_ = false;
     int pan_ = 0;
     int tlt_ = 0;
 

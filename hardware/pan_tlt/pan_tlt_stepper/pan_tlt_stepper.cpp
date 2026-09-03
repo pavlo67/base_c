@@ -5,7 +5,7 @@
 
 #include <chrono>
 #include <thread>
-#include <iostream>
+#include <cstdlib>
 
 constexpr int STEP_PULSE_US  = 20;     // HIGH, точно з запасом
 constexpr int STEP_PERIOD_US = 1000;  // 1 кГц = 1000 мікрокроків/с
@@ -23,15 +23,21 @@ constexpr uint8_t PIN_ENA_TLT        = 27; // GPIO24 -> ENA- TLT
 
 void pulse(uint8_t pin) {
     gpioWrite(pin, 1);
-    sleep(STEP_PULSE_US);
+    std::this_thread::sleep_for(std::chrono::microseconds(STEP_PULSE_US));
     gpioWrite(pin, 0);
-    sleep(STEP_PERIOD_US - STEP_PULSE_US);
+    std::this_thread::sleep_for(std::chrono::microseconds(STEP_PERIOD_US - STEP_PULSE_US));
+}
+
+void moveAxis(uint8_t stepPin, uint8_t directionPin, int steps) {
+    if (steps == 0) return;
+    gpioWrite(directionPin, steps > 0 ? 1 : 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    for (int i = 0; i < std::abs(steps); ++i) pulse(stepPin);
 }
 
 PanTltStepper::PanTltStepper() {
-    if (gpioInitialise() < 0) {
-        throw std::runtime_error("PanTltStepper: pigpio init failed");
-    }
+    initialized_ = gpioInitialise() >= 0;
+    if (!initialized_) return;
 
     gpioSetMode(PIN_STEP_PAN, PI_OUTPUT);
     gpioSetMode(PIN_DIR_PAN,  PI_OUTPUT);
@@ -50,20 +56,24 @@ PanTltStepper::PanTltStepper() {
 
 
 void PanTltStepper::zero() {
-
+    Info info;
+    set(0, 0, info);
 }
 
 void PanTltStepper::set (int pan, int tlt, Info& info) {
-
+    move(pan - pan_, tlt - tlt_, info);
 }
 
 void PanTltStepper::move(int pan, int tlt, Info& info) {
-    gpioWrite(PIN_DIR_PAN, (pan > 0) ? 1 : 0);
-    std::this_thread::sleep_for(5ms);
-
-    for (int i = 0; i < std::abs(steps); ++i) {
-        pulse();
+    if (!initialized_) {
+        info.setError("PanTltStepper is not initialized");
+        return;
     }
+    moveAxis(PIN_STEP_PAN, PIN_DIR_PAN, pan);
+    moveAxis(PIN_STEP_TLT, PIN_DIR_TLT, tlt);
+    pan_ += pan;
+    tlt_ += tlt;
+    info.setOk();
 }
 
 #if RUN_PROBE

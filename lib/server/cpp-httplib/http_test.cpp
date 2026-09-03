@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-#include "test/test.h"
+#include <gtest/gtest.h>
 
 namespace {
 

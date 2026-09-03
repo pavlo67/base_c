@@ -24,7 +24,7 @@ Registers an exact-path HTTP handler. Handlers must be registered before `startS
 
 Registers an exact-path WebSocket endpoint before server start. Each text message is passed to the callback. If the callback writes a non-empty response string, it is sent back as a text WebSocket frame.
 
-`server/mongoose/_example/hello.cpp` demonstrates both a GET endpoint and `/ws` WebSocket echo-style handling on the same port. `mongoose/mngs_test.cpp` uses the lightweight project test helper and a Mongoose client manager to verify both HTTP and WebSocket paths.
+`server/mongoose/_example/hello.cpp` demonstrates both a GET endpoint and `/ws` WebSocket echo-style handling on the same port. `mongoose/mngs_test.cpp` uses GTest and a Mongoose client manager to verify both HTTP and WebSocket paths.
 
 Mongoose is pinned to tag `7.22` by top-level CMake FetchContent and is compiled as C++ because the top-level project enables only the CXX language.
 
@@ -45,5 +45,4 @@ Mongoose is pinned to tag `7.22` by top-level CMake FetchContent and is compiled
 
 Реєструє callback для маршруту. `HTTP_METHOD` підтримує `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`, `HEAD`. Callback має сигнатуру `void(const httplib::Request&, httplib::Response&)`. Для `HEAD` використовується GET-route cpp-httplib, який автоматично формує HEAD-відповідь без body.
 
-`server/cpp-httplib/_example/hello.cpp` містить мінімальний text/plain GET-приклад. `server/cpp-httplib/http_test.cpp` стартує loopback-сервер і клієнт, виконує GET та перевіряє status і ключовий рядок у body; `../test_run.cpp` є пускачем сценарію.
-
+`server/cpp-httplib/_example/hello.cpp` містить мінімальний text/plain GET-приклад. `server/cpp-httplib/http_test.cpp` стартує loopback-сервер і клієнт, виконує GET та перевіряє status і ключовий рядок у body через GTest.

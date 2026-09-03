@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <string>
 
-#include "test/test.h"
+#include <gtest/gtest.h>
 #include <mongoose.h>
 
 namespace {
@@ -72,6 +72,13 @@ namespace {
         return state.done && !state.failed;
     }
 
+    struct ServerGuard {
+        ~ServerGuard() {
+            stopServer();
+            waitForServerStopped();
+        }
+    };
+
 } // namespace
 
 TEST(Server, HTTPAndWebSocket) {
@@ -83,7 +90,9 @@ TEST(Server, HTTPAndWebSocket) {
         response = "server response: " + message;
     });
 
-    startServer(ntohl(inet_addr(HOST.c_str())), PORT);
+    const bool started = startServer(ntohl(inet_addr(HOST.c_str())), PORT);
+    ServerGuard serverGuard;
+    ASSERT_TRUE(started);
 
     mg_mgr manager;
     mg_mgr_init(&manager);
@@ -109,5 +118,4 @@ TEST(Server, HTTPAndWebSocket) {
     EXPECT_NE(wsState.body.find("WS_TEST_KEY"), std::string::npos);
 
     mg_mgr_free(&manager);
-    stopServer();
 }

@@ -171,7 +171,6 @@ void stopServer() {
     if (!serverThread.joinable()) {
         return;
     }
-
     serverStopRequested = true;
 }
 

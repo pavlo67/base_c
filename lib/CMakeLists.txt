@@ -16,7 +16,7 @@ add_executable(server_http_test
         server/server.cpp
 )
 target_link_libraries(server_http_test PRIVATE lib_server_http GTest::gtest_main)
-add_test(NAME http_test COMMAND http_test)
+add_test(NAME http_test COMMAND server_http_test)
 
 add_library(lib_server_http_mngs
         server/mongoose/mngs.cpp

@@ -8,10 +8,13 @@ target_link_libraries(rpi4_probe PRIVATE ${RPI_LIBS})
 add_executable(pan_tlt_probe
         pan_tlt/pan_tlt_probe.cpp
         pan_tlt/pan_tlt_stepper/pan_tlt_stepper.cpp
-
-        ../lib/json/json.cpp
         pan_tlt/pan_tlt_stepper/pan_tlt_stepper_cfg.cpp
 )
+if(TARGET JsonCpp::JsonCpp)
+    target_link_libraries(pan_tlt_probe PRIVATE JsonCpp::JsonCpp)
+else()
+    target_link_libraries(pan_tlt_probe PRIVATE jsoncpp_lib)
+endif()
 
 # stepper_motor library -------------------------------
 
@@ -26,7 +29,7 @@ target_link_libraries(stepper_motor PUBLIC Threads::Threads)
 add_executable(stepper_motor_test
         stepper_motor/stepper_motor_test.cpp
 )
-target_link_libraries(stepper_motor_test PRIVATE stepper_motor  GTest::gtest_main)
+target_link_libraries(stepper_motor_test PRIVATE stepper_motor GTest::gtest_main)
 add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
 
 # probe_infinite --------------------------------------
@@ -49,4 +52,3 @@ add_executable(probe_sequences
         stepper_motor/_probe/probe_sequences.cpp
 )
 target_link_libraries(probe_sequences PRIVATE stepper_motor ${RPI_LIBS})
-
