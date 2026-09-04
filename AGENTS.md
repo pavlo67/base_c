@@ -50,6 +50,10 @@ Function main() in main.cpp should be written first — after includes, constant
 
 Wrap error outputs as described in `_docs/common_rules.md`.
 
+Wrap all if/for/while single-operator bodies into curly braces, for example:
+
+    if (<CONDITION>) { continue; }
+
 All csv-files must be stored with .xls-extension
 
 Write all tests with GTest and CTest
