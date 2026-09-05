@@ -1,6 +1,7 @@
 #if defined(SYSTEM_IS_RPI5) && SYSTEM_IS_RPI5
 
 #include "gpio.h"
+#include "pwm_sysfs.h"
 #include <lgpio.h>
 #include <cstring>
 #include <filesystem>
@@ -8,8 +9,12 @@
 
 class Rpi5Gpio final : public Gpio {
 public:
+    int hardwarePwmChannel(unsigned pin) const override { return gpioHardwarePwmChannel(pin, GpioPwmLayout::rpi5); }
     ~Rpi5Gpio() override { terminate(); }
 protected:
+    Rpi5PwmSysfsIo pwmIo_;
+    PwmSysfs hardwarePwm_{pwmIo_};
+    std::array<bool, PIN_COUNT> hardwarePins_{};
     int handle_ = -1;
     std::array<bool, PIN_COUNT> claimed_{};
     int open() override {
@@ -39,15 +44,28 @@ protected:
         return result;
     }
     int close() override {
+        const int released = hardwarePwm_.close();
+        if (released < 0) { return released; }
+        hardwarePins_ = {};
         const int result = lgGpiochipClose(handle_);
         if (result >= 0) { handle_ = -1; claimed_ = {}; }
         return result;
     }
     int mode(unsigned pin, GpioMode requested) override {
+        if (hardwarePins_[pin]) {
+            const int result = hardwarePwm_.release(hardwarePwmChannel(pin));
+            if (result < 0) { return result; }
+            hardwarePins_[pin] = false;
+        }
         if (claimed_[pin]) {
             const int result = lgGpioFree(handle_, pin);
             if (result < 0) { return result; }
             claimed_[pin] = false;
+        }
+        if (requested == GpioMode::hardwarePwm) {
+            const int result = hardwarePwm_.claim(pin, hardwarePwmChannel(pin));
+            if (result >= 0) { hardwarePins_[pin] = true; }
+            return result;
         }
         const int result = requested == GpioMode::output
             ? lgGpioClaimOutput(handle_, 0, pin, 0) : lgGpioClaimInput(handle_, 0, pin);
@@ -56,6 +74,9 @@ protected:
     }
     int readLevel(unsigned pin) override { return lgGpioRead(handle_, pin); }
     int writeLevel(unsigned pin, unsigned level) override { return lgGpioWrite(handle_, pin, level); }
+    int hardwarePwm(unsigned pin, const PwmSettings& settings) override {
+        return hardwarePwm_.apply(hardwarePwmChannel(pin), settings);
+    }
     int pwm(unsigned pin, const PwmSettings& settings) override {
         if (!settings.enabled || settings.duty == 0 || settings.duty == settings.range) {
             const int busy = lgTxBusy(handle_, pin, LG_TX_PWM);

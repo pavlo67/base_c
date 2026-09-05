@@ -109,3 +109,46 @@ namespace {
     }
 
 } // namespace
+
+TEST(GpioHardwarePwmTest, PlatformChannelMappings) {
+    EXPECT_EQ(gpioHardwarePwmChannel(12, GpioPwmLayout::rpi4), 0);
+    EXPECT_EQ(gpioHardwarePwmChannel(18, GpioPwmLayout::rpi4), 0);
+    EXPECT_EQ(gpioHardwarePwmChannel(13, GpioPwmLayout::rpi4), 1);
+    EXPECT_EQ(gpioHardwarePwmChannel(19, GpioPwmLayout::rpi4), 1);
+    EXPECT_EQ(gpioHardwarePwmChannel(14, GpioPwmLayout::rpi4), Gpio::NOT_SUPPORTED);
+    EXPECT_EQ(gpioHardwarePwmChannel(12, GpioPwmLayout::rpi5), 0);
+    EXPECT_EQ(gpioHardwarePwmChannel(13, GpioPwmLayout::rpi5), 1);
+    EXPECT_EQ(gpioHardwarePwmChannel(14, GpioPwmLayout::rpi5), 2);
+    EXPECT_EQ(gpioHardwarePwmChannel(18, GpioPwmLayout::rpi5), 2);
+    EXPECT_EQ(gpioHardwarePwmChannel(15, GpioPwmLayout::rpi5), 3);
+    EXPECT_EQ(gpioHardwarePwmChannel(19, GpioPwmLayout::rpi5), 3);
+    EXPECT_EQ(gpioHardwarePwmChannel(17, GpioPwmLayout::rpi5), Gpio::NOT_SUPPORTED);
+}
+
+class GpioHardwareModeTest : public testing::Test {
+protected:
+    Gpio& gpio = Gpio::instance();
+    void SetUp() override { ASSERT_EQ(gpio.initialize(), 0); }
+    void TearDown() override { EXPECT_EQ(gpio.terminate(), 0); }
+};
+
+TEST_F(GpioHardwareModeTest, ExplicitModeReservesChannelEvenWhenOff) {
+    ASSERT_EQ(gpio.setMode(12, GpioMode::hardwarePwm), 0);
+    EXPECT_EQ(gpio.setMode(18, GpioMode::hardwarePwm), Gpio::CHANNEL_BUSY);
+    EXPECT_EQ(gpio.setMode(17, GpioMode::hardwarePwm), Gpio::NOT_SUPPORTED);
+    EXPECT_EQ(gpio.write(12, 1), Gpio::WRONG_MODE);
+    EXPECT_EQ(gpio.read(12), Gpio::WRONG_MODE);
+    ASSERT_EQ(gpio.setRange(12, 50), 0);
+    ASSERT_EQ(gpio.setDuty(12, 25), 0);
+    ASSERT_EQ(gpio.setEnabled(12, true), 0);
+    ASSERT_EQ(gpio.setEnabled(12, false), 0);
+    PwmSettings settings;
+    ASSERT_EQ(gpio.getPwmSettings(12, settings), 0);
+    EXPECT_EQ(settings.duty, 25u);
+    EXPECT_FALSE(settings.enabled);
+    EXPECT_EQ(gpio.setMode(18, GpioMode::hardwarePwm), Gpio::CHANNEL_BUSY);
+    ASSERT_EQ(gpio.setMode(12, GpioMode::output), 0);
+    EXPECT_EQ(gpio.write(12, 1), 0);
+    EXPECT_EQ(gpio.setMode(18, GpioMode::hardwarePwm), 0);
+    EXPECT_EQ(gpio.setMode(13, GpioMode::hardwarePwm), 0);
+}

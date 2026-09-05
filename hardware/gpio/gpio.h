@@ -2,7 +2,10 @@
 
 #include <array>
 
-enum class GpioMode { input, output };
+enum class GpioMode { input, output, hardwarePwm };
+enum class GpioPwmLayout { rpi4, rpi5 };
+
+int gpioHardwarePwmChannel(unsigned pin, GpioPwmLayout layout);
 
 struct PwmSettings {
     unsigned range = 100;
@@ -19,12 +22,16 @@ public:
     static constexpr int WRONG_MODE = -10002;
     static constexpr int PWM_ACTIVE = -10003;
     static constexpr int CHIP_NOT_FOUND = -10004;
+    static constexpr int NOT_SUPPORTED = -10005;
+    static constexpr int CHANNEL_BUSY = -10006;
+    static constexpr int PWM_NOT_CONFIGURED = -10007;
 
     virtual ~Gpio() = default;
     Gpio(const Gpio&) = delete;
     Gpio& operator=(const Gpio&) = delete;
     static Gpio& instance();
 
+    virtual int hardwarePwmChannel(unsigned pin) const = 0;
     int initialize();
     int terminate();
     int setMode(unsigned pin, GpioMode mode);
@@ -44,6 +51,7 @@ protected:
     virtual int readLevel(unsigned pin) = 0;
     virtual int writeLevel(unsigned pin, unsigned level) = 0;
     virtual int pwm(unsigned pin, const PwmSettings& settings) = 0;
+    virtual int hardwarePwm(unsigned pin, const PwmSettings& settings) = 0;
 
 private:
     struct PinState {

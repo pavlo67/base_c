@@ -1,5 +1,8 @@
 string(TOLOWER "${SYSTEM}" GPIO_PLATFORM_SOURCE)
-add_library(hardware_gpio gpio/gpio.cpp gpio/gpio_${GPIO_PLATFORM_SOURCE}.cpp)
+add_library(hardware_gpio gpio/gpio.cpp gpio/platforms/gpio_${GPIO_PLATFORM_SOURCE}.cpp)
+if(SYSTEM STREQUAL "RPI5")
+    target_sources(hardware_gpio PRIVATE gpio/pwm/pwm_sysfs.cpp gpio/pwm/pwm_sysfs_rpi5.cpp)
+endif()
 target_include_directories(hardware_gpio PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
 if(GPIO_INCLUDE_DIR)
     target_include_directories(hardware_gpio PRIVATE ${GPIO_INCLUDE_DIR})
@@ -12,7 +15,7 @@ add_test(NAME gpio_test COMMAND gpio_test)
 set_tests_properties(gpio_test PROPERTIES RUN_SERIAL TRUE LABELS "gpio")
 
 # Contract tests always use the desktop implementation, even on a Raspberry Pi.
-add_executable(gpio_contract_test gpio/gpio_contract_test.cpp gpio/gpio.cpp gpio/gpio_desktop.cpp)
+add_executable(gpio_contract_test gpio/gpio_contract_test.cpp gpio/gpio.cpp gpio/platforms/gpio_desktop.cpp)
 target_compile_definitions(gpio_contract_test PRIVATE GPIO_DESKTOP_TEST=1)
 target_link_libraries(gpio_contract_test PRIVATE GTest::gtest_main)
 add_test(NAME gpio_contract_test COMMAND gpio_contract_test)
@@ -72,3 +75,8 @@ add_executable(probe_sequences
         stepper_motor/_probe/probe_sequences.cpp
 )
 target_link_libraries(probe_sequences PRIVATE stepper_motor ${RPI_LIBS})
+
+add_executable(pwm_sysfs_test gpio/pwm/pwm_sysfs_test.cpp gpio/pwm/pwm_sysfs.cpp gpio/pwm/pwm_sysfs_rpi5.cpp)
+target_compile_definitions(pwm_sysfs_test PRIVATE GPIO_SYSFS_TEST=1)
+target_link_libraries(pwm_sysfs_test PRIVATE GTest::gtest_main Threads::Threads)
+add_test(NAME pwm_sysfs_test COMMAND pwm_sysfs_test)
