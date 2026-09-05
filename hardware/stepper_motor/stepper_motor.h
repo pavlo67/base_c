@@ -88,21 +88,19 @@ StepperSeries getFastestSeries(
         float finalSpeedDegPerSec,
         const stepper_options_t& stepperOpts,
         interval_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
+
 bool getAcceleratedSequence(
         std::vector<StepperSeries>& seriesSequence,
         float baseSpeedDegPerSec,
         float targetRotationDeg,
         const stepper_options_t& stepperOpts,
         interval_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
+
 stepper_sequence_t calculateSequence(
         float initialSpeedDegPerSec,
         float totalRotationDeg,
         float finalSpeedDegPerSec,
         const stepper_options_t& stepperOpts,
         interval_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
-
-// series_evaluation_t evaluateSeries(const PulseSeries& series, float currentSpeed, float degreesPerPulse);
-// using pulse_callback_t = std::function<bool(int direction)>;
-// bool action(const PulseSeries& series,  const pulse_callback_t& pulseCallback, std::string& error);
 
 #endif // BASE_CPP_STEPPER_MOTOR_H

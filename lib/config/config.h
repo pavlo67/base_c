@@ -9,7 +9,7 @@ class Config {
 public:
     explicit Config(const std::string& filePath);
 
-    const YAML::Node& get(const std::string& name) const {
+    YAML::Node get(const std::string& name) const {
         return root_[name];
     }
 

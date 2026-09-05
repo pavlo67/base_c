@@ -193,6 +193,10 @@
 - `v` - bool-значення.
 - Результат: `"1"` для `true`, `"0"` для `false`.
 
+## config
+
+`Config` loads a YAML document from a file and reports load failures without throwing them to callers. `get(name)` returns a yaml-cpp node handle by value; this avoids retaining a reference to the temporary node produced by YAML map lookup.
+
 ## time
 
 ### `std::string formatTimeCustom(time_t t)`
@@ -295,4 +299,3 @@
 ### `Vec2D` / `dot()` / `len()` / `normalized()` / `angleToHorizontalRad()`
 
 Базові helpers для 2D-векторів і кутів. `normalized()` стабілізує напрямок вектора так, щоб він не дивився в ліву півплощину; `angleToHorizontalRad()` повертає гострий кут між вектором і горизонталлю.
-

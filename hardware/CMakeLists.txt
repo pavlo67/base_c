@@ -1,7 +1,7 @@
-add_executable(rpi4_probe
-        rpi4/rpi4_probe.cpp
+add_executable(gpio_probe
+        gpio/gpio_probe.cpp
 )
-target_link_libraries(rpi4_probe PRIVATE ${RPI_LIBS})
+target_link_libraries(gpio_probe PRIVATE ${RPI_LIBS})
 
 # -----------------------------------------------------
 

@@ -10,7 +10,7 @@ Starts the Mongoose manager and HTTP listener in an internal thread. `ipV4Host` 
 
 ### `void stopServer()`
 
-Requests the event-loop thread to stop and joins it. If the server is not running, does nothing.
+Requests the event-loop thread to stop without joining it. The thread owner then calls `waitForServerStopped()` to join and reset server state. This two-phase shutdown lets `stopMachina()` signal a `runMachina()` thread that is already waiting for server completion. If the server is not running, the operations do nothing.
 
 ## HTTP
 
@@ -25,6 +25,8 @@ Registers an exact-path HTTP handler. Handlers must be registered before `startS
 Registers an exact-path WebSocket endpoint before server start. Each text message is passed to the callback. If the callback writes a non-empty response string, it is sent back as a text WebSocket frame.
 
 `server/mongoose/_example/hello.cpp` demonstrates both a GET endpoint and `/ws` WebSocket echo-style handling on the same port. `mongoose/mngs_test.cpp` uses GTest and a Mongoose client manager to verify both HTTP and WebSocket paths.
+
+`server_http_mngs_test` uses scoped cleanup that requests shutdown and waits for completion even when a fatal assertion unwinds the test case.
 
 Mongoose is pinned to tag `7.22` by top-level CMake FetchContent and is compiled as C++ because the top-level project enables only the CXX language.
 
