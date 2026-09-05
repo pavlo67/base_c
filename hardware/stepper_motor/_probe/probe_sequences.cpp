@@ -19,9 +19,9 @@ const stepper_options_t STEPPER_OPTS {
 const bool VERBOSE = true;
 
 void pulse(float intervalSec) {
-    gpioWrite(PIN_STEP, 1);
+    Gpio::instance().write(PIN_STEP, 1);
     usleep(PULSE_HIGH_US_MIN);
-    gpioWrite(PIN_STEP, 0);
+    Gpio::instance().write(PIN_STEP, 0);
     usleep(int(intervalSec * 1e6));
 }
 
@@ -30,7 +30,7 @@ void moveSeries(const StepperSeries& series, stepper_options_t stepperOpts, cons
         series.log(stepperOpts, verboseLabel.c_str());
     }
 
-    gpioWrite(PIN_DIR, series.directionForward_ ? 1 : 0);
+    Gpio::instance().write(PIN_DIR, series.directionForward_ ? 1 : 0);
     usleep(PULSE_HIGH_US_MIN);
 
     float speed         = series.initialSpeedDegPerSec_;
@@ -68,26 +68,28 @@ void move(const stepper_sequence_t& sequence) {
     }
 }
 
+const std::string ON_MAIN = "on main(): ";
+
 int main() {
-    if (gpioInitialise() < 0) {
-        std::cerr << "pigpio init failed\n";
+    if (Gpio::instance().initialize() < 0) {
+        std::cerr << ON_MAIN << "GPIO initialization failed\n";
         return 1;
     }
 
-    gpioSetMode(PIN_STEP, PI_OUTPUT);
-    gpioSetMode(PIN_DIR,  PI_OUTPUT);
-    gpioSetMode(PIN_ENA,  PI_OUTPUT);
+    Gpio::instance().setMode(PIN_STEP, GpioMode::output);
+    Gpio::instance().setMode(PIN_DIR,  GpioMode::output);
+    Gpio::instance().setMode(PIN_ENA,  GpioMode::output);
 
-    gpioWrite(PIN_ENA, 0); // Для більшості DM542: ENA LOW = enabled
+    Gpio::instance().write(PIN_ENA, 0); // Для більшості DM542: ENA LOW = enabled
     usleep(500);
 
     move(calculateSequence(0.0F, 90,0.0F, STEPPER_OPTS));
     move(calculateSequence(0.0F, -180,0.0F, STEPPER_OPTS));
     move(calculateSequence(0.0F, 90,0.0F, STEPPER_OPTS));
 
-    gpioWrite(PIN_ENA, 1);   // stop / disable
-    gpioWrite(PIN_DIR, 0);
+    Gpio::instance().write(PIN_ENA, 1);   // stop / disable
+    Gpio::instance().write(PIN_DIR, 0);
 
-    gpioTerminate();
+    Gpio::instance().terminate();
     return 0;
 }

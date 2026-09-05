@@ -2,6 +2,8 @@
 **/_env/*.json
 **/_env/*.yaml
 _defines.h
+_base_defines.h
+hardware.h
 
 # Video artifacts
 *.jpg

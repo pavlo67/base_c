@@ -1,7 +1,26 @@
+string(TOLOWER "${SYSTEM}" GPIO_PLATFORM_SOURCE)
+add_library(hardware_gpio gpio/gpio.cpp gpio/gpio_${GPIO_PLATFORM_SOURCE}.cpp)
+target_include_directories(hardware_gpio PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
+if(GPIO_INCLUDE_DIR)
+    target_include_directories(hardware_gpio PRIVATE ${GPIO_INCLUDE_DIR})
+endif()
+target_link_libraries(hardware_gpio PUBLIC Threads::Threads ${RPI_LIBS})
+
+add_executable(gpio_test gpio/gpio_test.cpp)
+target_link_libraries(gpio_test PRIVATE hardware_gpio GTest::gtest_main)
+add_test(NAME gpio_test COMMAND gpio_test)
+set_tests_properties(gpio_test PROPERTIES RUN_SERIAL TRUE LABELS "gpio")
+
+# Contract tests always use the desktop implementation, even on a Raspberry Pi.
+add_executable(gpio_contract_test gpio/gpio_contract_test.cpp gpio/gpio.cpp gpio/gpio_desktop.cpp)
+target_compile_definitions(gpio_contract_test PRIVATE GPIO_DESKTOP_TEST=1)
+target_link_libraries(gpio_contract_test PRIVATE GTest::gtest_main)
+add_test(NAME gpio_contract_test COMMAND gpio_contract_test)
+
 add_executable(gpio_probe
-        gpio/gpio_probe.cpp
+        gpio/_probes/gpio_probe.cpp
 )
-target_link_libraries(gpio_probe PRIVATE ${RPI_LIBS})
+target_link_libraries(gpio_probe PRIVATE hardware_gpio)
 
 # -----------------------------------------------------
 
@@ -10,6 +29,7 @@ add_executable(pan_tlt_probe
         pan_tlt/pan_tlt_stepper/pan_tlt_stepper.cpp
         pan_tlt/pan_tlt_stepper/pan_tlt_stepper_cfg.cpp
 )
+target_link_libraries(pan_tlt_probe PRIVATE hardware_gpio)
 if(TARGET JsonCpp::JsonCpp)
     target_link_libraries(pan_tlt_probe PRIVATE JsonCpp::JsonCpp)
 else()
@@ -22,7 +42,7 @@ add_library(stepper_motor
         stepper_motor/stepper_motor.cpp
         stepper_motor/stepper_series.cpp
 )
-target_link_libraries(stepper_motor PUBLIC Threads::Threads)
+target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)
 
 # stepper_motor test ----------------------------------
 

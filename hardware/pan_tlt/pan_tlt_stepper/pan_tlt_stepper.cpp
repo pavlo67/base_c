@@ -22,34 +22,34 @@ constexpr uint8_t PIN_ENA_TLT        = 27; // GPIO24 -> ENA- TLT
 // constexpr int STEPS = 800;         // залежить від microstep на DM542
 
 void pulse(uint8_t pin) {
-    gpioWrite(pin, 1);
+    Gpio::instance().write(pin, 1);
     std::this_thread::sleep_for(std::chrono::microseconds(STEP_PULSE_US));
-    gpioWrite(pin, 0);
+    Gpio::instance().write(pin, 0);
     std::this_thread::sleep_for(std::chrono::microseconds(STEP_PERIOD_US - STEP_PULSE_US));
 }
 
 void moveAxis(uint8_t stepPin, uint8_t directionPin, int steps) {
-    if (steps == 0) return;
-    gpioWrite(directionPin, steps > 0 ? 1 : 0);
+    if (steps == 0) { return; }
+    Gpio::instance().write(directionPin, steps > 0 ? 1 : 0);
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    for (int i = 0; i < std::abs(steps); ++i) pulse(stepPin);
+    for (int i = 0; i < std::abs(steps); ++i) { pulse(stepPin); }
 }
 
 PanTltStepper::PanTltStepper() {
-    initialized_ = gpioInitialise() >= 0;
-    if (!initialized_) return;
+    initialized_ = Gpio::instance().initialize() >= 0;
+    if (!initialized_) { return; }
 
-    gpioSetMode(PIN_STEP_PAN, PI_OUTPUT);
-    gpioSetMode(PIN_DIR_PAN,  PI_OUTPUT);
-    gpioSetMode(PIN_ENA_PAN,  PI_OUTPUT);
+    Gpio::instance().setMode(PIN_STEP_PAN, GpioMode::output);
+    Gpio::instance().setMode(PIN_DIR_PAN,  GpioMode::output);
+    Gpio::instance().setMode(PIN_ENA_PAN,  GpioMode::output);
 
-    gpioSetMode(PIN_STEP_TLT, PI_OUTPUT);
-    gpioSetMode(PIN_DIR_TLT,  PI_OUTPUT);
-    gpioSetMode(PIN_ENA_TLT,  PI_OUTPUT);
+    Gpio::instance().setMode(PIN_STEP_TLT, GpioMode::output);
+    Gpio::instance().setMode(PIN_DIR_TLT,  GpioMode::output);
+    Gpio::instance().setMode(PIN_ENA_TLT,  GpioMode::output);
 
     // Для більшості DM542: ENA LOW = enabled, але перевір по своєму драйверу.
-    gpioWrite(PIN_ENA_PAN, 0);
-    gpioWrite(PIN_ENA_TLT, 0);
+    Gpio::instance().write(PIN_ENA_PAN, 0);
+    Gpio::instance().write(PIN_ENA_TLT, 0);
 
 }
 
@@ -77,7 +77,9 @@ void PanTltStepper::move(int pan, int tlt, Info& info) {
 }
 
 #if RUN_PROBE
-    int main() {
+    const std::string ON_MAIN = "on main(): ";
+
+int main() {
         return EXIT_SUCCESS;
     }
 #endif

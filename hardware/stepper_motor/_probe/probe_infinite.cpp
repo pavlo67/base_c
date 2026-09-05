@@ -9,15 +9,15 @@
 constexpr int STEP_DELAY_US = 605;
 
 void pulse() {
-    gpioWrite(PIN_STEP, 1);
+    Gpio::instance().write(PIN_STEP, 1);
     usleep(PULSE_HIGH_US_MIN);
-    gpioWrite(PIN_STEP, 0);
+    Gpio::instance().write(PIN_STEP, 0);
     usleep(STEP_DELAY_US);
 }
 
 void moveSeries(int steps) {
     bool dir = steps >= 0;
-    gpioWrite(PIN_DIR, dir ? 1 : 0);
+    Gpio::instance().write(PIN_DIR, dir ? 1 : 0);
     usleep(5);
 
     for (int i = 0; i < std::abs(steps); ++i) {
@@ -28,17 +28,19 @@ void moveSeries(int steps) {
     }
 }
 
+const std::string ON_MAIN = "on main(): ";
+
 int main() {
-    if (gpioInitialise() < 0) {
-        std::cerr << "pigpio init failed\n";
+    if (Gpio::instance().initialize() < 0) {
+        std::cerr << ON_MAIN << "GPIO initialization failed\n";
         return 1;
     }
 
-    gpioSetMode(PIN_STEP, PI_OUTPUT);
-    gpioSetMode(PIN_DIR,  PI_OUTPUT);
-    gpioSetMode(PIN_ENA,  PI_OUTPUT);
+    Gpio::instance().setMode(PIN_STEP, GpioMode::output);
+    Gpio::instance().setMode(PIN_DIR,  GpioMode::output);
+    Gpio::instance().setMode(PIN_ENA,  GpioMode::output);
 
-    gpioWrite(PIN_ENA, 0); // Для більшості DM542: ENA LOW = enabled
+    Gpio::instance().write(PIN_ENA, 0); // Для більшості DM542: ENA LOW = enabled
     usleep(500);
 
     int i = 0;
@@ -51,8 +53,8 @@ int main() {
     }
 
 
-    gpioWrite(PIN_ENA, 1);   // stop / disable
+    Gpio::instance().write(PIN_ENA, 1);   // stop / disable
 
-    gpioTerminate();
+    Gpio::instance().terminate();
     return 0;
 }

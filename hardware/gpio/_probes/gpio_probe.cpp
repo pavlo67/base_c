@@ -8,9 +8,9 @@
 constexpr unsigned BLINK_DELAY_US = 5e5;
 
 void blink(int pin) {
-    gpioWrite(pin, 1);
+    Gpio::instance().write(pin, 1);
     usleep(BLINK_DELAY_US);
-    gpioWrite(pin, 0);
+    Gpio::instance().write(pin, 0);
     usleep(BLINK_DELAY_US);
 }
 
@@ -20,7 +20,7 @@ constexpr int BLINKS_CNT = 5;
 
 int main() {
 
-    if (gpioInitialise() < 0) {
+    if (Gpio::instance().initialize() < 0) {
         std::fprintf(stderr, "gpioInitialise() failed\n");
         return EXIT_FAILURE;
     }
@@ -29,7 +29,7 @@ int main() {
         int pin = PINS[pinI];
         printf("\npin: %d\n", pin);
 
-        gpioSetMode(pin, PI_OUTPUT);
+        Gpio::instance().setMode(pin, GpioMode::output);
 
         for (int i = 0; i < BLINKS_CNT; i++) {
             printf("%d\n", i);
@@ -37,7 +37,7 @@ int main() {
         }
     }
 
-    gpioTerminate();
+    Gpio::instance().terminate();
 
     printf("\nStopped\n");
     return EXIT_SUCCESS;

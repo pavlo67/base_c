@@ -195,7 +195,7 @@ void addServerHTTPHandler(HTTP_METHOD method, const std::string& route, ServerHT
         return;
     }
     httpRoutes.push_back({method, route, std::move(callback)});
-    printf("added HTTP handler: %d %s\n", method, route.c_str());
+    printf("added HTTP handler: %u %s\n", static_cast<unsigned int>(method), route.c_str());
 }
 
 const std::string ON_ADD_SERVER_WEBSOCKET_HANDLER = "on addServerWebSocketHandler(): ";

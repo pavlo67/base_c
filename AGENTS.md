@@ -42,6 +42,8 @@ Do not show diffs.
 
 ## Coding style
 
+Guard platform-specific code, including its headers, with platform preprocessor macros so it is active only on its target platform.
+
 Wherever possible, use error codes/messages instead of throwing exceptions.
 
 Don't use CLI-parameters in apps — define all parameters as constants in main.cpp.

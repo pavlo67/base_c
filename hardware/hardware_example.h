@@ -30,3 +30,4 @@ inline constexpr unsigned GPIO_PROBE_PWM_DURATION_MS = 1000;
 
 
 #endif //BASE_CPP_HARDWARE_H
+
