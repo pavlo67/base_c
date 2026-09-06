@@ -42,21 +42,23 @@ Do not show diffs.
 
 ## Coding style
 
+Wrap all if/for/while single-operator bodies into curly braces, for example:
+
+    if (<CONDITION>) { continue; }
+
 All class member field names shoud be finished with underscore: for.ex. "original_"
 
 Guard platform-specific code, including its headers, with platform preprocessor macros so it is active only on its target platform.
 
+Wrap error outputs as described in `_docs/common_rules.md`.
+
 Wherever possible, use error codes/messages instead of throwing exceptions.
+
+Use only fatal assertions in tests (ASSERT_... in GTest, not EXPECT_..)
 
 Don't use CLI-parameters in apps — define all parameters as constants in main.cpp.
 
 Function main() in main.cpp should be written first — after includes, constants, types, static variables and helper declarations (without bodies), of course.
-
-Wrap error outputs as described in `_docs/common_rules.md`.
-
-Wrap all if/for/while single-operator bodies into curly braces, for example:
-
-    if (<CONDITION>) { continue; }
 
 All csv-files must be stored with .xls-extension
 

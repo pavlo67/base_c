@@ -62,7 +62,10 @@ int Gpio::setMode(unsigned pin, GpioMode requested) {
         }
     }
     auto& state = pins_[pin];
-    if (state.configured && state.mode == requested) { return 0; }
+    if (state.configured && state.mode == requested) {
+        if (requested == GpioMode::output && state.pwm.enabled) { return setEnabled(pin, false); }
+        return 0;
+    }
     if (state.pwm.enabled) {
         const int result = setEnabled(pin, false);
         if (result < 0) { return result; }
@@ -146,4 +149,3 @@ int Gpio::setEnabled(unsigned pin, bool enabled) {
     if (!enabled && !pins_[pin].pwm.enabled && pins_[pin].mode != GpioMode::hardwarePwm) { return writeLevel(pin, 0); }
     return update(pin, settings);
 }
-

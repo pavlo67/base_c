@@ -53,12 +53,12 @@ TEST(PwmSysfsTest, ConvertsRatioAndReducesDutyBeforeShorteningPeriod) {
     PwmSysfs pwm(io);
     ASSERT_EQ(pwm.claim(12, 0), 0);
     ASSERT_EQ(pwm.apply(0, {100, 75, 100, true}), 0);
-    EXPECT_EQ(io.files["chip/pwm0/period"], "10000000");
-    EXPECT_EQ(io.files["chip/pwm0/duty_cycle"], "7500000");
+    ASSERT_EQ(io.files["chip/pwm0/period"], "10000000");
+    ASSERT_EQ(io.files["chip/pwm0/duty_cycle"], "7500000");
     ASSERT_EQ(pwm.apply(0, {100, 25, 1000, true}), 0);
-    EXPECT_EQ(io.files["chip/pwm0/period"], "1000000");
-    EXPECT_EQ(io.files["chip/pwm0/duty_cycle"], "250000");
-    EXPECT_EQ(pwm.close(), 0);
+    ASSERT_EQ(io.files["chip/pwm0/period"], "1000000");
+    ASSERT_EQ(io.files["chip/pwm0/duty_cycle"], "250000");
+    ASSERT_EQ(pwm.close(), 0);
 }
 
 TEST(PwmSysfsTest, OffHoldsLowAndFullDutyIsSupported) {
@@ -66,42 +66,42 @@ TEST(PwmSysfsTest, OffHoldsLowAndFullDutyIsSupported) {
     PwmSysfs pwm(io);
     ASSERT_EQ(pwm.claim(18, 2), 0);
     ASSERT_EQ(pwm.apply(2, {50, 50, 2000, true}), 0);
-    EXPECT_EQ(io.files["chip/pwm2/duty_cycle"], "500000");
+    ASSERT_EQ(io.files["chip/pwm2/duty_cycle"], "500000");
     ASSERT_EQ(pwm.apply(2, {50, 50, 2000, false}), 0);
-    EXPECT_EQ(io.files["chip/pwm2/duty_cycle"], "0");
-    EXPECT_EQ(io.files["chip/pwm2/enable"], "1");
-    EXPECT_EQ(pwm.close(), 0);
-    EXPECT_FALSE(io.files.contains("chip/pwm2/enable"));
+    ASSERT_EQ(io.files["chip/pwm2/duty_cycle"], "0");
+    ASSERT_EQ(io.files["chip/pwm2/enable"], "1");
+    ASSERT_EQ(pwm.close(), 0);
+    ASSERT_FALSE(io.files.contains("chip/pwm2/enable"));
 }
 
 TEST(PwmSysfsTest, DoesNotAdoptOrReleaseSomeoneElsesChannel) {
     FakePwmSysfsIo io;
     io.files["chip/pwm0/enable"] = "1";
     PwmSysfs pwm(io);
-    EXPECT_EQ(pwm.claim(12, 0), Gpio::CHANNEL_BUSY);
-    EXPECT_EQ(pwm.close(), 0);
-    EXPECT_EQ(io.files["chip/pwm0/enable"], "1");
-    EXPECT_EQ(io.writes.size(), 1u);
+    ASSERT_EQ(pwm.claim(12, 0), Gpio::CHANNEL_BUSY);
+    ASSERT_EQ(pwm.close(), 0);
+    ASSERT_EQ(io.files["chip/pwm0/enable"], "1");
+    ASSERT_EQ(io.writes.size(), 1u);
 }
 
 TEST(PwmSysfsTest, RejectsMissingRoutesAndChannelsWithoutWrites) {
     FakePwmSysfsIo io;
     PwmSysfs pwm(io);
-    EXPECT_EQ(pwm.claim(17, 0), Gpio::PWM_NOT_CONFIGURED);
-    EXPECT_EQ(pwm.claim(12, 4), Gpio::NOT_SUPPORTED);
+    ASSERT_EQ(pwm.claim(17, 0), Gpio::PWM_NOT_CONFIGURED);
+    ASSERT_EQ(pwm.claim(12, 4), Gpio::NOT_SUPPORTED);
     io.files["chip/npwm"] = "2";
-    EXPECT_EQ(pwm.claim(18, 2), Gpio::NOT_SUPPORTED);
-    EXPECT_TRUE(io.writes.empty());
+    ASSERT_EQ(pwm.claim(18, 2), Gpio::NOT_SUPPORTED);
+    ASSERT_TRUE(io.writes.empty());
 }
 
 TEST(PwmSysfsTest, FailedSetupUnexportsAndAllowsRetry) {
     FakePwmSysfsIo io;
     io.failPath = "chip/pwm0/polarity";
     PwmSysfs pwm(io);
-    EXPECT_EQ(pwm.claim(12, 0), -EIO);
-    EXPECT_FALSE(io.files.contains("chip/pwm0/enable"));
+    ASSERT_EQ(pwm.claim(12, 0), -EIO);
+    ASSERT_FALSE(io.files.contains("chip/pwm0/enable"));
     ASSERT_EQ(pwm.claim(12, 0), 0);
-    EXPECT_EQ(pwm.close(), 0);
+    ASSERT_EQ(pwm.close(), 0);
 }
 
 TEST(PwmSysfsTest, FailedUpdateAttemptsLowAndCanBeRetried) {
@@ -110,10 +110,10 @@ TEST(PwmSysfsTest, FailedUpdateAttemptsLowAndCanBeRetried) {
     ASSERT_EQ(pwm.claim(12, 0), 0);
     ASSERT_EQ(pwm.apply(0, {100, 50, 1000, true}), 0);
     io.failPath = "chip/pwm0/period";
-    EXPECT_EQ(pwm.apply(0, {100, 25, 2000, true}), -EIO);
-    EXPECT_EQ(io.files["chip/pwm0/duty_cycle"], "0");
-    EXPECT_EQ(pwm.apply(0, {100, 25, 2000, true}), 0);
-    EXPECT_EQ(pwm.close(), 0);
+    ASSERT_EQ(pwm.apply(0, {100, 25, 2000, true}), -EIO);
+    ASSERT_EQ(io.files["chip/pwm0/duty_cycle"], "0");
+    ASSERT_EQ(pwm.apply(0, {100, 25, 2000, true}), 0);
+    ASSERT_EQ(pwm.close(), 0);
 }
 
 TEST(PwmSysfsTest, ReleaseFailureRetainsOwnershipForRetry) {
@@ -121,10 +121,10 @@ TEST(PwmSysfsTest, ReleaseFailureRetainsOwnershipForRetry) {
     PwmSysfs pwm(io);
     ASSERT_EQ(pwm.claim(12, 0), 0);
     io.failPath = "chip/unexport";
-    EXPECT_EQ(pwm.close(), -EIO);
-    EXPECT_EQ(pwm.claim(12, 0), Gpio::CHANNEL_BUSY);
-    EXPECT_EQ(pwm.close(), 0);
-    EXPECT_FALSE(io.files.contains("chip/pwm0/enable"));
+    ASSERT_EQ(pwm.close(), -EIO);
+    ASSERT_EQ(pwm.claim(12, 0), Gpio::CHANNEL_BUSY);
+    ASSERT_EQ(pwm.close(), 0);
+    ASSERT_FALSE(io.files.contains("chip/pwm0/enable"));
 }
 
 #include <filesystem>
@@ -153,7 +153,7 @@ protected:
         if (!root.empty()) {
             std::error_code error;
             std::filesystem::remove_all(root, error);
-            EXPECT_FALSE(error);
+            ASSERT_FALSE(error);
         }
     }
     void put(const std::filesystem::path& path, const std::string& bytes) {
@@ -169,10 +169,10 @@ TEST_F(PwmDeviceTreeTest, FindsRenumberedChipWithRp1PinStrings) {
     put(group / "function", std::string("pwm0\0", 5));
     Rpi5PwmSysfsIo io((root / "pwm").string(), (root / "tree").string());
     std::string chip;
-    EXPECT_EQ(io.findChip(12, chip), 0);
-    EXPECT_EQ(chip, (root / "pwm/pwmchip7").string());
-    EXPECT_EQ(io.findChip(1, chip), Gpio::PWM_NOT_CONFIGURED);
-    EXPECT_EQ(io.findChip(18, chip), Gpio::PWM_NOT_CONFIGURED);
+    ASSERT_EQ(io.findChip(12, chip), 0);
+    ASSERT_EQ(chip, (root / "pwm/pwmchip7").string());
+    ASSERT_EQ(io.findChip(1, chip), Gpio::PWM_NOT_CONFIGURED);
+    ASSERT_EQ(io.findChip(18, chip), Gpio::PWM_NOT_CONFIGURED);
 }
 
 TEST_F(PwmDeviceTreeTest, ChecksLegacyPinFunctionAndReferencedPhandle) {
@@ -181,12 +181,12 @@ TEST_F(PwmDeviceTreeTest, ChecksLegacyPinFunctionAndReferencedPhandle) {
     put(group / "brcm,function", std::string("\0\0\0\x02", 4));
     Rpi5PwmSysfsIo io((root / "pwm").string(), (root / "tree").string());
     std::string chip;
-    EXPECT_EQ(io.findChip(18, chip), 0);
+    ASSERT_EQ(io.findChip(18, chip), 0);
     put(group / "brcm,function", std::string("\0\0\0\x04", 4));
-    EXPECT_EQ(io.findChip(18, chip), Gpio::PWM_NOT_CONFIGURED);
+    ASSERT_EQ(io.findChip(18, chip), Gpio::PWM_NOT_CONFIGURED);
     put(group / "brcm,function", std::string("\0\0\0\x02", 4));
     put(node / "pinctrl-0", std::string("\0\0\0\x43", 4));
-    EXPECT_EQ(io.findChip(18, chip), Gpio::PWM_NOT_CONFIGURED);
+    ASSERT_EQ(io.findChip(18, chip), Gpio::PWM_NOT_CONFIGURED);
 }
 
 TEST_F(PwmDeviceTreeTest, DoesNotSelectFanController) {
@@ -198,5 +198,5 @@ TEST_F(PwmDeviceTreeTest, DoesNotSelectFanController) {
     std::filesystem::create_directory_symlink(root / "tree/rp1/pwm@9c000", root / "pwm/pwmchip7/device/of_node");
     Rpi5PwmSysfsIo io((root / "pwm").string(), (root / "tree").string());
     std::string chip;
-    EXPECT_EQ(io.findChip(12, chip), Gpio::PWM_NOT_CONFIGURED);
+    ASSERT_EQ(io.findChip(12, chip), Gpio::PWM_NOT_CONFIGURED);
 }
