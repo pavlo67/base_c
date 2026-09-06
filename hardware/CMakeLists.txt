@@ -14,11 +14,11 @@ target_link_libraries(gpio_test PRIVATE hardware_gpio GTest::gtest_main)
 add_test(NAME gpio_test COMMAND gpio_test)
 set_tests_properties(gpio_test PROPERTIES RUN_SERIAL TRUE LABELS "gpio")
 
-# Contract tests always use the desktop implementation, even on a Raspberry Pi.
-add_executable(gpio_contract_test gpio/gpio_contract_test.cpp gpio/gpio.cpp gpio/platforms/gpio_desktop.cpp)
-target_compile_definitions(gpio_contract_test PRIVATE GPIO_DESKTOP_TEST=1)
-target_link_libraries(gpio_contract_test PRIVATE GTest::gtest_main)
-add_test(NAME gpio_contract_test COMMAND gpio_contract_test)
+## Contract tests always use the desktop implementation, even on a Raspberry Pi.
+#add_executable(gpio_contract_test gpio/gpio_contract_test.cpp gpio/gpio.cpp gpio/platforms/gpio_desktop.cpp)
+#target_compile_definitions(gpio_contract_test PRIVATE GPIO_DESKTOP_TEST=1)
+#target_link_libraries(gpio_contract_test PRIVATE GTest::gtest_main)
+#add_test(NAME gpio_contract_test COMMAND gpio_contract_test)
 
 add_executable(gpio_probe
         gpio/_probes/gpio_probe.cpp

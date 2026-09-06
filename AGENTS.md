@@ -42,6 +42,8 @@ Do not show diffs.
 
 ## Coding style
 
+All class member field names shoud be finished with underscore: for.ex. "original_"
+
 Guard platform-specific code, including its headers, with platform preprocessor macros so it is active only on its target platform.
 
 Wherever possible, use error codes/messages instead of throwing exceptions.

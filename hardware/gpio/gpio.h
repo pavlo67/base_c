@@ -8,15 +8,17 @@ enum class GpioPwmLayout { rpi4, rpi5 };
 int gpioHardwarePwmChannel(unsigned pin, GpioPwmLayout layout);
 
 struct PwmSettings {
-    unsigned range = 100;
-    unsigned duty = 0;
+    unsigned range     = 100;
+    unsigned duty      = 0;
     unsigned frequency = 1000; // Requested Hz; backend may quantize.
-    bool enabled = false;
+    bool     enabled   = false;
 };
 
 class Gpio {
 public:
     static constexpr unsigned PIN_COUNT = 28; // BCM GPIO0..27, not header positions.
+
+    static constexpr int SUCCESS = 0;
     static constexpr int INVALID_ARGUMENT = -10000;
     static constexpr int NOT_INITIALIZED = -10001;
     static constexpr int WRONG_MODE = -10002;

@@ -1,4 +1,4 @@
-#include "../pwm_sysfs.h"
+#include "pwm_sysfs.h"
 #include <cerrno>
 #include <charconv>
 #include <chrono>
