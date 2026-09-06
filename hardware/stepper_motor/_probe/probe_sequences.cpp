@@ -37,7 +37,7 @@ void moveSeries(const StepperMotorSeries& series, stepper_motor_options_t steppe
     float accelErrorMax = 0;
     float intervalPrev  = series.initialSpeedDegPerSec_ < EPS ? 0 :  STEPPER_OPTS.degPulse / series.initialSpeedDegPerSec_;
 
-    for (uint64_t pulseIndex = 0; pulseIndex < series.pulseCount_; ++pulseIndex) {
+    for (uint64_t pulseIndex = 0; pulseIndex < series.expectedPulsesCount_; ++pulseIndex) {
         const float intervalSec  = series.intervalSec(pulseIndex, STEPPER_OPTS);
 
         pulse(intervalSec);

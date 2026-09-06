@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "lib/timelib.h"
+
 const float RESULT_EPS_RATIO = 0.01;
 const float SPEED_EPS        = 0.01;
 const float ACCELERATION_EPS = 0.01;
@@ -41,20 +43,20 @@ class StepperMotorSeries {
 public:
 
     StepperMotorSeries(
-        uint64_t pulseCount,  float firstSpeedDegPerSec,  float lastSpeedDegPerSec,  bool directionForward, const stepper_motor_options_t& stepperOpts,
+        uint64_t pulsesCount, float firstSpeedDegPerSec,  float lastSpeedDegPerSec,  bool directionForward, const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION
     );
 
     [[nodiscard]] float intervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) const;
     [[nodiscard]] float finalSpeed(const stepper_motor_options_t& stepperOpts) const;
     [[nodiscard]] float totalRotationDeg(const stepper_motor_options_t& stepperOpts) const;
-    // [[nodiscard]] float totalSec(const stepper_motor_options_t& stepperOpts) const;
+    [[nodiscard]] float totalSec(const stepper_motor_options_t& stepperOpts) const;
 
     void log(const stepper_motor_options_t& stepperOpts, const char* verboseLabel) const {
-        printf("\n%s: pulseCount           : %5lu\n",  verboseLabel, pulseCount_);
+        printf("\n%s: pulseCount           : %5lu\n",  verboseLabel, expectedPulsesCount_);
         printf("%s: initialSpeedDegPerSec  : %9.3f\n", verboseLabel, initialSpeedDegPerSec_);
         printf("%s: totalRotationDeg       : %9.3f\n", verboseLabel, totalRotationDeg(stepperOpts));
-        // printf("%s: totalSec               : %9.3f\n", verboseLabel, totalSec(stepperOpts));
+        printf("%s: totalSec               : %9.3f\n", verboseLabel, totalSec(stepperOpts));
         printf("%s: finalSpeed             : %9.3f\n", verboseLabel, finalSpeed(stepperOpts));
         printf("%s: directionForward       : %5d\n",   verboseLabel, directionForward_);
         printf("%s: intervalAlgorithm      : %5d\n",   verboseLabel, intervalAlgorithm_);
@@ -67,7 +69,9 @@ public:
     // removed "private" to simplify tests
     // private:
 
-    uint64_t pulseCount_          = 0;
+    uint64_t expectedPulsesCount_  = 0;
+    uint64_t pulsesCount_          = 0;
+    moment   lastPulseAt_          = 0;
     float initialSpeedDegPerSec_  = 0.0;    // signed deg/s
     float accelerationDegPerSec2_ = 0.0;    // signed deg/s^2
     float initialIntervalSec_     = 0.0;    // fallback only

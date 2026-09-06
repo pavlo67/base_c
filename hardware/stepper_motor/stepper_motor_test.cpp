@@ -41,13 +41,13 @@ void testSeries(const StepperMotorSeries& series, float totalRotationDegExpected
         ASSERT_NEAR(series.totalRotationDeg(stepperOpts), totalRotationDegExpected, std::max(stepperOpts.degPulse, totalRotationDegExpected * RESULT_EPS_RATIO));
     }
 
-    if (series.pulseCount_ > 1) {
+    if (series.expectedPulsesCount_ > 1) {
         if (series.finalSpeed(stepperOpts) > series.initialSpeedDegPerSec_) {
-            ASSERT_LT(series.intervalSec(series.pulseCount_ - 1, STEPPER_OPTS), series.intervalSec(0, STEPPER_OPTS));
+            ASSERT_LT(series.intervalSec(series.expectedPulsesCount_ - 1, STEPPER_OPTS), series.intervalSec(0, STEPPER_OPTS));
         } else if (series.finalSpeed(stepperOpts) < series.initialSpeedDegPerSec_) {
-            ASSERT_GT(series.intervalSec(series.pulseCount_ - 1, STEPPER_OPTS), series.intervalSec(0, STEPPER_OPTS));
+            ASSERT_GT(series.intervalSec(series.expectedPulsesCount_ - 1, STEPPER_OPTS), series.intervalSec(0, STEPPER_OPTS));
         } else {
-            ASSERT_NEAR(series.intervalSec(series.pulseCount_ - 1, STEPPER_OPTS), series.intervalSec(0, STEPPER_OPTS), EPS);
+            ASSERT_NEAR(series.intervalSec(series.expectedPulsesCount_ - 1, STEPPER_OPTS), series.intervalSec(0, STEPPER_OPTS), EPS);
         }
     }
 
@@ -55,7 +55,7 @@ void testSeries(const StepperMotorSeries& series, float totalRotationDegExpected
     float accelErrorMax = 0;
     float intervalPrev  = series.initialSpeedDegPerSec_ < EPS ? 0 :  STEPPER_OPTS.degPulse / series.initialSpeedDegPerSec_;
 
-    for (uint64_t pulseIndex = 0; pulseIndex < series.pulseCount_; ++pulseIndex) {
+    for (uint64_t pulseIndex = 0; pulseIndex < series.expectedPulsesCount_; ++pulseIndex) {
         const float intervalSec = series.intervalSec(pulseIndex, STEPPER_OPTS);
         const float nextSpeed   = 2.0F * STEPPER_OPTS.degPulse / intervalSec - speed;
         const float accel       = std::abs(intervalSec - intervalPrev) <= EPS ? 0

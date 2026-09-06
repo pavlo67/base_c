@@ -2,26 +2,27 @@
 #include "lib/mathlib.h"
 
 StepperMotorSeries::StepperMotorSeries(
-    uint64_t pulseCount, float firstSpeedDegPerSec, float lastSpeedDegPerSec, bool directionForward,
+    uint64_t pulsesCount, float firstSpeedDegPerSec, float lastSpeedDegPerSec, bool directionForward,
     const stepper_motor_options_t& stepperOpts, stepper_motor_algorithm_t intervalAlgorithm
 ) {
 
     // printf("pulseCount: %d, firstSpeedDegPerSec: %f, lastSpeedDegPerSec: %f, directionForward: %d\n", pulseCount, firstSpeedDegPerSec, lastSpeedDegPerSec, directionForward);
 
-    pulseCount_            = pulseCount;
+    expectedPulsesCount_   = pulsesCount;
+    pulsesCount_           = 0;
     intervalAlgorithm_     = intervalAlgorithm;
     initialSpeedDegPerSec_ = firstSpeedDegPerSec;
     directionForward_      = directionForward;
 
-    if (pulseCount_ == 0) {
+    if (expectedPulsesCount_ == 0) {
         return;
     } else if ((directionForward && (firstSpeedDegPerSec < 0 || lastSpeedDegPerSec < 0))
            || (!directionForward && (firstSpeedDegPerSec > 0 || lastSpeedDegPerSec > 0))) {
-        pulseCount_ = 0;
+        expectedPulsesCount_ = 0;
         return;
     }
 
-    const float distanceDeg = static_cast<float>(pulseCount) * stepperOpts.degPulse;
+    const float distanceDeg = static_cast<float>(pulsesCount) * stepperOpts.degPulse;
     accelerationDegPerSec2_ = distanceDeg > 0.0F
                             ? (lastSpeedDegPerSec * lastSpeedDegPerSec - initialSpeedDegPerSec_ * initialSpeedDegPerSec_) / (2.0F * distanceDeg)
                             : 0.0F;
@@ -30,16 +31,16 @@ StepperMotorSeries::StepperMotorSeries(
     const float lastIntervalSec = stepperOpts.pulseInterval(lastSpeedDegPerSec);
 
     initialIntervalSec_ = stepperOpts.pulseInterval(fallbackInitialSpeed);
-    intervalChangePerPulse_ = pulseCount > 1 ? (lastIntervalSec - initialIntervalSec_) / static_cast<float>(pulseCount - 1) : 0.0F;
+    intervalChangePerPulse_ = pulsesCount > 1 ? (lastIntervalSec - initialIntervalSec_) / static_cast<float>(pulsesCount - 1) : 0.0F;
 }
 
 float StepperMotorSeries::totalRotationDeg(const stepper_motor_options_t& stepperOpts) const {
     const float direction = directionForward_ ? 1.0F : -1.0F;
-    return direction * static_cast<float>(pulseCount_) * stepperOpts.degPulse;
+    return direction * static_cast<float>(expectedPulsesCount_) * stepperOpts.degPulse;
 }
 
 float StepperMotorSeries::intervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) const {
-    if (pulseIndex >= pulseCount_) {
+    if (pulseIndex >= expectedPulsesCount_) {
         return 0.0F;
     }
 
@@ -63,29 +64,28 @@ float StepperMotorSeries::intervalSec(uint64_t pulseIndex, const stepper_motor_o
     return speedSum > EPS ? 2.0F * stepperOpts.degPulse / speedSum : 0.0F;
 }
 
-// float StepperMotorSeries::totalSec(const stepper_motor_options_t& stepperOpts) const {
-//     float t = 0;
-//     for (uint64_t pulseIndex = 0; pulseIndex < pulseCount_; ++pulseIndex) {
-//         t += intervalSec(pulseIndex, stepperOpts);
-//     }
-//     return t;
-// }
-
+float StepperMotorSeries::totalSec(const stepper_motor_options_t& stepperOpts) const {
+    float t = 0;
+    for (uint64_t pulseIndex = 0; pulseIndex < expectedPulsesCount_; ++pulseIndex) {
+        t += intervalSec(pulseIndex, stepperOpts);
+    }
+    return t;
+}
 
 float StepperMotorSeries::finalSpeed(const stepper_motor_options_t& stepperOpts) const {
-    if (pulseCount_ == 0) {
+    if (expectedPulsesCount_ == 0) {
         return 0.0F;
     }
 
     float speed = 0.0F;
     if (intervalAlgorithm_ == LINEAR_INTERVAL_ACCELERATION) {
-        const float lastInterval = intervalSec(pulseCount_ - 1, stepperOpts);
+        const float lastInterval = intervalSec(expectedPulsesCount_ - 1, stepperOpts);
         if (!isFinitePositive(lastInterval)) {
             return 0.0F;
         }
         speed = stepperOpts.degPulse / lastInterval;
     } else {
-        const float distanceDeg = static_cast<float>(pulseCount_) * stepperOpts.degPulse;
+        const float distanceDeg = static_cast<float>(expectedPulsesCount_) * stepperOpts.degPulse;
         const float speedSquared = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * distanceDeg;
         if (speedSquared < -EPS) {
             return 0.0F;
@@ -97,8 +97,8 @@ float StepperMotorSeries::finalSpeed(const stepper_motor_options_t& stepperOpts)
 }
 
 void StepperMotorSeries::limitWithDeg(float targetDeg, const stepper_motor_options_t& stepperOpts) {
-    pulseCount_ = stepperOpts.pulsesForDeg(targetDeg, directionForward_);
-    if (pulseCount_ == 0) {
+    expectedPulsesCount_ = stepperOpts.pulsesForDeg(targetDeg, directionForward_);
+    if (expectedPulsesCount_ == 0) {
         accelerationDegPerSec2_ = 0;
     }
 }
