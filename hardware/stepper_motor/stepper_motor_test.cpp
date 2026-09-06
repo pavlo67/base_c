@@ -11,7 +11,7 @@
 
 #include "lib/mathlib.h"
 
-const stepper_options_t STEPPER_OPTS {
+const stepper_motor_options_t STEPPER_OPTS {
     .freqMax         = FREQ_MAX_DEFAULT,
     .degPulse        = DEG_PULSE_DEFAULT,
     .speedMaxDegSec  = SPEED_MAX_DEG_SEC,
@@ -26,7 +26,7 @@ const float LIMIT2            =  2.25F;
 const float TARGET_CHANGE_DEG = 91.0F;
 
 
-void testSeries(const StepperSeries& series, float totalRotationDegExpected, float finalSpeedDegPerSecExpected, bool directionForwardExpected, stepper_options_t stepperOpts, interval_algorithm_t intervalAlgorithm, const std::string& verboseLabel) {
+void testSeries(const StepperMotorSeries& series, float totalRotationDegExpected, float finalSpeedDegPerSecExpected, bool directionForwardExpected, stepper_motor_options_t stepperOpts, stepper_motor_algorithm_t intervalAlgorithm, const std::string& verboseLabel) {
     if (!verboseLabel.empty()) {
         series.log(stepperOpts, verboseLabel.c_str());
     }
@@ -83,7 +83,7 @@ void testResult(float calculatedTotalRotationDeg) {
 }
 
 TEST(stepper_motor_test, stepper_motor_test) {
-    const StepperSeries seriesExact = getFastestSeries(INITIAL_SPEED, FINAL_SPEED, STEPPER_OPTS,CONSTANT_ACCELERATION);
+    const StepperMotorSeries seriesExact = getFastestSeries(INITIAL_SPEED, FINAL_SPEED, STEPPER_OPTS,CONSTANT_ACCELERATION);
     testSeries(seriesExact, NAN, FINAL_SPEED, DIRECTION_FORWARD, STEPPER_OPTS, CONSTANT_ACCELERATION, "exact");
 
     // const PulseSeries fallback = getFastestSeries(INITIAL_SPEED, FINAL_SPEED, STEPPER_OPTS, LINEAR_INTERVAL_ACCELERATION);
@@ -94,21 +94,21 @@ TEST(stepper_motor_test, stepper_motor_test) {
     // assert(fallback.pulseCount_ == exact.pulseCount_);
     // assert(fallbackAccelErrorMax >= exactAccelErrorMax);
 
-    StepperSeries seriesLimit1 = seriesExact;
+    StepperMotorSeries seriesLimit1 = seriesExact;
     seriesLimit1.limitWithDeg(LIMIT1, STEPPER_OPTS);
     testSeries(seriesLimit1, 0, NAN, DIRECTION_FORWARD, STEPPER_OPTS, seriesExact.intervalAlgorithm_, "limit1");
 
-    StepperSeries seriesLimit2 = seriesExact;
+    StepperMotorSeries seriesLimit2 = seriesExact;
     seriesLimit2.limitWithDeg(LIMIT2, STEPPER_OPTS);
     testSeries(seriesLimit2, LIMIT2, NAN, DIRECTION_FORWARD, STEPPER_OPTS, seriesExact.intervalAlgorithm_, "limit2");
 
-    const stepper_sequence_t sequenceCalculated = calculateSequence(0.0F, TARGET_CHANGE_DEG,0.0F, STEPPER_OPTS);
+    const stepper_motor_series_sequence_t sequenceCalculated = getSeriesSequence(0.0F, TARGET_CHANGE_DEG,0.0F, STEPPER_OPTS);
     assert(sequenceCalculated.error.empty());
-    assert(!sequenceCalculated.seriesSequence.empty());
+    assert(!sequenceCalculated.seq.empty());
 
     float calculatedTotalRotationDeg = 0.0F;
     int i = 0;
-    for (const StepperSeries& series : sequenceCalculated.seriesSequence) {
+    for (const StepperMotorSeries& series : sequenceCalculated.seq) {
         calculatedTotalRotationDeg += series.totalRotationDeg(STEPPER_OPTS);
         testSeries(series, NAN, NAN, TARGET_CHANGE_DEG >= 0, STEPPER_OPTS, CONSTANT_ACCELERATION, "calculated" + std::to_string(i++));
     }

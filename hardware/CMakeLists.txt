@@ -25,25 +25,11 @@ add_executable(gpio_probe
 )
 target_link_libraries(gpio_probe PRIVATE hardware_gpio)
 
-# -----------------------------------------------------
-
-add_executable(pan_tlt_probe
-        pan_tlt/pan_tlt_probe.cpp
-        pan_tlt/pan_tlt_stepper/pan_tlt_stepper.cpp
-        pan_tlt/pan_tlt_stepper/pan_tlt_stepper_cfg.cpp
-)
-target_link_libraries(pan_tlt_probe PRIVATE hardware_gpio)
-if(TARGET JsonCpp::JsonCpp)
-    target_link_libraries(pan_tlt_probe PRIVATE JsonCpp::JsonCpp)
-else()
-    target_link_libraries(pan_tlt_probe PRIVATE jsoncpp_lib)
-endif()
-
 # stepper_motor library -------------------------------
 
 add_library(stepper_motor
         stepper_motor/stepper_motor.cpp
-        stepper_motor/stepper_series.cpp
+        stepper_motor/stepper_motor_series.cpp
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)
 

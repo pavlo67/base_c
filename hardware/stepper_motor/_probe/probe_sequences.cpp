@@ -9,7 +9,7 @@
 #include "hardware/stepper_motor/stepper_motor.h"
 
 
-const stepper_options_t STEPPER_OPTS {
+const stepper_motor_options_t STEPPER_OPTS {
     .freqMax         = FREQ_MAX_DEFAULT,
     .degPulse        = DEG_PULSE_DEFAULT,
     .speedMaxDegSec  = SPEED_MAX_DEG_SEC,
@@ -25,7 +25,7 @@ void pulse(float intervalSec) {
     usleep(int(intervalSec * 1e6));
 }
 
-void moveSeries(const StepperSeries& series, stepper_options_t stepperOpts, const std::string& verboseLabel) {
+void moveSeries(const StepperMotorSeries& series, stepper_motor_options_t stepperOpts, const std::string& verboseLabel) {
     if (VERBOSE) {
         series.log(stepperOpts, verboseLabel.c_str());
     }
@@ -60,9 +60,9 @@ void moveSeries(const StepperSeries& series, stepper_options_t stepperOpts, cons
 
 int seriesI = 0;
 
-void move(const stepper_sequence_t& sequence) {
+void move(const stepper_motor_series_sequence_t& sequence) {
     float calculatedTotalRotationDeg = 0.0F;
-    for (const StepperSeries& series : sequence.seriesSequence) {
+    for (const StepperMotorSeries& series : sequence.seq) {
         calculatedTotalRotationDeg += series.totalRotationDeg(STEPPER_OPTS);
         moveSeries(series, STEPPER_OPTS, "series_" + std::to_string(seriesI++));
     }
@@ -83,9 +83,9 @@ int main() {
     Gpio::instance().write(PIN_ENA, 0); // Для більшості DM542: ENA LOW = enabled
     usleep(500);
 
-    move(calculateSequence(0.0F, 90,0.0F, STEPPER_OPTS));
-    move(calculateSequence(0.0F, -180,0.0F, STEPPER_OPTS));
-    move(calculateSequence(0.0F, 90,0.0F, STEPPER_OPTS));
+    move(getSeriesSequence(0.0F, 90,0.0F, STEPPER_OPTS));
+    move(getSeriesSequence(0.0F, -180,0.0F, STEPPER_OPTS));
+    move(getSeriesSequence(0.0F, 90,0.0F, STEPPER_OPTS));
 
     Gpio::instance().write(PIN_ENA, 1);   // stop / disable
     Gpio::instance().write(PIN_DIR, 0);

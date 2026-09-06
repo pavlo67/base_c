@@ -1,11 +1,3 @@
-# Pan/tilt hardware interface and desktop stub
-
-`PanTlt` is an abstract hardware interface for zeroing, absolute and relative movement, configuration load/save, and state display. It does not own or inherit file-backed `Config` state.
-
-`PanTltStepper` initializes the GPIO backend once. Initialization failure is retained as state and reported through `Info` by movement operations instead of throwing an exception. Relative movement drives the pan and tilt step/direction pin pairs independently and updates the stored positions; absolute movement delegates to relative movement. GPIO uses the shared `Gpio` abstraction. Desktop builds use a stateful stub, so digital writes can be read back without hardware. Raspberry Pi 4 uses pigpio and Raspberry Pi 5 uses lgpio.
-
-The minimal JSON configuration contains integer `pan` and `tilt` positions. Loading a non-object reports an error through `Info`; saving produces an object with both positions.
-
 ## GPIO
 
 `gpio/gpio.h` declares the abstract `Gpio` class. The `hardware_gpio` CMake target selects the implementation for the platform. `hardware.h` contains the programmer-selected BCM pin numbers for automatic digital tests and existing probe constants.
