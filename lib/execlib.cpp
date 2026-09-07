@@ -6,6 +6,7 @@
 
 #include "strlib.h"
 
+const std::string ON_EXEC = "on exec(): ";
 bool exec(const std::string& cmd, std::string* result) {
     std::array<char, 128> buffer = {};
 
@@ -13,7 +14,7 @@ bool exec(const std::string& cmd, std::string* result) {
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
 
     if (!pipe) {
-        fprintf(stderr, "execute(): can't open pipe for '%s'", cmd.c_str());
+        fprintf(stdout, "ERROR: %scan't open pipe for '%s'\n", ON_EXEC.c_str(), cmd.c_str());
         return false;
     }
 

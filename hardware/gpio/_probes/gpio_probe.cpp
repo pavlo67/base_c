@@ -21,7 +21,7 @@ constexpr int BLINKS_CNT = 5;
 int main() {
 
     if (Gpio::instance().initialize() < 0) {
-        std::fprintf(stderr, "gpioInitialise() failed\n");
+        std::fprintf(stdout, "ERROR: gpioInitialise() failed\n");
         return EXIT_FAILURE;
     }
 

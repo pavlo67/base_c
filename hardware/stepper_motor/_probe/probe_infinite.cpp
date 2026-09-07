@@ -32,7 +32,7 @@ const std::string ON_MAIN = "on main(): ";
 
 int main() {
     if (Gpio::instance().initialize() < 0) {
-        std::cerr << ON_MAIN << "GPIO initialization failed\n";
+        std::cout << "ERROR: " << ON_MAIN << "GPIO initialization failed\n";
         return 1;
     }
 

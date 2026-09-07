@@ -54,6 +54,8 @@ Wrap error outputs as described in `_docs/common_rules.md`.
 
 Wherever possible, use error codes/messages instead of throwing exceptions.
 
+Don't use stderr (std::cerr), let all error messages go to stdout with prefix "ERROR".  
+
 Use only fatal assertions in tests (ASSERT_... in GTest, not EXPECT_..)
 
 Don't use CLI-parameters in apps — define all parameters as constants in main.cpp.

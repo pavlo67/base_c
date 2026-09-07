@@ -4,12 +4,13 @@
 
 #include <filesystem>
 
+const std::string ON_JLIST_WRITE = "on jlistWrite(): ";
 bool jlistWrite(const std::string& filepath, const Json::Value& jv, bool addNewLine) {
     Json::FastWriter writer;
 
     FILE *fptr = fopen(filepath.c_str(), "a");
     if (fptr == nullptr) {
-        printf("jlistWrite(): can't open %s for appending", filepath.c_str());
+        printf("ERROR: %scan't open %s for appending", ON_JLIST_WRITE.c_str(), filepath.c_str());
         return false;
     }
 
@@ -19,12 +20,13 @@ bool jlistWrite(const std::string& filepath, const Json::Value& jv, bool addNewL
     return cnt > 0 ;
 }
 
+const std::string ON_JLIST_WRITE_ALL = "on jlistWriteAll(): ";
 bool jlistWriteAll(const std::string& filepath, const Json::Value& jvHeader, const Json::Value& jvList) {
     Json::FastWriter writer;
 
     FILE *fptr = fopen(filepath.c_str(), "w");
     if (fptr == nullptr) {
-        printf("jlistWriteAll(): can't open %s for writing", filepath.c_str());
+        printf("ERROR: %scan't open %s for writing", ON_JLIST_WRITE_ALL.c_str(), filepath.c_str());
         return false;
     }
 
@@ -47,6 +49,7 @@ bool jlistWriteAll(const std::string& filepath, const Json::Value& jvHeader, con
 }
 
 
+const std::string ON_JLIST_READ_ALL = "on jlistReadAll(): ";
 bool jlistReadAll(const std::string& filepath, Json::Value& jvHeader, Json::Value& jvList, bool ignoreErrors) {
     if (!std::filesystem::exists(filepath)) {
         return false;
@@ -68,11 +71,11 @@ bool jlistReadAll(const std::string& filepath, Json::Value& jvHeader, Json::Valu
         auto pos = line.find(J_KEY_DELIMITER);
         if (pos == J_HEADER_KEY.length() && line.substr(0, pos) == J_HEADER_KEY) {
             if (headerOk) {
-                printf("jlistRead(): header line duplicate is omitted / %s", line.c_str());
+                printf("ERROR: %sheader line duplicate is omitted / %s", ON_JLIST_READ_ALL.c_str(), line.c_str());
             } else if (reader.parse(line.substr(pos + J_KEY_DELIMITER.length()), jvHeader)) {
                 headerOk = true;
             } else {
-                printf("jlistRead(): header line is wrong / %s", line.c_str());
+                printf("ERROR: %sheader line is wrong / %s", ON_JLIST_READ_ALL.c_str(), line.c_str());
                 if (!ignoreErrors) {
                     return false;
                 }
@@ -84,7 +87,7 @@ bool jlistReadAll(const std::string& filepath, Json::Value& jvHeader, Json::Valu
                 // printf("parsed: %s --> jv_list.size(): %d\n", line.c_str(), jv_list.size());
 
             } else if (!line.empty()) {
-                printf("\ncan't parse jlist line #%d (of %lu total lines): '%s'\n\n", i, lines.size(), line.c_str());
+                printf("ERROR: %scan't parse jlist line #%d (of %lu total lines): '%s'\n\n", ON_JLIST_READ_ALL.c_str(), i, lines.size(), line.c_str());
                 if (!ignoreErrors) {
                     return false;
                 }
@@ -97,6 +100,7 @@ bool jlistReadAll(const std::string& filepath, Json::Value& jvHeader, Json::Valu
 }
 
 
+const std::string ON_JSON_READ = "on jsonRead(): ";
 bool jsonRead(const std::string& filepath, Json::Value& jv) {
     if (!std::filesystem::exists(filepath)) {
         return false;
@@ -110,21 +114,22 @@ bool jsonRead(const std::string& filepath, Json::Value& jv) {
         return true;
     }
 
-    printf("jsonRead(): can't read json (%s) from %s\n", json.c_str(), filepath.c_str());
+    printf("ERROR: %scan't read json (%s) from %s\n", ON_JSON_READ.c_str(), json.c_str(), filepath.c_str());
     return false;
 }
 
+const std::string ON_JSON_WRITE = "on jsonWrite(): ";
 bool jsonWrite(const std::string& filepath, const Json::Value& jv) {
     Json::FastWriter writer;
     auto jsonStr = writer.write(jv);
     FILE *fptr = fopen(filepath.c_str(), "w");
     if (fptr == nullptr) {
-        printf("jsonWrite(): can't create file: %s\n", filepath.c_str());
+        printf("ERROR: %scan't create file: %s\n", ON_JSON_WRITE.c_str(), filepath.c_str());
         return false;
     }
 
     if (fprintf(fptr, "%s", jsonStr.c_str()) < 1) {
-        printf("jsonWrite(): can't write (%s) into file: %s\n", jsonStr.c_str(), filepath.c_str());
+        printf("ERROR: %scan't write (%s) into file: %s\n", ON_JSON_WRITE.c_str(), jsonStr.c_str(), filepath.c_str());
         fclose(fptr);
         return false;
     }

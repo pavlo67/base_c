@@ -47,13 +47,22 @@ public:
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION
     );
 
-    [[nodiscard]] float intervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) const;
+    [[nodiscard]] float intervalSec(moment at, const stepper_motor_options_t& stepperOpts);
+    [[nodiscard]] float idealIntervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) const;
+    [[nodiscard]] float idealFinalSpeed(const stepper_motor_options_t& stepperOpts) const;
+    [[nodiscard]] float expectedRotationDeg(const stepper_motor_options_t& stepperOpts) const;
+    [[nodiscard]] float idealTotalSec(const stepper_motor_options_t& stepperOpts) const;
+    [[nodiscard]] float totalSec() const;
+    void reset();
     [[nodiscard]] float finalSpeed(const stepper_motor_options_t& stepperOpts) const;
     [[nodiscard]] float totalRotationDeg(const stepper_motor_options_t& stepperOpts) const;
     [[nodiscard]] float totalSec(const stepper_motor_options_t& stepperOpts) const;
 
     void log(const stepper_motor_options_t& stepperOpts, const char* verboseLabel) const {
-        printf("\n%s: pulseCount           : %5lu\n",  verboseLabel, expectedPulsesCount_);
+        printf("%s: pulsesCount            : %5lu\n",  verboseLabel, pulsesCount_);
+        printf("%s: expectedPulsesCount    : %5lu\n", verboseLabel, expectedPulsesCount_);
+        printf("%s: maxSpeedDegSec         : %9.3f\n", verboseLabel, maxSpeedDegSec_);
+        printf("%s: maxAccelerationDegSec2 : %9.3f\n", verboseLabel, maxAccelerationDegSec2_);
         printf("%s: initialSpeedDegPerSec  : %9.3f\n", verboseLabel, initialSpeedDegPerSec_);
         printf("%s: totalRotationDeg       : %9.3f\n", verboseLabel, totalRotationDeg(stepperOpts));
         printf("%s: totalSec               : %9.3f\n", verboseLabel, totalSec(stepperOpts));
@@ -71,7 +80,23 @@ public:
 
     uint64_t expectedPulsesCount_  = 0;
     uint64_t pulsesCount_          = 0;
+    uint64_t minimumPulsesCount_   = 0; // Complete a remaining angle at the last period.
+    moment   firstPulseAt_         = 0;
     moment   lastPulseAt_          = 0;
+    moment   startedAt_            = 0;
+    moment   observedAt_           = 0;
+    moment   nextPulseAt_          = 0;
+    moment   recalculateAfter_     = 0;
+    duration activeInterval_       = 0;
+    duration pendingInterval_      = 0;
+    duration lastInterval_         = 0;
+    uint64_t intervalIndex_        = 0;
+    bool started_                 = false;
+    bool finished_                = false;
+    bool repeatLastInterval_       = false;
+    std::function<void(moment)> onPulse_;
+    float maxSpeedDegSec_         = 0;
+    float maxAccelerationDegSec2_ = 0;
     float initialSpeedDegPerSec_  = 0.0;    // signed deg/s
     float accelerationDegPerSec2_ = 0.0;    // signed deg/s^2
     float initialIntervalSec_     = 0.0;    // fallback only
@@ -80,9 +105,11 @@ public:
     stepper_motor_algorithm_t intervalAlgorithm_ = CONSTANT_ACCELERATION;
 };
 
-struct stepper_motor_series_sequence_t {
+struct StepperMotorSeriesSequence {
     std::vector<StepperMotorSeries> seq;
     std::string error;
+
+    void log(const stepper_motor_options_t& stepperOpts, const char* label) const;
 };
 
 bool optionsIsOk(const stepper_motor_options_t& stepperOpts, std::string& error);
@@ -94,17 +121,29 @@ StepperMotorSeries getFastestSeries(
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
 
 bool addAcceleratedSeries(
-        stepper_motor_series_sequence_t& seriesSequence,
+        StepperMotorSeriesSequence& seriesSequence,
         float baseSpeedDegPerSec,
         float targetRotationDeg,
+        duration expecterInterval,
         const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
 
-stepper_motor_series_sequence_t getSeriesSequence(
+StepperMotorSeriesSequence getSeriesSequence(
         float initialSpeedDegPerSec,
         float totalRotationDeg,
         float finalSpeedDegPerSec,
+        duration expecterInterval,
         const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
+
+// GPIO must already be initialized; only the supplied motor pins are configured.
+int move(const StepperMotorSeriesSequence& sequence, unsigned pinStep, unsigned pinDir, unsigned pinEna,
+        duration expecterInterval, const stepper_motor_options_t& stepperOpts, duration pulseHigh);
+
+// Evaluate a fresh copy on a timer grid anchored at zero. A zero timer visits pulse boundaries.
+// stopAfterPulses is checked on timer ticks; repeated PWM pulses can cross this threshold.
+StepperMotorSeries evaluateSeries(StepperMotorSeries series, duration expecterInterval,
+        const stepper_motor_options_t& stepperOpts, moment startedAt = 0,
+        uint64_t stopAfterPulses = 0, const std::function<void(moment)>& onPulse = {});
 
 #endif // BASE_CPP_STEPPER_MOTOR_H

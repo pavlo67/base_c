@@ -31,7 +31,7 @@ int main() {
     Json::Reader reader;
     bool b = reader.parse(root_str2, root_readed);
     if (!b) {
-        printf(reader.getFormattedErrorMessages().c_str());
+        printf("ERROR: %s", reader.getFormattedErrorMessages().c_str());
     } else {
         printf("root readed: %s\n", root_readed.toStyledString().c_str());
     }

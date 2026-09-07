@@ -29,6 +29,7 @@ target_link_libraries(gpio_probe PRIVATE hardware_gpio)
 
 add_library(stepper_motor
         stepper_motor/stepper_motor.cpp
+        stepper_motor/stepper_motor_action.cpp
         stepper_motor/stepper_motor_series.cpp
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)

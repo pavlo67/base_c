@@ -104,13 +104,13 @@ bool startServer(uint32_t ipV4Host, uint16_t port) {
     std::unique_lock<std::mutex> lock(serverMutex);
 
     if (serverThread.joinable()) {
-        fprintf(stderr, "%sserver is already running\n", ON_START_SERVER.c_str());
+        fprintf(stdout, "ERROR: %sserver is already running\n", ON_START_SERVER.c_str());
         return true;
     }
 
     const std::string host = ipV4ToString(ipV4Host);
     if (host.empty()) {
-        fprintf(stderr, "%scan't convert IPv4 address\n", ON_START_SERVER.c_str());
+        fprintf(stdout, "ERROR: %scan't convert IPv4 address\n", ON_START_SERVER.c_str());
         return false;
     }
 
@@ -158,11 +158,11 @@ bool startServer(uint32_t ipV4Host, uint16_t port) {
         std::thread failedThread = std::move(serverThread);
         lock.unlock();
         failedThread.join();
-        fprintf(stderr, "%scan't bind to %s:%u\n", ON_START_SERVER.c_str(), host.c_str(), static_cast<unsigned>(port));
+        fprintf(stdout, "ERROR: %scan't bind to %s:%u\n", ON_START_SERVER.c_str(), host.c_str(), static_cast<unsigned>(port));
         return false;
     }
 
-    fprintf(stderr, "started on http://%s:%u\n", host.c_str(), static_cast<unsigned>(port));
+    fprintf(stdout, "started on http://%s:%u\n", host.c_str(), static_cast<unsigned>(port));
     return true;
 }
 
@@ -191,7 +191,7 @@ const std::string ON_ADD_SERVER_HTTP_HANDLER = "on addServerHTTPHandler(): ";
 void addServerHTTPHandler(HTTP_METHOD method, const std::string& route, ServerHTTPHandler callback) {
     std::lock_guard<std::mutex> lock(serverMutex);
     if (serverThread.joinable()) {
-        fprintf(stderr, "%shandlers must be added before server start\n", ON_ADD_SERVER_HTTP_HANDLER.c_str());
+        fprintf(stdout, "ERROR: %shandlers must be added before server start\n", ON_ADD_SERVER_HTTP_HANDLER.c_str());
         return;
     }
     httpRoutes.push_back({method, route, std::move(callback)});
@@ -203,7 +203,7 @@ const std::string ON_ADD_SERVER_WEBSOCKET_HANDLER = "on addServerWebSocketHandle
 void addServerWebSocketHandler(const std::string& route, ServerWebSocketHandler callback) {
     std::lock_guard<std::mutex> lock(serverMutex);
     if (serverThread.joinable()) {
-        fprintf(stderr, "%shandlers must be added before server start\n", ON_ADD_SERVER_WEBSOCKET_HANDLER.c_str());
+        fprintf(stdout, "ERROR: %shandlers must be added before server start\n", ON_ADD_SERVER_WEBSOCKET_HANDLER.c_str());
         return;
     }
     webSocketRoutes.push_back({route, std::move(callback)});

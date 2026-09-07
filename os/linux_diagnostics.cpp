@@ -2,9 +2,11 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 #include <unistd.h>
 
 
+const std::string ON_RUN_DIAGNOSTIC_CMD = "on runDiagnosticCmd(): ";
 static void runDiagnosticCmd(FILE *log, const char *title, const char *cmd) {
     fprintf(log, "\n========== %s ==========\n", title);
     fprintf(log, "$ %s\n\n", cmd);
@@ -15,7 +17,8 @@ static void runDiagnosticCmd(FILE *log, const char *title, const char *cmd) {
 
     FILE *pipe = popen(fullCmd, "r");
     if (!pipe) {
-        fprintf(log, "popen failed\n");
+        printf("ERROR: %spopen failed\n", ON_RUN_DIAGNOSTIC_CMD.c_str());
+        fprintf(log, "ERROR: %spopen failed\n", ON_RUN_DIAGNOSTIC_CMD.c_str());
         fflush(log);
         return;
     }
@@ -30,6 +33,7 @@ static void runDiagnosticCmd(FILE *log, const char *title, const char *cmd) {
     fflush(log);
 }
 
+const std::string ON_DUMP_WRITE_DIAGNOSTICS = "on dumpWriteDiagnostics(): ";
 void dumpWriteDiagnostics(const char *failedPath) {
     char logName[256];
 
@@ -41,7 +45,7 @@ void dumpWriteDiagnostics(const char *failedPath) {
 
     FILE *log = fopen(logName, "w");
     if (!log) {
-        printf("dumpWriteDiagnostics: cannot create diagnostics log\n");
+        printf("ERROR: %scannot create diagnostics log\n", ON_DUMP_WRITE_DIAGNOSTICS.c_str());
         return;
     }
 

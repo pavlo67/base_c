@@ -263,12 +263,12 @@
 ### `bool ensureDirectory(const std::filesystem::path& path, const std::string& label, bool createIfMissing = true)`
 
 Перевіряє, що `path` існує як директорія; якщо `createIfMissing == true`, створює її разом із батьківськими директоріями.
-Помилки друкуються в stderr з префіксом `on ensureDirectory():`.
+Помилки друкуються у stdout з префіксом `ERROR: on ensureDirectory():`.
 
 ### `bool ensureNotRegularFile(const std::filesystem::path& path, const std::string& label)`
 
 Перевіряє, що за шляхом `path` не лежить regular file, який заважатиме використати цей шлях як директорію.
-Помилки друкуються в stderr з префіксом `on ensureNotRegularFile():`.
+Помилки друкуються у stdout з префіксом `ERROR: on ensureNotRegularFile():`.
 
 ### `std::string safePathPart(std::string s)`
 
@@ -277,25 +277,29 @@
 ### `bool sameFileSize(const std::filesystem::path& a, const std::filesystem::path& b, bool& same)`
 
 Порівнює розмір двох файлів і записує результат у `same`.
-Помилки друкуються в stderr з префіксом `on sameFileSize():`.
+Помилки друкуються у stdout з префіксом `ERROR: on sameFileSize():`.
 
 ### `bool removeFsPath(const std::filesystem::path& path, const std::string& reason)`
 
 Видаляє файл/шлях через `std::filesystem::remove`.
-Помилки друкуються в stderr з префіксом `on removeFsPath():`.
+Помилки друкуються у stdout з префіксом `ERROR: on removeFsPath():`.
 
 ### `bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath)`
 
 Переносить файл: спершу пробує `rename`, а якщо це не вдалося, виконує `copy_file(overwrite_existing)` і видаляє source.
-Помилки друкуються в stderr з префіксом `on moveFileReplacing():`.
+Помилки друкуються у stdout з префіксом `ERROR: on moveFileReplacing():`.
 
 ### `bool cleanupDirectory(const std::filesystem::path& dirPath)`
 
 Видаляє директорію з усім вмістом через `std::filesystem::remove_all`.
-Помилки друкуються в stderr з префіксом `on cleanupDirectory():`.
+Помилки друкуються у stdout з префіксом `ERROR: on cleanupDirectory():`.
 
 ## mathlib
 
 ### `Vec2D` / `dot()` / `len()` / `normalized()` / `angleToHorizontalRad()`
 
 Базові helpers для 2D-векторів і кутів. `normalized()` стабілізує напрямок вектора так, щоб він не дивився в ліву півплощину; `angleToHorizontalRad()` повертає гострий кут між вектором і горизонталлю.
+
+## Error output
+
+Project-owned filesystem, process-launch, configuration and JSON diagnostics print to stdout with `ERROR:` followed by the function context. Error codes, return values and caller-provided data streams keep their existing meaning. Multi-part filesystem messages carry one ERROR: prefix per diagnostic. Directory-open diagnostics retain the errno description. Informational messages are not marked as errors.

@@ -37,7 +37,7 @@ Mongoose is pinned to tag `7.22` by top-level CMake FetchContent and is compiled
 
 ### `void startServerHTTP(uint32_t ipV4Host, uint16_t port)`
 
-Прив'язує сервер до IPv4-адреси у host byte order і запускає `listen_after_bind()` у внутрішньому потоці. Функція повертається після успішного bind. Помилки друкуються в stderr з префіксом `on startServerHTTP():`.
+Прив'язує сервер до IPv4-адреси у host byte order і запускає `listen_after_bind()` у внутрішньому потоці. Функція повертається після успішного bind. Помилки друкуються у stdout з префіксом `ERROR: on startServerHTTP():`.
 
 ### `void stopServerHTTP()`
 
@@ -48,3 +48,5 @@ Mongoose is pinned to tag `7.22` by top-level CMake FetchContent and is compiled
 Реєструє callback для маршруту. `HTTP_METHOD` підтримує `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`, `HEAD`. Callback має сигнатуру `void(const httplib::Request&, httplib::Response&)`. Для `HEAD` використовується GET-route cpp-httplib, який автоматично формує HEAD-відповідь без body.
 
 `server/cpp-httplib/_example/hello.cpp` містить мінімальний text/plain GET-приклад. `server/cpp-httplib/http_test.cpp` стартує loopback-сервер і клієнт, виконує GET та перевіряє status і ключовий рядок у body через GTest.
+
+Server wrapper diagnostics use stdout with ERROR: and function context for failures. Successful listener startup messages use stdout without ERROR:.

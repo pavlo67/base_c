@@ -12,11 +12,12 @@ namespace {
     std::mutex      serverMutex;
 }
 
+const std::string ON_START_SERVER_HTTP = "on startServerHTTP(): ";
 void startServerHTTP(uint32_t ipV4Host, uint16_t port) {
     std::lock_guard<std::mutex> lock(serverMutex);
 
     if (serverThread.joinable()) {
-        fprintf(stderr, "on startServerHTTP(): server is already running\n");
+        fprintf(stdout, "ERROR: %sserver is already running\n", ON_START_SERVER_HTTP.c_str());
         return;
     }
 
@@ -26,15 +27,15 @@ void startServerHTTP(uint32_t ipV4Host, uint16_t port) {
     }
 
     if (!server.bind_to_port(host, port)) {
-        fprintf(stderr, "on startServerHTTP(): can't bind to %s:%u\n", host.c_str(), static_cast<unsigned>(port));
+        fprintf(stdout, "ERROR: %scan't bind to %s:%u\n", ON_START_SERVER_HTTP.c_str(), host.c_str(), static_cast<unsigned>(port));
         return;
     }
 
-    fprintf(stderr, "on startServerHTTP(): started on %s:%u\n", host.c_str(), static_cast<unsigned>(port));
+    fprintf(stdout, "on startServerHTTP(): started on %s:%u\n", host.c_str(), static_cast<unsigned>(port));
 
     serverThread = std::thread([]() {
         if (!server.listen_after_bind()) {
-            fprintf(stderr, "on startServerHTTP(): server listen failed\n");
+            fprintf(stdout, "ERROR: %sserver listen failed\n", ON_START_SERVER_HTTP.c_str());
         }
     });
 }

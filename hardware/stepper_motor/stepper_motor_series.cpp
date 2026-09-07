@@ -34,12 +34,12 @@ StepperMotorSeries::StepperMotorSeries(
     intervalChangePerPulse_ = pulsesCount > 1 ? (lastIntervalSec - initialIntervalSec_) / static_cast<float>(pulsesCount - 1) : 0.0F;
 }
 
-float StepperMotorSeries::totalRotationDeg(const stepper_motor_options_t& stepperOpts) const {
+float StepperMotorSeries::expectedRotationDeg(const stepper_motor_options_t& stepperOpts) const {
     const float direction = directionForward_ ? 1.0F : -1.0F;
     return direction * static_cast<float>(expectedPulsesCount_) * stepperOpts.degPulse;
 }
 
-float StepperMotorSeries::intervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) const {
+float StepperMotorSeries::idealIntervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) const {
     if (pulseIndex >= expectedPulsesCount_) {
         return 0.0F;
     }
@@ -47,6 +47,12 @@ float StepperMotorSeries::intervalSec(uint64_t pulseIndex, const stepper_motor_o
     if (intervalAlgorithm_ == LINEAR_INTERVAL_ACCELERATION) {
         const float interval = initialIntervalSec_  + intervalChangePerPulse_ * static_cast<float>(pulseIndex);
         return isFinitePositive(interval) ? interval : 0.0F;
+    }
+
+    if (expectedPulsesCount_ == 1 && initialSpeedDegPerSec_ == 0 && accelerationDegPerSec2_ == 0) {
+        const float peak = std::min(std::sqrt(stepperOpts.accelMaxDegSec2 * stepperOpts.degPulse),
+            std::min(stepperOpts.speedMaxDegSec, stepperOpts.freqMax * stepperOpts.degPulse));
+        return stepperOpts.degPulse / peak + peak / stepperOpts.accelMaxDegSec2;
     }
 
     const float distanceBefore = static_cast<float>(pulseIndex) * stepperOpts.degPulse;
@@ -64,22 +70,22 @@ float StepperMotorSeries::intervalSec(uint64_t pulseIndex, const stepper_motor_o
     return speedSum > EPS ? 2.0F * stepperOpts.degPulse / speedSum : 0.0F;
 }
 
-float StepperMotorSeries::totalSec(const stepper_motor_options_t& stepperOpts) const {
+float StepperMotorSeries::idealTotalSec(const stepper_motor_options_t& stepperOpts) const {
     float t = 0;
     for (uint64_t pulseIndex = 0; pulseIndex < expectedPulsesCount_; ++pulseIndex) {
-        t += intervalSec(pulseIndex, stepperOpts);
+        t += idealIntervalSec(pulseIndex, stepperOpts);
     }
     return t;
 }
 
-float StepperMotorSeries::finalSpeed(const stepper_motor_options_t& stepperOpts) const {
+float StepperMotorSeries::idealFinalSpeed(const stepper_motor_options_t& stepperOpts) const {
     if (expectedPulsesCount_ == 0) {
         return 0.0F;
     }
 
     float speed = 0.0F;
     if (intervalAlgorithm_ == LINEAR_INTERVAL_ACCELERATION) {
-        const float lastInterval = intervalSec(expectedPulsesCount_ - 1, stepperOpts);
+        const float lastInterval = idealIntervalSec(expectedPulsesCount_ - 1, stepperOpts);
         if (!isFinitePositive(lastInterval)) {
             return 0.0F;
         }
@@ -97,8 +103,128 @@ float StepperMotorSeries::finalSpeed(const stepper_motor_options_t& stepperOpts)
 }
 
 void StepperMotorSeries::limitWithDeg(float targetDeg, const stepper_motor_options_t& stepperOpts) {
+    reset();
+    minimumPulsesCount_ = 0;
     expectedPulsesCount_ = stepperOpts.pulsesForDeg(targetDeg, directionForward_);
     if (expectedPulsesCount_ == 0) {
         accelerationDegPerSec2_ = 0;
     }
+}
+
+void StepperMotorSeries::reset() {
+    pulsesCount_ = 0;
+    firstPulseAt_ = lastPulseAt_ = startedAt_ = observedAt_ = nextPulseAt_ = recalculateAfter_ = 0;
+    activeInterval_ = pendingInterval_ = lastInterval_ = 0;
+    intervalIndex_ = 0;
+    started_ = finished_ = repeatLastInterval_ = false;
+    onPulse_ = {};
+    maxSpeedDegSec_ = maxAccelerationDegSec2_ = 0;
+}
+
+float StepperMotorSeries::totalRotationDeg(const stepper_motor_options_t& stepperOpts) const {
+    return (directionForward_ ? 1.0F : -1.0F) * pulsesCount_ * stepperOpts.degPulse;
+}
+
+float StepperMotorSeries::totalSec() const {
+    return started_ ? static_cast<double>(observedAt_ - startedAt_) / SECOND : 0.0F;
+}
+
+float StepperMotorSeries::totalSec(const stepper_motor_options_t&) const {
+    return totalSec();
+}
+
+float StepperMotorSeries::finalSpeed(const stepper_motor_options_t& stepperOpts) const {
+    return lastInterval_ ? (directionForward_ ? 1.0F : -1.0F) *
+        stepperOpts.degPulse * SECOND / lastInterval_ : 0.0F;
+}
+
+float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& stepperOpts) {
+    if (finished_ || (started_ && at < observedAt_)) {
+        return finished_ ? 0.0F : static_cast<double>(pendingInterval_ ? pendingInterval_ : activeInterval_) / SECOND;
+    }
+    if (!started_) {
+        started_ = true;
+        startedAt_ = observedAt_ = at;
+        const float interval = idealIntervalSec(0, stepperOpts);
+        if (!isFinitePositive(interval)) {
+            finished_ = true;
+            return 0.0F;
+        }
+        activeInterval_ = std::max<duration>(1, std::llround(static_cast<double>(interval) * SECOND));
+        nextPulseAt_ = recalculateAfter_ = at + activeInterval_;
+        return static_cast<double>(activeInterval_) / SECOND;
+    }
+
+    // A pending PWM period is latched only at the end of the current period.
+    while (nextPulseAt_ <= at) {
+        const float speed = stepperOpts.degPulse * SECOND / activeInterval_;
+        const float previousSpeed = lastInterval_ ? std::abs(finalSpeed(stepperOpts)) : std::abs(initialSpeedDegPerSec_);
+        const double separationSec = lastInterval_ ?
+            (static_cast<double>(lastInterval_) + activeInterval_) / (2.0 * SECOND) :
+            static_cast<double>(activeInterval_) / (2.0 * SECOND);
+        maxSpeedDegSec_ = std::max(maxSpeedDegSec_, speed);
+        maxAccelerationDegSec2_ = std::max(maxAccelerationDegSec2_,
+            static_cast<float>(std::abs(speed - previousSpeed) / separationSec));
+        if (pulsesCount_ == 0) { firstPulseAt_ = nextPulseAt_; }
+        if (onPulse_) { onPulse_(nextPulseAt_); }
+        ++pulsesCount_;
+        lastPulseAt_ = nextPulseAt_;
+        lastInterval_ = activeInterval_;
+        if (pendingInterval_) {
+            activeInterval_ = pendingInterval_;
+            pendingInterval_ = 0;
+        }
+        nextPulseAt_ += activeInterval_;
+        if (minimumPulsesCount_ && intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ >= minimumPulsesCount_) {
+            // The remaining integer pulse count is known before this tail starts.
+            finished_ = true;
+            observedAt_ = lastPulseAt_;
+            return 0.0F;
+        }
+    }
+    observedAt_ = at;
+    if (at < recalculateAfter_) {
+        return static_cast<double>(pendingInterval_ ? pendingInterval_ : activeInterval_) / SECOND;
+    }
+    if (repeatLastInterval_ && minimumPulsesCount_ == 0 && intervalIndex_ + 1 >= expectedPulsesCount_) {
+        return static_cast<double>(activeInterval_) / SECOND;
+    }
+    if (intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ < minimumPulsesCount_) {
+        return static_cast<double>(activeInterval_) / SECOND;
+    }
+    ++intervalIndex_;
+    const float interval = idealIntervalSec(intervalIndex_, stepperOpts);
+    if (!isFinitePositive(interval)) {
+        if (intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ < minimumPulsesCount_) {
+            return static_cast<double>(activeInterval_) / SECOND;
+        }
+        finished_ = true;
+        return 0.0F;
+    }
+    const duration period = std::max<duration>(1, std::llround(static_cast<double>(interval) * SECOND));
+    if (lastPulseAt_ == at) {
+        activeInterval_ = period;
+        nextPulseAt_ = recalculateAfter_ = at + period;
+    } else {
+        pendingInterval_ = period;
+        recalculateAfter_ = nextPulseAt_ + period;
+    }
+    return static_cast<double>(period) / SECOND;
+}
+
+StepperMotorSeries evaluateSeries(StepperMotorSeries series, duration expecterInterval,
+        const stepper_motor_options_t& stepperOpts, moment startedAt, uint64_t stopAfterPulses,
+        const std::function<void(moment)>& onPulse) {
+    series.reset();
+    series.repeatLastInterval_ = stopAfterPulses != 0;
+    series.onPulse_ = onPulse;
+    float interval = series.intervalSec(startedAt, stepperOpts);
+    moment at = startedAt;
+    while (interval > 0.0F) {
+        at = expecterInterval ? at + (expecterInterval - at % expecterInterval) : series.nextPulseAt_;
+        interval = series.intervalSec(at, stepperOpts);
+        if (stopAfterPulses && series.pulsesCount_ >= stopAfterPulses) { break; }
+    }
+    series.onPulse_ = {};
+    return series;
 }
