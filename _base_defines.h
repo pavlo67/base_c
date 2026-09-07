@@ -20,5 +20,12 @@ extern std::string COMMIT;
 
 #define RUN_PROBE true
 
+#ifndef STEPPER_MOTOR_PROBE_VERBOSE
+#define STEPPER_MOTOR_PROBE_VERBOSE false
+#endif
+#ifndef STEPPER_MOTOR_PROBE_HARDWARE_PWM
+#define STEPPER_MOTOR_PROBE_HARDWARE_PWM true
+#endif
+
 #endif // BASE_DEFINES_H
 

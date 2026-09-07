@@ -52,22 +52,57 @@ float StepperMotorSeries::idealIntervalSec(uint64_t pulseIndex, const stepper_mo
     if (expectedPulsesCount_ == 1 && initialSpeedDegPerSec_ == 0 && accelerationDegPerSec2_ == 0) {
         const float peak = std::min(std::sqrt(stepperOpts.accelMaxDegSec2 * stepperOpts.degPulse),
             std::min(stepperOpts.speedMaxDegSec, stepperOpts.freqMax * stepperOpts.degPulse));
-        return stepperOpts.degPulse / peak + peak / stepperOpts.accelMaxDegSec2;
+        return std::max(stepperOpts.degPulse / peak + peak / stepperOpts.accelMaxDegSec2,
+            static_cast<float>(terminalInterval_) / SECOND);
     }
 
     const float distanceBefore = static_cast<float>(pulseIndex) * stepperOpts.degPulse;
-    const float speedBeforeSquared = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * distanceBefore;
+    const double speedBeforeSquared = static_cast<double>(initialSpeedDegPerSec_) * initialSpeedDegPerSec_
+        + 2.0 * accelerationDegPerSec2_ * distanceBefore;
     // const float speedAfterSquared  = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * (distanceBefore + stepperOpts.degreesPerPulse);
-    const float speedAfterSquared  = speedBeforeSquared + 2.0F * accelerationDegPerSec2_ * stepperOpts.degPulse;
+    const double speedAfterSquared = speedBeforeSquared + 2.0 * accelerationDegPerSec2_ * stepperOpts.degPulse;
 
-    if (speedBeforeSquared < -EPS || speedAfterSquared < -EPS) {
+    const double tolerance = std::max(1.0, static_cast<double>(initialSpeedDegPerSec_) * initialSpeedDegPerSec_) * 1e-6;
+    if (speedBeforeSquared < -tolerance || speedAfterSquared < -tolerance) {
         return 0.0F;
     }
 
-    const float speedBefore = std::sqrt(std::max(0.0F, speedBeforeSquared));
-    const float speedAfter  = std::sqrt(std::max(0.0F, speedAfterSquared));
+    const float speedBefore = std::sqrt(std::max(0.0, speedBeforeSquared));
+    const float speedAfter  = std::sqrt(std::max(0.0, speedAfterSquared));
     const float speedSum    = speedBefore + speedAfter;
     return speedSum > EPS ? 2.0F * stepperOpts.degPulse / speedSum : 0.0F;
+}
+
+float StepperMotorSeries::scheduledIntervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) {
+    frequencyLimited_ = false;
+    double interval = idealIntervalSec(pulseIndex, stepperOpts);
+    if (!(interval > 0) || !std::isfinite(interval)) { return 0; }
+    if (terminalInterval_) {
+        interval = std::max(interval, static_cast<double>(terminalInterval_) / SECOND);
+    }
+    if (livePwm_) {
+        // Match the integer-Hz command range, rounding down to respect speed limits.
+        const double maxFrequency = std::min({10000.0, static_cast<double>(stepperOpts.freqMax),
+            static_cast<double>(stepperOpts.speedMaxDegSec) / stepperOpts.degPulse});
+        double frequency = std::floor(std::min(1.0 / interval, maxFrequency) + 1e-6);
+        if (frequency < 1) { return 0; }
+        const double requestedFrequency = frequency;
+        const double previousFrequency = activeInterval_ ? static_cast<double>(SECOND) / activeInterval_
+            : std::abs(initialSpeedDegPerSec_) / stepperOpts.degPulse;
+        if (previousFrequency >= 1 && previousFrequency <= maxFrequency) {
+            const double previousCommand = std::round(previousFrequency);
+            while (frequency != previousCommand) {
+                const double acceleration = 2.0 * stepperOpts.degPulse * std::abs(frequency - previousFrequency)
+                    / (1.0 / frequency + 1.0 / previousFrequency);
+                if (acceleration <= stepperOpts.accelMaxDegSec2) { break; }
+                frequency += frequency < previousCommand ? 1 : -1;
+            }
+        }
+        frequencyLimited_ = frequency != requestedFrequency;
+        if (frequencyLimited_ && frequency == std::round(previousFrequency)) { return 0; }
+        interval = 1.0 / frequency;
+    }
+    return static_cast<float>(interval);
 }
 
 float StepperMotorSeries::idealTotalSec(const stepper_motor_options_t& stepperOpts) const {
@@ -115,8 +150,9 @@ void StepperMotorSeries::reset() {
     pulsesCount_ = 0;
     firstPulseAt_ = lastPulseAt_ = startedAt_ = observedAt_ = nextPulseAt_ = recalculateAfter_ = 0;
     activeInterval_ = pendingInterval_ = lastInterval_ = 0;
+    initialPulseInterval_ = setupDelay_ = 0;
     intervalIndex_ = 0;
-    started_ = finished_ = repeatLastInterval_ = false;
+    started_ = finished_ = repeatLastInterval_ = frequencyLimited_ = false;
     onPulse_ = {};
     maxSpeedDegSec_ = maxAccelerationDegSec2_ = 0;
 }
@@ -126,7 +162,7 @@ float StepperMotorSeries::totalRotationDeg(const stepper_motor_options_t& steppe
 }
 
 float StepperMotorSeries::totalSec() const {
-    return started_ ? static_cast<double>(observedAt_ - startedAt_) / SECOND : 0.0F;
+    return started_ ? (static_cast<double>(observedAt_ - startedAt_) + setupDelay_) / SECOND : 0.0F;
 }
 
 float StepperMotorSeries::totalSec(const stepper_motor_options_t&) const {
@@ -145,12 +181,13 @@ float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& 
     if (!started_) {
         started_ = true;
         startedAt_ = observedAt_ = at;
-        const float interval = idealIntervalSec(0, stepperOpts);
+        const float interval = scheduledIntervalSec(0, stepperOpts);
         if (!isFinitePositive(interval)) {
             finished_ = true;
             return 0.0F;
         }
-        activeInterval_ = std::max<duration>(1, std::llround(static_cast<double>(interval) * SECOND));
+        activeInterval_ = livePwm_ ? static_cast<duration>(std::llround(static_cast<double>(SECOND) / std::llround(1.0 / interval)))
+            : std::max<duration>(1, std::llround(static_cast<double>(interval) * SECOND));
         nextPulseAt_ = recalculateAfter_ = at + activeInterval_;
         return static_cast<double>(activeInterval_) / SECOND;
     }
@@ -158,9 +195,11 @@ float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& 
     // A pending PWM period is latched only at the end of the current period.
     while (nextPulseAt_ <= at) {
         const float speed = stepperOpts.degPulse * SECOND / activeInterval_;
-        const float previousSpeed = lastInterval_ ? std::abs(finalSpeed(stepperOpts)) : std::abs(initialSpeedDegPerSec_);
-        const double separationSec = lastInterval_ ?
-            (static_cast<double>(lastInterval_) + activeInterval_) / (2.0 * SECOND) :
+        const duration previousInterval = lastInterval_ ? lastInterval_ : initialPulseInterval_;
+        const float previousSpeed = previousInterval ? stepperOpts.degPulse * SECOND / previousInterval
+            : std::abs(initialSpeedDegPerSec_);
+        const double separationSec = previousInterval ?
+            (static_cast<double>(previousInterval) + activeInterval_) / (2.0 * SECOND) :
             static_cast<double>(activeInterval_) / (2.0 * SECOND);
         maxSpeedDegSec_ = std::max(maxSpeedDegSec_, speed);
         maxAccelerationDegSec2_ = std::max(maxAccelerationDegSec2_,
@@ -175,7 +214,7 @@ float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& 
             pendingInterval_ = 0;
         }
         nextPulseAt_ += activeInterval_;
-        if (minimumPulsesCount_ && intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ >= minimumPulsesCount_) {
+        if (!livePwm_ && minimumPulsesCount_ && intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ >= minimumPulsesCount_) {
             // The remaining integer pulse count is known before this tail starts.
             finished_ = true;
             observedAt_ = lastPulseAt_;
@@ -192,8 +231,8 @@ float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& 
     if (intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ < minimumPulsesCount_) {
         return static_cast<double>(activeInterval_) / SECOND;
     }
-    ++intervalIndex_;
-    const float interval = idealIntervalSec(intervalIndex_, stepperOpts);
+    if (!frequencyLimited_) { ++intervalIndex_; }
+    const float interval = scheduledIntervalSec(intervalIndex_, stepperOpts);
     if (!isFinitePositive(interval)) {
         if (intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ < minimumPulsesCount_) {
             return static_cast<double>(activeInterval_) / SECOND;
@@ -201,8 +240,16 @@ float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& 
         finished_ = true;
         return 0.0F;
     }
-    const duration period = std::max<duration>(1, std::llround(static_cast<double>(interval) * SECOND));
-    if (lastPulseAt_ == at) {
+    const duration period = livePwm_ ? static_cast<duration>(std::llround(static_cast<double>(SECOND) / std::llround(1.0 / interval)))
+        : std::max<duration>(1, std::llround(static_cast<double>(interval) * SECOND));
+    if (livePwm_) {
+        // Estimate elapsed pulses using the old command up to this actual update.
+        // Backend phase/quantization is not observable through the GPIO API.
+        if (period != activeInterval_) { nextPulseAt_ = at + period; }
+        activeInterval_ = period;
+        pendingInterval_ = 0;
+        recalculateAfter_ = at + period;
+    } else if (lastPulseAt_ == at) {
         activeInterval_ = period;
         nextPulseAt_ = recalculateAfter_ = at + period;
     } else {

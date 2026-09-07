@@ -24,7 +24,7 @@ StepperMotorSeries getFastestSeries(float initialSpeedDegPerSec, float finalSpee
     return s;
 }
 
-bool addAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float baseSpeedDegPerSec, float targetRotationDeg, duration expecterInterval, const stepper_motor_options_t& stepperOpts, stepper_motor_algorithm_t intervalAlgorithm) {
+static bool calculateAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float baseSpeedDegPerSec, float targetRotationDeg, duration expecterInterval, const stepper_motor_options_t& stepperOpts, stepper_motor_algorithm_t intervalAlgorithm) {
     const float    baseSpeed        = std::abs(baseSpeedDegPerSec);
     const float    speedMax         = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulse);
     const bool     directionForward = targetRotationDeg > 0.0F;
@@ -52,6 +52,7 @@ bool addAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float base
         // PWM pulses contribute to displacement, but do not advance that law.
         StepperMotorSeries acceleration = getFastestSeries(baseSpeedDegPerSec,
             directionForward ? speedMax : -speedMax, stepperOpts, intervalAlgorithm);
+        acceleration.stopAfterPulses_ = (totalPulses + 1) / 2;
         acceleration = evaluateSeries(acceleration, expecterInterval, stepperOpts, startedAt,
             (totalPulses + 1) / 2);
         seriesSequence.seq.push_back(acceleration);
@@ -89,6 +90,27 @@ bool addAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float base
         seriesSequence.seq[i] = evaluateSeries(seriesSequence.seq[i], expecterInterval, stepperOpts, at);
         at = seriesSequence.seq[i].observedAt_;
     }
+    return true;
+}
+
+bool addAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float baseSpeedDegPerSec,
+        float targetRotationDeg, duration expecterInterval, const stepper_motor_options_t& stepperOpts,
+        stepper_motor_algorithm_t intervalAlgorithm) {
+    const bool forward = targetRotationDeg >= 0;
+    const uint64_t pulses = stepperOpts.pulsesForDeg(targetRotationDeg, forward);
+    if (baseSpeedDegPerSec != 0 || pulses == 0) {
+        return calculateAcceleratedSeries(seriesSequence, baseSpeedDegPerSec, targetRotationDeg,
+            expecterInterval, stepperOpts, intervalAlgorithm);
+    }
+    // Reserve the last requested pulse for a finite slow interval. Braking over
+    // the preceding distance keeps its original acceleration limit.
+    const float precedingDeg = (forward ? 1.0F : -1.0F) * static_cast<float>(pulses - 1) * stepperOpts.degPulse;
+    if (!calculateAcceleratedSeries(seriesSequence, baseSpeedDegPerSec, precedingDeg,
+            expecterInterval, stepperOpts, intervalAlgorithm)) { return false; }
+    StepperMotorSeries terminal(1, 0, 0, forward, stepperOpts, CONSTANT_ACCELERATION);
+    terminal.terminalInterval_ = 100 * MILLISECOND;
+    const moment at = seriesSequence.seq.empty() ? 0 : seriesSequence.seq.back().observedAt_;
+    seriesSequence.seq.push_back(evaluateSeries(terminal, expecterInterval, stepperOpts, at));
     return true;
 }
 
@@ -235,37 +257,63 @@ StepperMotorSeriesSequence getSeriesSequence(
     return result;
 }
 
-void StepperMotorSeriesSequence::log(const stepper_motor_options_t& stepperOpts, const char* label) const {
-    double totalSec = 0;
-    double rotationDeg = 0;
-    uint64_t pulses = 0;
-    uint64_t expectedPulses = 0;
-    float maxSpeed = 0;
-    float maxAcceleration = 0;
-    float finalSpeed = 0;
+namespace {
+struct SeriesStatistics {
+    double time_ = 0;
+    double rotation_ = 0;
+    uint64_t pulses_ = 0;
+    uint64_t expected_ = 0;
+    float finalSpeed_ = 0;
+    float maxSpeed_ = 0;
+    float maxAcceleration_ = 0;
+
+    void add(const StepperMotorSeries& series, const stepper_motor_options_t& options, float acceleration) {
+        time_ += series.totalSec();
+        rotation_ += series.totalRotationDeg(options);
+        pulses_ += series.pulsesCount_;
+        expected_ += series.expectedPulsesCount_;
+        if (series.pulsesCount_) { finalSpeed_ = series.finalSpeed(options); }
+        maxSpeed_ = std::max(maxSpeed_, series.maxSpeedDegSec_);
+        maxAcceleration_ = std::max(maxAcceleration_, acceleration);
+    }
+
+    void log(const std::string& label) const {
+        printf("%s: time=%.9f s, rotation=%.6f deg, pulses=%lu, expected=%lu, finalSpeed=%.6f deg/s, maxSpeed=%.6f deg/s, maxAcceleration=%.6f deg/s^2\n",
+            label.c_str(), time_, rotation_, pulses_, expected_, finalSpeed_, maxSpeed_, maxAcceleration_);
+    }
+};
+}
+
+void StepperMotorSeriesSequence::log(const stepper_motor_options_t& stepperOpts, const char* label, bool verbose) const {
+    SeriesStatistics total;
+    SeriesStatistics block;
+    std::string blockPhase;
     duration previousInterval = 0;
     float previousSpeed = 0;
     for (const auto& series : seq) {
-        const char* phase = series.accelerationDegPerSec2_ > 0 ? "Acceleration"
-            : series.accelerationDegPerSec2_ < 0 ? "Deceleration" : "Cruise";
-        printf("\n%s: %s\n", label, phase);
-        series.log(stepperOpts, label);
-        totalSec += series.totalSec();
-        rotationDeg += series.totalRotationDeg(stepperOpts);
-        pulses += series.pulsesCount_;
-        expectedPulses += series.expectedPulsesCount_;
-        maxSpeed = std::max(maxSpeed, series.maxSpeedDegSec_);
-        maxAcceleration = std::max(maxAcceleration, series.maxAccelerationDegSec2_);
+        const std::string phase = series.terminalInterval_ || series.accelerationDegPerSec2_ < 0 ? "Deceleration"
+            : series.accelerationDegPerSec2_ > 0 ? "Acceleration" : "Cruise";
+        if (phase != blockPhase) {
+            if (!blockPhase.empty()) { block.log(std::string(label) + ": " + blockPhase + " block total"); }
+            block = {};
+            blockPhase = phase;
+            printf("\n%s: %s\n", label, phase.c_str());
+        }
+        if (verbose) { series.log(stepperOpts, label); }
+        float acceleration = series.maxAccelerationDegSec2_;
         if (previousInterval && series.pulsesCount_) {
             const duration firstInterval = series.firstPulseAt_ - series.startedAt_;
-            const float firstSpeed = stepperOpts.degPulse * SECOND / firstInterval;
+            const float firstSpeed = (series.directionForward_ ? 1.0F : -1.0F) * stepperOpts.degPulse * SECOND / firstInterval;
             const double dt = (static_cast<double>(previousInterval) + firstInterval) / (2.0 * SECOND);
-            maxAcceleration = std::max(maxAcceleration, static_cast<float>(std::abs(firstSpeed - previousSpeed) / dt));
+            acceleration = std::max(acceleration, static_cast<float>(std::abs(firstSpeed - previousSpeed) / dt));
         }
-        previousInterval = series.lastInterval_;
-        finalSpeed = series.finalSpeed(stepperOpts);
-        previousSpeed = std::abs(finalSpeed);
+        total.add(series, stepperOpts, acceleration);
+        block.add(series, stepperOpts, acceleration);
+        if (series.pulsesCount_) {
+            previousInterval = series.lastInterval_;
+            previousSpeed = series.finalSpeed(stepperOpts);
+        }
     }
-    printf("\n%s TOTAL: time=%.9f s, rotation=%.6f deg, pulses=%lu, expected=%lu, finalSpeed=%.6f deg/s, maxSpeed=%.6f deg/s, maxAcceleration=%.6f deg/s^2\n",
-        label, totalSec, rotationDeg, pulses, expectedPulses, finalSpeed, maxSpeed, maxAcceleration);
+    if (!blockPhase.empty()) { block.log(std::string(label) + ": " + blockPhase + " block total"); }
+    total.log("\n" + std::string(label) + " TOTAL");
 }

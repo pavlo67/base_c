@@ -48,6 +48,7 @@ public:
     );
 
     [[nodiscard]] float intervalSec(moment at, const stepper_motor_options_t& stepperOpts);
+    [[nodiscard]] float scheduledIntervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts);
     [[nodiscard]] float idealIntervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) const;
     [[nodiscard]] float idealFinalSpeed(const stepper_motor_options_t& stepperOpts) const;
     [[nodiscard]] float expectedRotationDeg(const stepper_motor_options_t& stepperOpts) const;
@@ -80,6 +81,13 @@ public:
 
     uint64_t expectedPulsesCount_  = 0;
     uint64_t pulsesCount_          = 0;
+    // Finite reserved final interval for accelerated rest-to-rest motion.
+    duration initialPulseInterval_ = 0; // Previous live section's last pulse interval.
+    duration setupDelay_           = 0; // Live enable/direction guard, included in totalSec().
+    duration terminalInterval_     = 0;
+    uint64_t stopAfterPulses_       = 0;
+    bool frequencyLimited_        = false;
+    bool livePwm_                  = false;
     uint64_t minimumPulsesCount_   = 0; // Complete a remaining angle at the last period.
     moment   firstPulseAt_         = 0;
     moment   lastPulseAt_          = 0;
@@ -109,7 +117,7 @@ struct StepperMotorSeriesSequence {
     std::vector<StepperMotorSeries> seq;
     std::string error;
 
-    void log(const stepper_motor_options_t& stepperOpts, const char* label) const;
+    void log(const stepper_motor_options_t& stepperOpts, const char* label, bool verbose = false) const;
 };
 
 bool optionsIsOk(const stepper_motor_options_t& stepperOpts, std::string& error);
@@ -136,9 +144,51 @@ StepperMotorSeriesSequence getSeriesSequence(
         const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
 
-// GPIO must already be initialized; only the supplied motor pins are configured.
-int move(const StepperMotorSeriesSequence& sequence, unsigned pinStep, unsigned pinDir, unsigned pinEna,
-        duration expecterInterval, const stepper_motor_options_t& stepperOpts, duration pulseHigh);
+// GPIO lifecycle belongs to the caller. Serialize calls for each motor.
+class StepperMotorAction {
+public:
+    static constexpr int RUNNING = 0;
+    static constexpr int COMPLETE = 1;
+    static constexpr int TIME_LIMIT = -10008;
+
+    StepperMotorAction(const StepperMotorSeriesSequence& sequence, unsigned pinStep,
+        unsigned pinDir, unsigned pinEna, const stepper_motor_options_t& options,
+        duration pulseHigh, bool hardwarePwm = false);
+    ~StepperMotorAction();
+    StepperMotorAction(const StepperMotorAction&) = delete;
+    StepperMotorAction& operator=(const StepperMotorAction&) = delete;
+
+    // No sleeps: one update at a monotonic timestamp. Negative results are errors.
+    int action(moment at);
+    // Fixed timer and independent watchdog; does not inspect the series plan.
+    int run(duration expecterInterval, duration timeLimit = 60 * SECOND);
+    int stop();
+    [[nodiscard]] const StepperMotorSeriesSequence& result() const { return sequence_; }
+
+private:
+    StepperMotorSeriesSequence sequence_;
+    stepper_motor_options_t options_;
+    unsigned pinStep_, pinDir_, pinEna_;
+    duration pulseHigh_;
+    bool hardwarePwm_;
+    bool enableConfigured_ = false;
+    bool stepConfigured_ = false;
+    bool directionConfigured_ = false;
+    bool initialized_ = false;
+    bool hasMoment_ = false;
+    moment lastAt_ = 0;
+    moment readyAt_ = 0;
+    moment phaseStartedAt_ = 0;
+    size_t index_ = 0;
+    int status_ = RUNNING;
+    unsigned frequency_ = 0;
+};
+
+// Direct blocking replacement for move(); real receives actual update statistics.
+int run(const StepperMotorSeriesSequence& sequence, unsigned pinStep, unsigned pinDir, unsigned pinEna,
+        duration expecterInterval, const stepper_motor_options_t& stepperOpts, duration pulseHigh,
+        bool hardwarePwm = false, duration timeLimit = 60 * SECOND,
+        StepperMotorSeriesSequence* real = nullptr);
 
 // Evaluate a fresh copy on a timer grid anchored at zero. A zero timer visits pulse boundaries.
 // stopAfterPulses is checked on timer ticks; repeated PWM pulses can cross this threshold.
