@@ -24,6 +24,39 @@ StepperMotorSeries getFastestSeries(float initialSpeedDegPerSec, float finalSpee
     return s;
 }
 
+std::vector<StepperMotorSeries> getCruiseAndBraking(float speedDegPerSec, float finalSpeedDegPerSec,
+        uint64_t remainingPulses, duration timer, const stepper_motor_options_t& options,
+        stepper_motor_algorithm_t algorithm, moment startedAt, bool livePwm) {
+    auto braking = getFastestSeries(speedDegPerSec, finalSpeedDegPerSec, options, algorithm);
+    braking.livePwm_ = livePwm;
+    auto predicted = evaluateSeries(braking, timer, options, startedAt);
+    uint64_t cruisePulses = remainingPulses > predicted.pulsesCount_
+        ? remainingPulses - predicted.pulsesCount_ : 0;
+    std::vector<StepperMotorSeries> result;
+    while (cruisePulses > 0) {
+        StepperMotorSeries cruise(cruisePulses, speedDegPerSec, speedDegPerSec,
+            speedDegPerSec >= 0, options, algorithm);
+        cruise.livePwm_ = livePwm;
+        if (livePwm) { cruise.cruiseFrequency_ = static_cast<unsigned>(std::llround(std::abs(speedDegPerSec) / options.degPulse)); }
+        cruise.stopAfterPulses_ = cruisePulses;
+        cruise.pairedTargetPulses_ = remainingPulses;
+        cruise = evaluateSeries(cruise, timer, options, startedAt, cruisePulses);
+        predicted = evaluateSeries(braking, timer, options, cruise.observedAt_);
+        const uint64_t used = cruise.pulsesCount_ + predicted.pulsesCount_;
+        if (used <= remainingPulses) {
+            remainingPulses -= cruise.pulsesCount_;
+            startedAt = cruise.observedAt_;
+            result.push_back(cruise);
+            break;
+        }
+        // Account for cruise tick overshoot and the shifted braking timer phase.
+        cruisePulses -= std::min(cruisePulses, used - remainingPulses);
+    }
+    braking.minimumPulsesCount_ = remainingPulses;
+    result.push_back(evaluateSeries(braking, timer, options, startedAt));
+    return result;
+}
+
 static bool calculateAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float baseSpeedDegPerSec, float targetRotationDeg, duration expecterInterval, const stepper_motor_options_t& stepperOpts, stepper_motor_algorithm_t intervalAlgorithm) {
     const float    baseSpeed        = std::abs(baseSpeedDegPerSec);
     const float    speedMax         = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulse);
@@ -53,14 +86,16 @@ static bool calculateAcceleratedSeries(StepperMotorSeriesSequence& seriesSequenc
         StepperMotorSeries acceleration = getFastestSeries(baseSpeedDegPerSec,
             directionForward ? speedMax : -speedMax, stepperOpts, intervalAlgorithm);
         acceleration.stopAfterPulses_ = (totalPulses + 1) / 2;
+        acceleration.pairedTargetPulses_ = totalPulses;
         acceleration = evaluateSeries(acceleration, expecterInterval, stepperOpts, startedAt,
             (totalPulses + 1) / 2);
         seriesSequence.seq.push_back(acceleration);
         const float peak = acceleration.finalSpeed(stepperOpts);
-        StepperMotorSeries deceleration = getFastestSeries(peak, baseSpeedDegPerSec, stepperOpts, intervalAlgorithm);
-        deceleration.minimumPulsesCount_ = totalPulses > acceleration.pulsesCount_
+        const uint64_t remaining = totalPulses > acceleration.pulsesCount_
             ? totalPulses - acceleration.pulsesCount_ : 0;
-        seriesSequence.seq.push_back(evaluateSeries(deceleration, expecterInterval, stepperOpts, acceleration.observedAt_));
+        const auto tail = getCruiseAndBraking(peak, baseSpeedDegPerSec, remaining,
+            expecterInterval, stepperOpts, intervalAlgorithm, acceleration.observedAt_);
+        seriesSequence.seq.insert(seriesSequence.seq.end(), tail.begin(), tail.end());
         return true;
     }
 

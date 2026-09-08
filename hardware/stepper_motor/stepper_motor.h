@@ -85,7 +85,9 @@ public:
     duration initialPulseInterval_ = 0; // Previous live section's last pulse interval.
     duration setupDelay_           = 0; // Live enable/direction guard, included in totalSec().
     duration terminalInterval_     = 0;
+    unsigned cruiseFrequency_     = 0; // Preserve the reached integer-Hz PWM command in cruise.
     uint64_t stopAfterPulses_       = 0;
+    uint64_t pairedTargetPulses_ = 0; // Acceleration/cruise/braking budget, or remaining cruise/braking budget.
     bool frequencyLimited_        = false;
     bool livePwm_                  = false;
     uint64_t minimumPulsesCount_   = 0; // Complete a remaining angle at the last period.
@@ -127,6 +129,12 @@ StepperMotorSeries getFastestSeries(
         float finalSpeedDegPerSec,
         const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
+
+// Evaluate optional cruise followed by braking over the remaining displacement.
+// The remaining count excludes any separately reserved terminal pulse.
+std::vector<StepperMotorSeries> getCruiseAndBraking(float speedDegPerSec, float finalSpeedDegPerSec,
+        uint64_t remainingPulses, duration timer, const stepper_motor_options_t& options,
+        stepper_motor_algorithm_t algorithm, moment startedAt = 0, bool livePwm = false);
 
 bool addAcceleratedSeries(
         StepperMotorSeriesSequence& seriesSequence,
@@ -177,6 +185,7 @@ private:
     bool initialized_ = false;
     bool hasMoment_ = false;
     moment lastAt_ = 0;
+    duration observedInterval_ = 0; // Largest external tick spacing observed so far.
     moment readyAt_ = 0;
     moment phaseStartedAt_ = 0;
     size_t index_ = 0;
@@ -184,8 +193,26 @@ private:
     unsigned frequency_ = 0;
 };
 
+// Complete, serialized move from rest to rest; owns GPIO initialization/termination.
+struct StepperMotorRunConfig {
+    unsigned pinStep_ = 0;
+    unsigned pinDir_ = 0;
+    unsigned pinEna_ = 0;
+    stepper_motor_options_t options_{};
+    duration expecterInterval_ = 0;
+    duration pulseHigh_ = 0;
+    duration timeLimit_ = 60 * SECOND;
+    bool hardwarePwm_ = false;
+    bool verbose_ = false;
+};
+
+// rotationDeg is signed degrees, independent of application command encoding.
+// Logs ideal/clocked/real statistics; real also receives partial results on failure.
+int run(const StepperMotorRunConfig& config, float rotationDeg,
+        const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
+
 // Direct blocking replacement for move(); real receives actual update statistics.
-int run(const StepperMotorSeriesSequence& sequence, unsigned pinStep, unsigned pinDir, unsigned pinEna,
+int executeSequence(const StepperMotorSeriesSequence& sequence, unsigned pinStep, unsigned pinDir, unsigned pinEna,
         duration expecterInterval, const stepper_motor_options_t& stepperOpts, duration pulseHigh,
         bool hardwarePwm = false, duration timeLimit = 60 * SECOND,
         StepperMotorSeriesSequence* real = nullptr);

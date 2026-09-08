@@ -1,5 +1,4 @@
 #include <cstdio>
-#include <iostream>
 
 #include "_base_defines.h"
 #include "hardware/hardware.h"
@@ -33,35 +32,19 @@ int main() {
         hardwarePwm = false;
     }
 #endif
-    if (Gpio::instance().initialize() < 0) {
-        std::cout << "ERROR: GPIO initialization failed\n";
-        return 1;
-    }
-    int result = 0;
+    const StepperMotorRunConfig config {
+        .pinStep_ = hardwarePwm ? HARDWARE_PWM_PIN_STEP : static_cast<unsigned>(PIN_STEP),
+        .pinDir_ = PIN_DIR,
+        .pinEna_ = PIN_ENA,
+        .options_ = STEPPER_OPTS,
+        .expecterInterval_ = STEPPER_INTERVAL,
+        .pulseHigh_ = PULSE_HIGH_US_MIN * MICROSECOND,
+        .timeLimit_ = RUN_TIME_LIMIT,
+        .hardwarePwm_ = hardwarePwm,
+        .verbose_ = STEPPER_MOTOR_PROBE_VERBOSE
+    };
     for (const float rotation : ROTATIONS) {
-        const auto clocked = getSeriesSequence(0.0F, rotation, 0.0F, STEPPER_INTERVAL, STEPPER_OPTS);
-        const auto ideal = getSeriesSequence(0.0F, rotation, 0.0F, 0, STEPPER_OPTS);
-        if (!clocked.error.empty() || !ideal.error.empty()) {
-            std::cout << "ERROR: " << clocked.error << " " << ideal.error << "\n";
-            result = 1;
-            break;
-        }
-        printf("\nTarget: %.3f deg; timer: %.3f ms; real uses runtime PWM estimates\n",
-            rotation, static_cast<double>(STEPPER_INTERVAL) / MILLISECOND);
-        ideal.log(STEPPER_OPTS, "ideal", STEPPER_MOTOR_PROBE_VERBOSE);
-        clocked.log(STEPPER_OPTS, "clocked", STEPPER_MOTOR_PROBE_VERBOSE);
-        StepperMotorSeriesSequence real;
-        if (run(clocked, hardwarePwm ? HARDWARE_PWM_PIN_STEP : PIN_STEP, PIN_DIR, PIN_ENA, STEPPER_INTERVAL,
-                STEPPER_OPTS, PULSE_HIGH_US_MIN * MICROSECOND, hardwarePwm, RUN_TIME_LIMIT, &real) < 0) {
-            result = 1;
-            break;
-        }
-        real.log(STEPPER_OPTS, "real", STEPPER_MOTOR_PROBE_VERBOSE);
+        if (run(config, rotation, "probe") < 0) { return 1; }
     }
-    if (Gpio::instance().terminate() < 0) {
-        printf("ERROR: GPIO termination failed\n");
-        result = 1;
-    }
-    return result;
+    return 0;
 }
-

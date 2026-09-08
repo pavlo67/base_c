@@ -84,7 +84,9 @@ float StepperMotorSeries::scheduledIntervalSec(uint64_t pulseIndex, const steppe
         // Match the integer-Hz command range, rounding down to respect speed limits.
         const double maxFrequency = std::min({10000.0, static_cast<double>(stepperOpts.freqMax),
             static_cast<double>(stepperOpts.speedMaxDegSec) / stepperOpts.degPulse});
-        double frequency = std::floor(std::min(1.0 / interval, maxFrequency) + 1e-6);
+        const double requested = cruiseFrequency_ && accelerationDegPerSec2_ == 0
+            ? static_cast<double>(cruiseFrequency_) : 1.0 / interval;
+        double frequency = std::floor(std::min(requested, maxFrequency) + 1e-6);
         if (frequency < 1) { return 0; }
         const double requestedFrequency = frequency;
         const double previousFrequency = activeInterval_ ? static_cast<double>(SECOND) / activeInterval_

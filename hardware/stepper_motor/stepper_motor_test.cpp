@@ -186,17 +186,18 @@ TEST(stepper_motor_timing, zeroTimerPreservesIdealIntervals) {
 }
 
 TEST(stepper_motor_timing, clockedAccelerationSwitchesAtHalfActualAngle) {
+    printf("[SIM] Check halfway acceleration and optional cruise before braking\n");
     for (const float angle : {90.0F, -180.0F}) {
         const auto sequence = getSeriesSequence(0, angle, 0, 5 * MILLISECOND, STEPPER_OPTS);
         ASSERT_TRUE(sequence.error.empty()) << sequence.error;
-        ASSERT_EQ(sequence.seq.size(), 3);
+        ASSERT_GE(sequence.seq.size(), 3);
         const auto& acceleration = sequence.seq[0];
-        const auto& deceleration = sequence.seq[1];
+        const auto& deceleration = sequence.seq[sequence.seq.size() - 2];
         const uint64_t halfPulses = (STEPPER_OPTS.pulsesForDeg(angle, angle > 0) + 1) / 2;
         ASSERT_GE(acceleration.pulsesCount_, halfPulses);
         auto before = evaluateSeries(acceleration, 5 * MILLISECOND, STEPPER_OPTS, 0, halfPulses);
         ASSERT_EQ(before.observedAt_, acceleration.observedAt_);
-        ASSERT_EQ(deceleration.startedAt_, acceleration.observedAt_);
+        ASSERT_EQ(sequence.seq[1].startedAt_, acceleration.observedAt_);
         ASSERT_NEAR(deceleration.initialSpeedDegPerSec_, acceleration.finalSpeed(STEPPER_OPTS), 1e-5);
         ASSERT_NEAR(deceleration.idealFinalSpeed(STEPPER_OPTS), 0, SPEED_EPS);
         ASSERT_GT(deceleration.pulsesCount_, 0);
@@ -220,6 +221,35 @@ TEST(stepper_motor_timing, emptySeriesAndDuplicateMoments) {
     const float first = series.intervalSec(0, STEPPER_OPTS);
     ASSERT_EQ(series.intervalSec(0, STEPPER_OPTS), first);
     ASSERT_EQ(series.intervalIndex_, 0);
+}
+
+TEST(stepper_motor_timing, cruiseUsesTimerBrakingBudgetAndPreservesIdealTriangle) {
+    printf("[SIM] Compare cruise against slow completion of the same remaining angle\n");
+    for (const float direction : {1.0F, -1.0F}) {
+        const auto ideal = getSeriesSequence(0, direction * 33, 0, 0, STEPPER_OPTS);
+        ASSERT_EQ(ideal.seq.size(), 3U);
+        ASSERT_GT(ideal.seq[0].accelerationDegPerSec2_, 0);
+        ASSERT_LT(ideal.seq[1].accelerationDegPerSec2_, 0);
+        const auto clocked = getSeriesSequence(0, direction * 180, 0, 5 * MILLISECOND, STEPPER_OPTS);
+        ASSERT_EQ(clocked.seq.size(), 4U);
+        const auto& acceleration = clocked.seq[0];
+        const auto& cruise = clocked.seq[1];
+        const auto& braking = clocked.seq[2];
+        ASSERT_EQ(cruise.accelerationDegPerSec2_, 0);
+        ASSERT_GT(cruise.pulsesCount_, 0U);
+        ASSERT_NEAR(cruise.finalSpeed(STEPPER_OPTS), acceleration.finalSpeed(STEPPER_OPTS), SPEED_EPS);
+        ASSERT_NEAR(braking.initialSpeedDegPerSec_, cruise.finalSpeed(STEPPER_OPTS), SPEED_EPS);
+        const uint64_t remaining = 799 - acceleration.pulsesCount_;
+        auto oldBraking = getFastestSeries(acceleration.finalSpeed(STEPPER_OPTS), 0, STEPPER_OPTS);
+        oldBraking.minimumPulsesCount_ = remaining;
+        oldBraking = evaluateSeries(oldBraking, 5 * MILLISECOND, STEPPER_OPTS, acceleration.observedAt_);
+        ASSERT_EQ(cruise.pulsesCount_ + braking.pulsesCount_, remaining);
+        ASSERT_LT(cruise.totalSec() + braking.totalSec(), oldBraking.totalSec());
+        const auto noCruise = getCruiseAndBraking(direction * 110, 0, 1,
+            5 * MILLISECOND, STEPPER_OPTS, CONSTANT_ACCELERATION);
+        ASSERT_EQ(noCruise.size(), 1U);
+        ASSERT_LT(noCruise.front().accelerationDegPerSec2_, 0);
+    }
 }
 
 TEST(stepper_motor_timing, replayMatchesEvaluatedSequence) {
@@ -377,12 +407,12 @@ TEST_F(StepperMotorActionTest, separateMotorPinsAndCleanup) {
         ASSERT_EQ(gpio.setMode(pin, GpioMode::output), Gpio::SUCCESS);
         ASSERT_EQ(gpio.write(pin, 1), Gpio::SUCCESS);
     }
-    ASSERT_EQ(run(sequence, 1, 2, 3, 0, options, MICROSECOND), Gpio::SUCCESS);
+    ASSERT_EQ(executeSequence(sequence, 1, 2, 3, 0, options, MICROSECOND), Gpio::SUCCESS);
     ASSERT_EQ(gpio.read(1), 0);
     ASSERT_EQ(gpio.read(2), 0);
     ASSERT_EQ(gpio.read(3), 1);
     for (const unsigned pin : {4U, 5U, 6U}) { ASSERT_EQ(gpio.read(pin), 1); }
-    ASSERT_EQ(run(sequence, 4, 5, 6, 0, options, MICROSECOND), Gpio::SUCCESS);
+    ASSERT_EQ(executeSequence(sequence, 4, 5, 6, 0, options, MICROSECOND), Gpio::SUCCESS);
     ASSERT_EQ(gpio.read(4), 0);
     ASSERT_EQ(gpio.read(5), 0);
     ASSERT_EQ(gpio.read(6), 1);
@@ -392,10 +422,10 @@ TEST_F(StepperMotorActionTest, separateMotorPinsAndCleanup) {
 TEST_F(StepperMotorActionTest, rejectsInvalidPinsAndReportsUninitializedBackend) {
     StepperMotorSeriesSequence sequence;
     sequence.seq.push_back(evaluateSeries(StepperMotorSeries(1, 10, 10, true, STEPPER_OPTS), 0, STEPPER_OPTS));
-    ASSERT_EQ(run(sequence, 1, 1, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::INVALID_ARGUMENT);
-    ASSERT_EQ(run(sequence, Gpio::PIN_COUNT, 2, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::INVALID_ARGUMENT);
+    ASSERT_EQ(executeSequence(sequence, 1, 1, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::INVALID_ARGUMENT);
+    ASSERT_EQ(executeSequence(sequence, Gpio::PIN_COUNT, 2, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::INVALID_ARGUMENT);
     ASSERT_EQ(Gpio::instance().terminate(), Gpio::SUCCESS);
-    ASSERT_EQ(run(sequence, 1, 2, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::NOT_INITIALIZED);
+    ASSERT_EQ(executeSequence(sequence, 1, 2, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::NOT_INITIALIZED);
 }
 TEST_F(StepperMotorActionTest, externalTicksDrivePwmAndCompletionWithoutReplay) {
     const stepper_motor_options_t options{1000, 1, 100, 100};
@@ -498,7 +528,7 @@ TEST_F(StepperMotorActionTest, runReturnsRuntimeStatisticsAndQuantizedFrequency)
     StepperMotorSeriesSequence plan;
     plan.seq.emplace_back(2, 10.35F, 10.35F, true, options);
     StepperMotorSeriesSequence real;
-    ASSERT_EQ(run(plan, 1, 2, 3, MILLISECOND, options, MICROSECOND, false, SECOND, &real), Gpio::SUCCESS);
+    ASSERT_EQ(executeSequence(plan, 1, 2, 3, MILLISECOND, options, MICROSECOND, false, SECOND, &real), Gpio::SUCCESS);
     ASSERT_EQ(real.seq.size(), 1);
     ASSERT_TRUE(real.seq[0].finished_);
     ASSERT_GE(real.seq[0].pulsesCount_, 2);
@@ -517,6 +547,7 @@ TEST_F(StepperMotorActionTest, emptySequenceDoesNotTouchPins) {
     ASSERT_EQ(gpio.read(1), 1);
 }
 TEST_F(StepperMotorActionTest, liveSequenceUsesRuntimeBrakingAndFiniteTerminalSpeed) {
+    printf("[LIVE] Check runtime cruise, braking and finite terminal speed\n");
     const auto plan = getSeriesSequence(0, 90, 0, 5 * MILLISECOND, STEPPER_OPTS);
     ASSERT_TRUE(plan.error.empty());
     StepperMotorAction motor(plan, 1, 2, 3, STEPPER_OPTS, MICROSECOND);
@@ -526,12 +557,139 @@ TEST_F(StepperMotorActionTest, liveSequenceUsesRuntimeBrakingAndFiniteTerminalSp
     }
     ASSERT_EQ(status, StepperMotorAction::COMPLETE);
     const auto& real = motor.result();
-    ASSERT_EQ(real.seq.size(), 3);
+    ASSERT_EQ(real.seq.size(), 4);
+    ASSERT_EQ(real.seq[1].accelerationDegPerSec2_, 0);
+    ASSERT_GT(real.seq[1].pulsesCount_, 0);
     ASSERT_NEAR(real.seq[1].initialSpeedDegPerSec_, real.seq[0].finalSpeed(STEPPER_OPTS), 1e-5);
     ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS), 2.25F, 1e-5);
     for (const auto& series : real.seq) {
         ASSERT_TRUE(series.finished_);
         ASSERT_LE(series.maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
+    }
+}
+TEST(StepperMotorRunTest, ownsLifecycleAndRunsSignedRequestedAngles) {
+    printf("[RUN] Execute small signed angles through the shared helper\n");
+    ASSERT_EQ(Gpio::instance().terminate(), Gpio::SUCCESS);
+    const StepperMotorRunConfig cfg {
+        .pinStep_ = 1, .pinDir_ = 2, .pinEna_ = 3,
+        .options_ = STEPPER_OPTS, .expecterInterval_ = 5 * MILLISECOND,
+        .pulseHigh_ = 15 * MICROSECOND, .timeLimit_ = 2 * SECOND
+    };
+    for (const float angle : {0.5F, -0.5F}) {
+        StepperMotorSeriesSequence real;
+        testing::internal::CaptureStdout();
+        const int result = run(cfg, angle, "test", &real);
+        const auto output = testing::internal::GetCapturedStdout();
+        ASSERT_EQ(result, Gpio::SUCCESS) << output;
+        ASSERT_TRUE(real.error.empty());
+        ASSERT_FALSE(real.seq.empty());
+        uint64_t pulses = 0;
+        for (const auto& series : real.seq) {
+            ASSERT_EQ(series.directionForward_, angle > 0);
+            ASSERT_TRUE(series.finished_);
+            pulses += series.pulsesCount_;
+        }
+        ASSERT_GE(pulses, 2U);
+        ASSERT_LT(pulses, 10U);
+        ASSERT_NE(output.find("[test] ideal TOTAL:"), std::string::npos);
+        ASSERT_NE(output.find("[test] clocked TOTAL:"), std::string::npos);
+        ASSERT_NE(output.find("[test] real TOTAL:"), std::string::npos);
+        ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::NOT_INITIALIZED);
+    }
+}
+
+TEST(StepperMotorRunTest, validatesBeforePlanningAndCleansUpTimeout) {
+    printf("[RUN] Check zero, invalid options and watchdog cleanup\n");
+    ASSERT_EQ(Gpio::instance().terminate(), Gpio::SUCCESS);
+    StepperMotorRunConfig cfg {
+        .pinStep_ = 1, .pinDir_ = 2, .pinEna_ = 3,
+        .options_ = STEPPER_OPTS, .expecterInterval_ = 5 * MILLISECOND,
+        .pulseHigh_ = 15 * MICROSECOND, .timeLimit_ = MILLISECOND
+    };
+    StepperMotorSeriesSequence real;
+    ASSERT_EQ(run(cfg, 0, "zero", &real), Gpio::SUCCESS);
+    ASSERT_TRUE(real.seq.empty());
+    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::NOT_INITIALIZED);
+    cfg.options_.degPulse = 0;
+    ASSERT_EQ(run(cfg, 0.5F, "invalid", &real), Gpio::INVALID_ARGUMENT);
+    ASSERT_FALSE(real.error.empty());
+    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::NOT_INITIALIZED);
+    cfg.options_ = STEPPER_OPTS;
+    ASSERT_EQ(run(cfg, 0.5F, "timeout", &real), StepperMotorAction::TIME_LIMIT);
+    ASSERT_FALSE(real.error.empty());
+    ASSERT_FALSE(real.seq.empty());
+    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::NOT_INITIALIZED);
+}
+TEST_F(StepperMotorActionTest, brakingRetainsTargetAfterSimulatedHalfwayOvershoot) {
+    printf("[STEP] Preserve all 147 pulses for signed 33-degree moves\n");
+    for (const float angle : {33.0F, -33.0F}) {
+        const auto plan = getSeriesSequence(0, angle, 0, 5 * MILLISECOND, STEPPER_OPTS);
+        ASSERT_TRUE(plan.error.empty());
+        ASSERT_EQ(plan.seq.front().stopAfterPulses_, 73U);
+        ASSERT_EQ(plan.seq.front().pulsesCount_, 74U);
+        StepperMotorAction motor(plan, 1, 2, 3, STEPPER_OPTS, 15 * MICROSECOND);
+        int status = StepperMotorAction::RUNNING;
+        for (moment at = 0; at < 5 * SECOND && status == StepperMotorAction::RUNNING; at += 5 * MILLISECOND) {
+            status = motor.action(at);
+        }
+        ASSERT_EQ(status, StepperMotorAction::COMPLETE);
+        const auto& real = motor.result();
+        ASSERT_EQ(real.seq.front().pulsesCount_, 73U);
+        ASSERT_EQ(real.seq.size(), 4U);
+        const auto& cruise = real.seq[1];
+        const auto& braking = real.seq[2];
+        ASSERT_EQ(cruise.accelerationDegPerSec2_, 0);
+        ASSERT_GT(cruise.pulsesCount_, 0U);
+        ASSERT_NEAR(cruise.finalSpeed(STEPPER_OPTS), real.seq[0].finalSpeed(STEPPER_OPTS), SPEED_EPS);
+        auto oldBraking = getFastestSeries(real.seq[0].finalSpeed(STEPPER_OPTS), 0, STEPPER_OPTS);
+        oldBraking.livePwm_ = true;
+        oldBraking.minimumPulsesCount_ = 73;
+        oldBraking = evaluateSeries(oldBraking, 5 * MILLISECOND, STEPPER_OPTS);
+        ASSERT_LT(cruise.totalSec() + braking.totalSec(), oldBraking.totalSec());
+        printf("[LIVE] %.0f deg: cruise=%lu pulses, cruise+braking=%.3f s, old braking=%.3f s\n",
+            angle, cruise.pulsesCount_, cruise.totalSec() + braking.totalSec(), oldBraking.totalSec());
+        uint64_t total = 0;
+        for (const auto& series : real.seq) {
+            total += series.pulsesCount_;
+            ASSERT_EQ(series.directionForward_, angle > 0);
+        }
+        ASSERT_EQ(total, 147U);
+    }
+}
+
+TEST_F(StepperMotorActionTest, runtimeCruiseReplacesPlannedCruiseWithUnevenTicks) {
+    printf("[LIVE] Rebuild cruise for both directions with uneven external timer ticks\n");
+    for (const float angle : {33.0F, -33.0F, 180.0F, -180.0F}) {
+        const auto plan = getSeriesSequence(0, angle, 0, 5 * MILLISECOND, STEPPER_OPTS);
+        ASSERT_TRUE(plan.error.empty());
+        StepperMotorAction motor(plan, 1, 2, 3, STEPPER_OPTS, 15 * MICROSECOND);
+        int status = StepperMotorAction::RUNNING;
+        unsigned tick = 0;
+        for (moment at = 0; at < 5 * SECOND && status == StepperMotorAction::RUNNING;
+                at += (++tick % 2 ? 4 : 6) * MILLISECOND) {
+            status = motor.action(at);
+        }
+        ASSERT_EQ(status, StepperMotorAction::COMPLETE);
+        const auto& real = motor.result();
+        ASSERT_GE(real.seq.size(), 3U);
+        ASSERT_LE(real.seq.size(), 4U);
+        ASSERT_GT(real.seq[0].accelerationDegPerSec2_, 0);
+        ASSERT_LT(real.seq[real.seq.size() - 2].accelerationDegPerSec2_, 0);
+        if (std::abs(angle) == 180) { ASSERT_EQ(real.seq.size(), 4U); }
+        if (real.seq.size() == 4) {
+            ASSERT_EQ(real.seq[1].accelerationDegPerSec2_, 0);
+            ASSERT_NEAR(real.seq[1].finalSpeed(STEPPER_OPTS), real.seq[0].finalSpeed(STEPPER_OPTS), SPEED_EPS);
+        }
+        uint64_t pulses = 0;
+        for (const auto& section : real.seq) {
+            ASSERT_TRUE(section.finished_);
+            ASSERT_EQ(section.directionForward_, angle > 0);
+            ASSERT_LE(section.maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
+            pulses += section.pulsesCount_;
+        }
+        const uint64_t target = STEPPER_OPTS.pulsesForDeg(angle, angle > 0);
+        ASSERT_GE(pulses, target);
+        ASSERT_LE(pulses, target + 5);
     }
 }
 #endif

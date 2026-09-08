@@ -60,6 +60,7 @@ int StepperMotorAction::action(moment at) {
         return status_;
     };
     if (hasMoment_ && at <= lastAt_) { return RUNNING; }
+    if (hasMoment_) { observedInterval_ = std::max(observedInterval_, at - lastAt_); }
     hasMoment_ = true;
     lastAt_ = at;
     auto& gpio = Gpio::instance();
@@ -118,23 +119,43 @@ int StepperMotorAction::action(moment at) {
                 (void)stop();
                 return status_;
             }
-            auto& next = sequence_.seq[index_];
-            if (series.stopAfterPulses_ && next.accelerationDegPerSec2_ < 0) {
-                // Scheduler delay may change the speed reached at the halfway tick.
-                const float targetSpeed = next.terminalInterval_ ? 0 : next.idealFinalSpeed(options_);
-                const duration terminal = next.terminalInterval_;
-                const uint64_t target = series.stopAfterPulses_ + next.minimumPulsesCount_;
-                const uint64_t remaining = target > series.pulsesCount_ ? target - series.pulsesCount_ : 0;
-                next = getFastestSeries(series.finalSpeed(options_), targetSpeed, options_, next.intervalAlgorithm_);
-                next.minimumPulsesCount_ = remaining;
-                next.terminalInterval_ = terminal;
-                next.livePwm_ = true;
+            // Inserting runtime cruise may reallocate the sequence.
+            const auto completed = series;
+            size_t brakingIndex = index_;
+            if (completed.stopAfterPulses_ && completed.accelerationDegPerSec2_ > 0 &&
+                    sequence_.seq[brakingIndex].accelerationDegPerSec2_ == 0 &&
+                    sequence_.seq[brakingIndex].pairedTargetPulses_ != 0) {
+                ++brakingIndex;
             }
-            next.initialPulseInterval_ = series.lastInterval_;
+            if (completed.stopAfterPulses_ && brakingIndex < sequence_.seq.size() &&
+                    sequence_.seq[brakingIndex].accelerationDegPerSec2_ < 0) {
+                const auto braking = sequence_.seq[brakingIndex];
+                const float targetSpeed = braking.idealFinalSpeed(options_);
+                const uint64_t target = completed.pairedTargetPulses_ != 0 ? completed.pairedTargetPulses_
+                    : completed.stopAfterPulses_ + braking.minimumPulsesCount_;
+                const uint64_t remaining = target > completed.pulsesCount_ ? target - completed.pulsesCount_ : 0;
+                if (completed.accelerationDegPerSec2_ > 0) {
+                    auto tail = getCruiseAndBraking(completed.finalSpeed(options_), targetSpeed,
+                        remaining, observedInterval_, options_, braking.intervalAlgorithm_, 0, true);
+                    for (auto& section : tail) {
+                        section.reset();
+                        section.repeatLastInterval_ = section.stopAfterPulses_ != 0;
+                    }
+                    sequence_.seq.erase(sequence_.seq.begin() + index_, sequence_.seq.begin() + brakingIndex + 1);
+                    sequence_.seq.insert(sequence_.seq.begin() + index_, tail.begin(), tail.end());
+                } else {
+                    auto& next = sequence_.seq[index_];
+                    next = getFastestSeries(completed.finalSpeed(options_), targetSpeed, options_, braking.intervalAlgorithm_);
+                    next.minimumPulsesCount_ = remaining;
+                    next.livePwm_ = true;
+                }
+            }
+            auto& next = sequence_.seq[index_];
+            next.initialPulseInterval_ = completed.lastInterval_;
             phaseStartedAt_ = at;
             code = gpio.write(pinDir_, next.directionForward_ ? 1 : 0);
             if (code < 0) { return fail(code); }
-            if (series.directionForward_ != next.directionForward_) {
+            if (completed.directionForward_ != next.directionForward_) {
                 readyAt_ = at + pulseHigh_;
                 return RUNNING;
             }
@@ -191,11 +212,68 @@ int StepperMotorAction::run(duration expecterInterval, duration timeLimit) {
     }
 }
 
-int run(const StepperMotorSeriesSequence& sequence, unsigned pinStep, unsigned pinDir, unsigned pinEna,
+int executeSequence(const StepperMotorSeriesSequence& sequence, unsigned pinStep, unsigned pinDir, unsigned pinEna,
         duration expecterInterval, const stepper_motor_options_t& stepperOpts, duration pulseHigh,
         bool hardwarePwm, duration timeLimit, StepperMotorSeriesSequence* real) {
     StepperMotorAction motor(sequence, pinStep, pinDir, pinEna, stepperOpts, pulseHigh, hardwarePwm);
     const int code = motor.run(expecterInterval, timeLimit);
     if (real) { *real = motor.result(); }
     return code;
+}
+
+constexpr const char* ON_RUN_MOTOR = "[stepper_motor.run()]";
+
+int run(const StepperMotorRunConfig& cfg, float rotationDeg,
+        const std::string& label, StepperMotorSeriesSequence* real) {
+    if (real) { *real = {}; }
+    const auto fail = [&](int code, const std::string& message) {
+        const std::string error = std::string(ON_RUN_MOTOR) + " " + label + ": " + message;
+        printf("ERROR: %s (code %d)\n", error.c_str(), code);
+        if (real && real->error.empty()) { real->error = error; }
+        fflush(stdout);
+        return code;
+    };
+    std::string error;
+    if (!optionsIsOk(cfg.options_, error)) { return fail(Gpio::INVALID_ARGUMENT, error); }
+    const duration maximum = static_cast<duration>(std::numeric_limits<int64_t>::max() / 2);
+    if (!std::isfinite(rotationDeg) || cfg.timeLimit_ == 0 || cfg.timeLimit_ > maximum ||
+            cfg.expecterInterval_ > maximum || cfg.pulseHigh_ == 0 || cfg.pulseHigh_ > SECOND / 2 ||
+            cfg.pinStep_ >= Gpio::PIN_COUNT || cfg.pinDir_ >= Gpio::PIN_COUNT || cfg.pinEna_ >= Gpio::PIN_COUNT ||
+            cfg.pinStep_ == cfg.pinDir_ || cfg.pinStep_ == cfg.pinEna_ || cfg.pinDir_ == cfg.pinEna_) {
+        return fail(Gpio::INVALID_ARGUMENT, "invalid angle, timing or pins");
+    }
+    const std::string prefix = "[" + label + "]";
+    printf("\n%s Target: %.3f deg; timer: %.3f ms; real uses runtime PWM estimates\n",
+        prefix.c_str(), rotationDeg, static_cast<double>(cfg.expecterInterval_) / MILLISECOND);
+    fflush(stdout);
+    if (rotationDeg == 0) {
+        printf("%s No movement: zero angle\n", prefix.c_str());
+        fflush(stdout);
+        return Gpio::SUCCESS;
+    }
+    const auto clocked = getSeriesSequence(0, rotationDeg, 0, cfg.expecterInterval_, cfg.options_);
+    if (!clocked.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, clocked.error); }
+    const auto ideal = getSeriesSequence(0, rotationDeg, 0, 0, cfg.options_);
+    if (!ideal.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, ideal.error); }
+    ideal.log(cfg.options_, (prefix + " ideal").c_str(), cfg.verbose_);
+    clocked.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_);
+    fflush(stdout);
+
+    auto& gpio = Gpio::instance();
+    const int initialized = gpio.initialize();
+    if (initialized < 0) { return fail(initialized, "GPIO initialization failed"); }
+    StepperMotorSeriesSequence observed;
+    int result = executeSequence(clocked, cfg.pinStep_, cfg.pinDir_, cfg.pinEna_,
+        cfg.expecterInterval_, cfg.options_, cfg.pulseHigh_, cfg.hardwarePwm_, cfg.timeLimit_, &observed);
+    if (real) { *real = observed; }
+    observed.log(cfg.options_, (prefix + " real").c_str(), cfg.verbose_);
+    if (result < 0) { (void)fail(result, "motion failed"); }
+    const int terminated = gpio.terminate();
+    if (terminated < 0) {
+        (void)fail(terminated, "GPIO termination failed");
+        if (result >= 0) { result = terminated; }
+    }
+    printf("%s Motion finished; result: %d\n", prefix.c_str(), result);
+    fflush(stdout);
+    return result;
 }
