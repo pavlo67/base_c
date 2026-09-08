@@ -29,7 +29,8 @@ Prefer existing repository patterns over new conventions.
 
 Always look for helper functions in lib/ and hardware/ first (using corresponding `info.md`). 
 
-Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat CSV/text, bool/string conversion, math, filesystem, and formatting helpers as reusable by default.
+Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat string conversion, math, filesystem, and formatting
+helpers as reusable by default.
 
 Describe any specific behavior in `info.md` inside first-level subtree info.md (or deeper if corresponding info.md already exists). If the document is missing information, contains inaccuracies, or does not reflect the current code, inspect the subtree contents and create an info_add_<timestamp_ms>.md file with the missing information and corrections.
 
@@ -50,13 +51,11 @@ All class member field names shoud be finished with underscore: for.ex. "origina
 
 Guard platform-specific code, including its headers, with platform preprocessor macros so it is active only on its target platform.
 
-Wrap error outputs as described in `_docs/common_rules.md`.
+For any function except `main()` that reports an error (output, out-parameter or exception), define an error-context constant immediately before the function and prefix all error messages with it. Use `[<function>()]` if the name is unambiguous; otherwise use `[<context>.<function>()]` (e.g. `[requiredDirectory()]`, but `[on <context>.move()]` where <context> is unambiguous object, class, directory, package or file name).
 
 Wherever possible, use error codes/messages instead of throwing exceptions.
 
 Don't use stderr (std::cerr), let all error messages go to stdout with prefix "ERROR".  
-
-Use only fatal assertions in tests (ASSERT_... in GTest, not EXPECT_..)
 
 Don't use CLI-parameters in apps — define all parameters as constants in main.cpp.
 
@@ -64,4 +63,11 @@ Function main() in main.cpp should be written first — after includes, constant
 
 All csv-files must be stored with .xls-extension
 
+
+## Testing
+
 Write all tests with GTest and CTest
+
+Use only fatal assertions in tests (ASSERT_... in GTest, not EXPECT_..)
+
+Add concise test logs showing the sequence of steps. Use distinct short prefixes to identify output from different goroutines or applications.
