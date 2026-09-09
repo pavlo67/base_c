@@ -407,12 +407,16 @@ TEST_F(StepperMotorActionTest, separateMotorPinsAndCleanup) {
         ASSERT_EQ(gpio.setMode(pin, GpioMode::output), Gpio::SUCCESS);
         ASSERT_EQ(gpio.write(pin, 1), Gpio::SUCCESS);
     }
-    ASSERT_EQ(executeSequence(sequence, 1, 2, 3, 0, options, MICROSECOND), Gpio::SUCCESS);
+    printf("[motor-test] Run motor\n");
+    StepperMotorAction motor(sequence, 1, 2, 3, options, MICROSECOND);
+    ASSERT_EQ(motor.run(0), Gpio::SUCCESS);
     ASSERT_EQ(gpio.read(1), 0);
     ASSERT_EQ(gpio.read(2), 0);
     ASSERT_EQ(gpio.read(3), 1);
     for (const unsigned pin : {4U, 5U, 6U}) { ASSERT_EQ(gpio.read(pin), 1); }
-    ASSERT_EQ(executeSequence(sequence, 4, 5, 6, 0, options, MICROSECOND), Gpio::SUCCESS);
+    printf("[motor-test] Run secondMotor\n");
+    StepperMotorAction secondMotor(sequence, 4, 5, 6, options, MICROSECOND);
+    ASSERT_EQ(secondMotor.run(0), Gpio::SUCCESS);
     ASSERT_EQ(gpio.read(4), 0);
     ASSERT_EQ(gpio.read(5), 0);
     ASSERT_EQ(gpio.read(6), 1);
@@ -422,10 +426,16 @@ TEST_F(StepperMotorActionTest, separateMotorPinsAndCleanup) {
 TEST_F(StepperMotorActionTest, rejectsInvalidPinsAndReportsUninitializedBackend) {
     StepperMotorSeriesSequence sequence;
     sequence.seq.push_back(evaluateSeries(StepperMotorSeries(1, 10, 10, true, STEPPER_OPTS), 0, STEPPER_OPTS));
-    ASSERT_EQ(executeSequence(sequence, 1, 1, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::INVALID_ARGUMENT);
-    ASSERT_EQ(executeSequence(sequence, Gpio::PIN_COUNT, 2, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::INVALID_ARGUMENT);
+    printf("[motor-test] Run duplicatePins\n");
+    StepperMotorAction duplicatePins(sequence, 1, 1, 3, STEPPER_OPTS, MICROSECOND);
+    ASSERT_EQ(duplicatePins.run(0), Gpio::INVALID_ARGUMENT);
+    printf("[motor-test] Run invalidPin\n");
+    StepperMotorAction invalidPin(sequence, Gpio::PIN_COUNT, 2, 3, STEPPER_OPTS, MICROSECOND);
+    ASSERT_EQ(invalidPin.run(0), Gpio::INVALID_ARGUMENT);
     ASSERT_EQ(Gpio::instance().terminate(), Gpio::SUCCESS);
-    ASSERT_EQ(executeSequence(sequence, 1, 2, 3, 0, STEPPER_OPTS, MICROSECOND), Gpio::NOT_INITIALIZED);
+    printf("[motor-test] Run uninitialized\n");
+    StepperMotorAction uninitialized(sequence, 1, 2, 3, STEPPER_OPTS, MICROSECOND);
+    ASSERT_EQ(uninitialized.run(0), Gpio::NOT_INITIALIZED);
 }
 TEST_F(StepperMotorActionTest, externalTicksDrivePwmAndCompletionWithoutReplay) {
     const stepper_motor_options_t options{1000, 1, 100, 100};
@@ -527,8 +537,10 @@ TEST_F(StepperMotorActionTest, runReturnsRuntimeStatisticsAndQuantizedFrequency)
     const stepper_motor_options_t options{10000, 0.1F, 100, 1000};
     StepperMotorSeriesSequence plan;
     plan.seq.emplace_back(2, 10.35F, 10.35F, true, options);
-    StepperMotorSeriesSequence real;
-    ASSERT_EQ(executeSequence(plan, 1, 2, 3, MILLISECOND, options, MICROSECOND, false, SECOND, &real), Gpio::SUCCESS);
+    printf("[motor-test] Run and inspect runtime statistics\n");
+    StepperMotorAction motor(plan, 1, 2, 3, options, MICROSECOND);
+    ASSERT_EQ(motor.run(MILLISECOND, SECOND), Gpio::SUCCESS);
+    const auto& real = motor.result();
     ASSERT_EQ(real.seq.size(), 1);
     ASSERT_TRUE(real.seq[0].finished_);
     ASSERT_GE(real.seq[0].pulsesCount_, 2);
@@ -578,7 +590,7 @@ TEST(StepperMotorRunTest, ownsLifecycleAndRunsSignedRequestedAngles) {
     for (const float angle : {0.5F, -0.5F}) {
         StepperMotorSeriesSequence real;
         testing::internal::CaptureStdout();
-        const int result = run(cfg, angle, "test", &real);
+        const int result = stepperMotorRun(cfg, angle, "test", &real);
         const auto output = testing::internal::GetCapturedStdout();
         ASSERT_EQ(result, Gpio::SUCCESS) << output;
         ASSERT_TRUE(real.error.empty());
@@ -607,15 +619,15 @@ TEST(StepperMotorRunTest, validatesBeforePlanningAndCleansUpTimeout) {
         .pulseHigh_ = 15 * MICROSECOND, .timeLimit_ = MILLISECOND
     };
     StepperMotorSeriesSequence real;
-    ASSERT_EQ(run(cfg, 0, "zero", &real), Gpio::SUCCESS);
+    ASSERT_EQ(stepperMotorRun(cfg, 0, "zero", &real), Gpio::SUCCESS);
     ASSERT_TRUE(real.seq.empty());
     ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::NOT_INITIALIZED);
     cfg.options_.degPulse = 0;
-    ASSERT_EQ(run(cfg, 0.5F, "invalid", &real), Gpio::INVALID_ARGUMENT);
+    ASSERT_EQ(stepperMotorRun(cfg, 0.5F, "invalid", &real), Gpio::INVALID_ARGUMENT);
     ASSERT_FALSE(real.error.empty());
     ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::NOT_INITIALIZED);
     cfg.options_ = STEPPER_OPTS;
-    ASSERT_EQ(run(cfg, 0.5F, "timeout", &real), StepperMotorAction::TIME_LIMIT);
+    ASSERT_EQ(stepperMotorRun(cfg, 0.5F, "timeout", &real), StepperMotorAction::TIME_LIMIT);
     ASSERT_FALSE(real.error.empty());
     ASSERT_FALSE(real.seq.empty());
     ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::NOT_INITIALIZED);

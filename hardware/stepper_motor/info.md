@@ -50,7 +50,7 @@ At a halfway transition, live deceleration is rebuilt from the speed actually re
 
 `StepperMotorAction::run(expecterInterval, timeLimit=60*SECOND)` supplies a steady-clock timer to `action()` until completion. It never inspects section parameters or counts. Timer zero selects a 1-us polling cadence; it does not turn live GPIO execution into an ideal simulation. Missed ticks are skipped rather than replayed. An independent deadline bounds sleeps and returns `TIME_LIMIT` (-10008) after stopping PWM; it cannot interrupt a blocking backend call. Invalid timer limits are errors.
 
-The free `run(sequence, pinStep, pinDir, pinEna, expecterInterval, options, pulseHigh, hardwarePwm=false, timeLimit=60*SECOND, real=nullptr)` replaces the old free `move()` API. It returns zero on success or a negative error, optionally copying runtime statistics into `real`. Error/timeout results retain partial observations and an error string.
+Blocking callers construct `StepperMotorAction` and call `motor.run(expecterInterval, timeLimit)`, then read `motor.result()` for runtime statistics, including partial observations on failure. `stepperMotorRun()` performs this directly and destroys the motor before GPIO termination.
 
 `probe_sequences` keeps its rotation list, 5-ms timer, 60-second watchdog and pins as source constants. It prints `Target`, ideal zero-timer statistics, clocked simulation statistics, and `real` statistics collected during `run()`.
 

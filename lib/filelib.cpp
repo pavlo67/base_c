@@ -68,12 +68,12 @@ std::string pathOfFile(const std::string& filepath) {
 }
 
 
-const std::string ON_NEW_FILE = "on newFile(): ";
+const std::string ON_NEW_FILE = "[newFile()]";
 FILE* newFile(const std::string& filepath) {
     const char* filepathC = filepath.c_str();
     FILE* fLogPtr = fopen(filepathC, "w");
     if (!fLogPtr) {
-        printf("ERROR: %serror opening %s (errno = %d / %s)\n", ON_NEW_FILE.c_str(), filepathC, errno, std::strerror(errno));
+        printf("%s ERROR: error opening %s (errno = %d / %s)\n", ON_NEW_FILE.c_str(), filepathC, errno, std::strerror(errno));
     } else {
         printf("newFile() -->  %s\n", filepathC);
     }
@@ -81,11 +81,11 @@ FILE* newFile(const std::string& filepath) {
     return fLogPtr;
 }
 
-const std::string ON_CLEAR_FILE = "on clearFile(): ";
+const std::string ON_CLEAR_FILE = "[clearFile()]";
 bool clearFile(const std::string& filepath) {
     FILE* fLogPtr = fopen(filepath.c_str(), "w");
     if (!fLogPtr) {
-        printf("ERROR: %serror opening %s (errno = %d / %s)\n", ON_CLEAR_FILE.c_str(), filepath.c_str(), errno, std::strerror(errno));
+        printf("%s ERROR: error opening %s (errno = %d / %s)\n", ON_CLEAR_FILE.c_str(), filepath.c_str(), errno, std::strerror(errno));
         return false;
     }
 
@@ -94,7 +94,7 @@ bool clearFile(const std::string& filepath) {
     return true;
 }
 
-const std::string ON_NEW_PATH = "on newPath(): ";
+const std::string ON_NEW_PATH = "[newPath()]";
 std::string newPath(const std::string& path) {
     if (path.empty()) {
         return "";
@@ -103,18 +103,18 @@ std::string newPath(const std::string& path) {
     try {
         std::filesystem::create_directories(path);
     } catch (const std::exception& e) {
-        printf("ERROR: %serror creating log path %s: %s\n", ON_NEW_PATH.c_str(), path.c_str(), e.what());
+        printf("%s ERROR: error creating log path %s: %s\n", ON_NEW_PATH.c_str(), path.c_str(), e.what());
         return "";
     }
 
     return path.back() == '/' ? path : path + "/";;
 }
 
-const std::string ON_READ_FILE_BY_LINES = "on readFileByLines(): ";
+const std::string ON_READ_FILE_BY_LINES = "[readFileByLines()]";
 bool readFileByLines(const std::string& filepath, std::vector<std::string>& lines) {
     std::ifstream inputFile(filepath);
     if (!inputFile.is_open()) {
-        printf("ERROR: %serror opening file: %s\n", ON_READ_FILE_BY_LINES.c_str(), filepath.c_str());
+        printf("%s ERROR: error opening file: %s\n", ON_READ_FILE_BY_LINES.c_str(), filepath.c_str());
         return false;
     }
 
@@ -128,11 +128,11 @@ bool readFileByLines(const std::string& filepath, std::vector<std::string>& line
 
 }
 
-const std::string ON_READ_FILE = "on readFile(): ";
+const std::string ON_READ_FILE = "[readFile()]";
 bool readFile(const std::string& filepath, std::string& text) {
     std::ifstream inputFile(filepath);
     if (!inputFile.is_open()) {
-        printf("ERROR: %serror opening file: %s\n", ON_READ_FILE.c_str(), filepath.c_str());
+        printf("%s ERROR: error opening file: %s\n", ON_READ_FILE.c_str(), filepath.c_str());
         return false;
     }
 
@@ -160,7 +160,7 @@ bool writeFile(const std::string& filepath, const char* modes, const char* conte
     return (size_t)cnt == strlen(content);
 }
 
-const std::string ON_FIND_EXTENSION = "on findExtension(): ";
+const std::string ON_FIND_EXTENSION = "[findExtension()]";
 int findExtension(std::string path, const std::string* exts, int extsCnt) {
     if (extsCnt <= 0) {
         return -1;
@@ -170,7 +170,7 @@ int findExtension(std::string path, const std::string* exts, int extsCnt) {
 
     DIR *dir = opendir(path.c_str());
     if (!dir) {
-        printf("ERROR: %scan't open directory '%s'\n", ON_FIND_EXTENSION.c_str(), path.c_str());
+        printf("%s ERROR: can't open directory '%s'\n", ON_FIND_EXTENSION.c_str(), path.c_str());
         return -1;
     }
 
@@ -190,7 +190,7 @@ int findExtension(std::string path, const std::string* exts, int extsCnt) {
     return -1;
 }
 
-const std::string ON_HAS_SUBDIRS = "on hasSubdirs(): ";
+const std::string ON_HAS_SUBDIRS = "[hasSubdirs()]";
 bool hasSubdirs(std::filesystem::path path) {
     if (!std::filesystem::is_directory(path)) {
         return false;
@@ -206,7 +206,7 @@ bool hasSubdirs(std::filesystem::path path) {
     dirent *ent;
     DIR *dir = opendir(pathStr.c_str());
     if (!dir) {
-        printf("ERROR: %scan't open directory '%s'\n", ON_HAS_SUBDIRS.c_str(), pathStr.c_str());
+        printf("%s ERROR: can't open directory '%s'\n", ON_HAS_SUBDIRS.c_str(), pathStr.c_str());
         return false;
     }
 
@@ -225,7 +225,7 @@ bool hasSubdirs(std::filesystem::path path) {
     return false;
 }
 
-const std::string ON_LIST_OF_FILES = "on listOfFiles(): ";
+const std::string ON_LIST_OF_FILES = "[listOfFiles()]";
 std::list<std::string> listOfFiles(const std::string& path, const std::string* exts, int extsCnt, bool dirs, bool files, const std::string& prefix) {
     DIR *dir; dirent *ent; std::list<std::string> fileNames;
     if ((dir = opendir(path.c_str()))) {
@@ -256,49 +256,49 @@ std::list<std::string> listOfFiles(const std::string& path, const std::string* e
         fileNames.sort();
     } else {
         const int error = errno;
-        printf("ERROR: %scould not open directory %s: %s\n", ON_LIST_OF_FILES.c_str(), path.c_str(), std::strerror(error));
+        printf("%s ERROR: could not open directory %s: %s\n", ON_LIST_OF_FILES.c_str(), path.c_str(), std::strerror(error));
     }
 
     return fileNames;
 }
 
-const std::string ON_RENAME_PATH = "on renamePath(): ";
+const std::string ON_RENAME_PATH = "[renamePath()]";
 
 bool renamePath(const std::string& oldPath, const std::string& newPath) {
     try {
         fs::rename(oldPath, newPath); // Renames and moves the file
         return true;
     } catch (const fs::filesystem_error& ex) {
-        printf("ERROR: %scan't rename %s to %s: %s\n", ON_RENAME_PATH.c_str(), oldPath.c_str(), newPath.c_str(), ex.what());
+        printf("%s ERROR: can't rename %s to %s: %s\n", ON_RENAME_PATH.c_str(), oldPath.c_str(), newPath.c_str(), ex.what());
         return false;
     }
 }
 
-const std::string ON_ENSURE_DIRECTORY = "on ensureDirectory(): ";
+const std::string ON_ENSURE_DIRECTORY = "[ensureDirectory()]";
 
 bool ensureDirectory(const std::filesystem::path& path, const std::string& label, bool createIfMissing) {
     std::error_code ec;
 
     if (!fs::exists(path, ec)) {
         if (ec) {
-            std::cout << "ERROR: " << ON_ENSURE_DIRECTORY << "failed to check " << label << ": " << path << ": " << ec.message() << "\n";
+            std::cout << ON_ENSURE_DIRECTORY << " ERROR: failed to check " << label << ": " << path << ": " << ec.message() << "\n";
             return false;
         }
 
         if (!createIfMissing) {
-            std::cout << "ERROR: " << ON_ENSURE_DIRECTORY << label << " does not exist: " << path << "\n";
+            std::cout << ON_ENSURE_DIRECTORY << " ERROR: " << label << " does not exist: " << path << "\n";
             return false;
         }
 
         fs::create_directories(path, ec);
         if (ec) {
-            std::cout << "ERROR: " << ON_ENSURE_DIRECTORY << "failed to create " << label << ": " << path << ": " << ec.message() << "\n";
+            std::cout << ON_ENSURE_DIRECTORY << " ERROR: failed to create " << label << ": " << path << ": " << ec.message() << "\n";
             return false;
         }
     }
 
     if (!fs::is_directory(path, ec) || ec) {
-        std::cout << "ERROR: " << ON_ENSURE_DIRECTORY << label << " is not a directory: " << path;
+        std::cout << ON_ENSURE_DIRECTORY << " ERROR: " << label << " is not a directory: " << path;
         if (ec) { std::cout << ": " << ec.message(); }
         std::cout << "\n";
         return false;
@@ -307,16 +307,16 @@ bool ensureDirectory(const std::filesystem::path& path, const std::string& label
     return true;
 }
 
-const std::string ON_ENSURE_NOT_REGULAR_FILE = "on ensureNotRegularFile(): ";
+const std::string ON_ENSURE_NOT_REGULAR_FILE = "[ensureNotRegularFile()]";
 
 bool ensureNotRegularFile(const std::filesystem::path& path, const std::string& label) {
     std::error_code ec;
     if (fs::exists(path, ec) && fs::is_regular_file(path, ec)) {
-        std::cout << "ERROR: " << ON_ENSURE_NOT_REGULAR_FILE << label << " must be a directory, but regular file exists: " << path << "\n";
+        std::cout << ON_ENSURE_NOT_REGULAR_FILE << " ERROR: " << label << " must be a directory, but regular file exists: " << path << "\n";
         return false;
     }
     if (ec) {
-        std::cout << "ERROR: " << ON_ENSURE_NOT_REGULAR_FILE << "failed to inspect " << label << ": " << path << ": " << ec.message() << "\n";
+        std::cout << ON_ENSURE_NOT_REGULAR_FILE << " ERROR: failed to inspect " << label << ": " << path << ": " << ec.message() << "\n";
         return false;
     }
     return true;
@@ -334,7 +334,7 @@ std::string safePathPart(std::string s) {
     return s;
 }
 
-const std::string ON_SAME_FILE_SIZE = "on sameFileSize(): ";
+const std::string ON_SAME_FILE_SIZE = "[sameFileSize()]";
 
 bool sameFileSize(const std::filesystem::path& a, const std::filesystem::path& b, bool& same) {
     same = false;
@@ -344,11 +344,11 @@ bool sameFileSize(const std::filesystem::path& a, const std::filesystem::path& b
     const auto sizeB = fs::file_size(b, ecB);
 
     if (ecA) {
-        std::cout << "ERROR: " << ON_SAME_FILE_SIZE << "failed to read file size: " << a << ": " << ecA.message() << "\n";
+        std::cout << ON_SAME_FILE_SIZE << " ERROR: failed to read file size: " << a << ": " << ecA.message() << "\n";
         return false;
     }
     if (ecB) {
-        std::cout << "ERROR: " << ON_SAME_FILE_SIZE << "failed to read file size: " << b << ": " << ecB.message() << "\n";
+        std::cout << ON_SAME_FILE_SIZE << " ERROR: failed to read file size: " << b << ": " << ecB.message() << "\n";
         return false;
     }
 
@@ -356,12 +356,12 @@ bool sameFileSize(const std::filesystem::path& a, const std::filesystem::path& b
     return true;
 }
 
-const std::string ON_REMOVE_FS_PATH = "on removeFsPath(): ";
+const std::string ON_REMOVE_FS_PATH = "[removeFsPath()]";
 
 bool removeFsPath(const std::filesystem::path& path, const std::string& reason) {
     std::error_code ec;
     if (!fs::remove(path, ec) || ec) {
-        std::cout << "ERROR: " << ON_REMOVE_FS_PATH << "failed to remove " << reason << ": " << path;
+        std::cout << ON_REMOVE_FS_PATH << " ERROR: failed to remove " << reason << ": " << path;
         if (ec) { std::cout << ": " << ec.message(); }
         std::cout << "\n";
         return false;
@@ -369,7 +369,7 @@ bool removeFsPath(const std::filesystem::path& path, const std::string& reason) 
     return true;
 }
 
-const std::string ON_MOVE_FILE_REPLACING = "on moveFileReplacing(): ";
+const std::string ON_MOVE_FILE_REPLACING = "[moveFileReplacing()]";
 
 bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath) {
     std::error_code ec;
@@ -382,7 +382,7 @@ bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesyst
 
     fs::copy_file(srcPath, dstPath, fs::copy_options::overwrite_existing, ec);
     if (ec) {
-        std::cout << "ERROR: " << ON_MOVE_FILE_REPLACING << "failed to move generated file: " << srcPath << " -> " << dstPath
+        std::cout << ON_MOVE_FILE_REPLACING << " ERROR: failed to move generated file: " << srcPath << " -> " << dstPath
                   << "; rename: " << renameError
                   << "; copy: " << ec.message() << "\n";
         return false;
@@ -390,7 +390,7 @@ bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesyst
 
     fs::remove(srcPath, ec);
     if (ec) {
-        std::cout << "ERROR: " << ON_MOVE_FILE_REPLACING << "failed to remove source after copy: " << srcPath
+        std::cout << ON_MOVE_FILE_REPLACING << " ERROR: failed to remove source after copy: " << srcPath
                   << ": " << ec.message() << "\n";
         return false;
     }
@@ -398,13 +398,13 @@ bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesyst
     return true;
 }
 
-const std::string ON_CLEANUP_DIRECTORY = "on cleanupDirectory(): ";
+const std::string ON_CLEANUP_DIRECTORY = "[cleanupDirectory()]";
 
 bool cleanupDirectory(const std::filesystem::path& dirPath) {
     std::error_code ec;
     fs::remove_all(dirPath, ec);
     if (ec) {
-        std::cout << "ERROR: " << ON_CLEANUP_DIRECTORY << "failed to remove directory: " << dirPath
+        std::cout << ON_CLEANUP_DIRECTORY << " ERROR: failed to remove directory: " << dirPath
                   << ": " << ec.message() << "\n";
         return false;
     }

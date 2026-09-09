@@ -53,6 +53,8 @@ Guard platform-specific code, including its headers, with platform preprocessor 
 
 For any function except `main()` that reports an error (output, out-parameter or exception), define an error-context constant immediately before the function and prefix all error messages with it. Use `[<function>()]` if the name is unambiguous; otherwise use `[<context>.<function>()]` (e.g. `[requiredDirectory()]`, but `[on <context>.move()]` where <context> is unambiguous object, class, directory, package or file name).
 
+Example for error message:  printf("%s ERROR: <details template>\n", ON_CONTEXT, <details values>);
+
 Wherever possible, use error codes/messages instead of throwing exceptions.
 
 Don't use stderr (std::cerr), let all error messages go to stdout with prefix "ERROR".  

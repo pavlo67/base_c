@@ -208,14 +208,8 @@ struct StepperMotorRunConfig {
 
 // rotationDeg is signed degrees, independent of application command encoding.
 // Logs ideal/clocked/real statistics; real also receives partial results on failure.
-int run(const StepperMotorRunConfig& config, float rotationDeg,
+int stepperMotorRun(const StepperMotorRunConfig& config, float rotationDeg,
         const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
-
-// Direct blocking replacement for move(); real receives actual update statistics.
-int executeSequence(const StepperMotorSeriesSequence& sequence, unsigned pinStep, unsigned pinDir, unsigned pinEna,
-        duration expecterInterval, const stepper_motor_options_t& stepperOpts, duration pulseHigh,
-        bool hardwarePwm = false, duration timeLimit = 60 * SECOND,
-        StepperMotorSeriesSequence* real = nullptr);
 
 // Evaluate a fresh copy on a timer grid anchored at zero. A zero timer visits pulse boundaries.
 // stopAfterPulses is checked on timer ticks; repeated PWM pulses can cross this threshold.

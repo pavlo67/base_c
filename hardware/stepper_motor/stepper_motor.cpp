@@ -149,29 +149,29 @@ bool addAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float base
     return true;
 }
 
-const std::string ON_OPTIONS_IS_OK = "on optionsIsOk(): ";
+const std::string ON_OPTIONS_IS_OK = "[optionsIsOk()]";
 bool optionsIsOk(const stepper_motor_options_t& stepperOpts, std::string& error) {
     if (!isFinitePositive(stepperOpts.freqMax)) {
-        error = ON_OPTIONS_IS_OK + "freqMax must be finite and greater than zero";
+        error = ON_OPTIONS_IS_OK + " freqMax must be finite and greater than zero";
         return false;
     }
     if (!isFinitePositive(stepperOpts.speedMaxDegSec)) {
-        error = ON_OPTIONS_IS_OK + "freqAllowed must be finite positive";
+        error = ON_OPTIONS_IS_OK + " freqAllowed must be finite positive";
         return false;
     }
     if (!isFinitePositive(stepperOpts.accelMaxDegSec2)) {
-        error = ON_OPTIONS_IS_OK + "accelMax must be finite and greater than zero";
+        error = ON_OPTIONS_IS_OK + " accelMax must be finite and greater than zero";
         return false;
     }
     if (!isFinitePositive(stepperOpts.degPulse)) {
-        error = ON_OPTIONS_IS_OK + "degreesPerPulse must be finite and greater than zero";
+        error = ON_OPTIONS_IS_OK + " degreesPerPulse must be finite and greater than zero";
         return false;
     }
 
     return true;
 }
 
-const std::string ON_GET_SERIES_SEQUENCE = "on getSeriesSequence(): ";
+const std::string ON_GET_SERIES_SEQUENCE = "[getSeriesSequence()]";
 static StepperMotorSeriesSequence calculateSeriesSequence(
         float currentSpeedDegPerSec, float totalRotationDeg, float targetSpeedDegPerSec,
         duration expecterInterval, const stepper_motor_options_t& stepperOpts, stepper_motor_algorithm_t intervalAlgorithm) {
@@ -182,13 +182,13 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
     // if (!optionsIsOk(stepperOpts, result.error)) { return result; }
 
     if (!std::isfinite(currentSpeedDegPerSec) || !std::isfinite(totalRotationDeg) || !std::isfinite(targetSpeedDegPerSec)) {
-        result.error = ON_GET_SERIES_SEQUENCE + "speed and position values must be finite";
+        result.error = ON_GET_SERIES_SEQUENCE + " speed and position values must be finite";
         return result;
     }
 
     const float speedMax = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulse);
     if (std::abs(targetSpeedDegPerSec) > speedMax) {
-        result.error = ON_GET_SERIES_SEQUENCE + "targetSpeed must not exceed freqAllowed * degreesPerPulse";
+        result.error = ON_GET_SERIES_SEQUENCE + " targetSpeed must not exceed freqAllowed * degreesPerPulse";
         return result;
     }
 
@@ -197,14 +197,14 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
 
     const bool targetDirectionForward = totalRotationDeg > 0.0;
     if (currentSpeedDegPerSec * (targetDirectionForward ? 1. : -1.) < -EPS) {
-        result.error = ON_GET_SERIES_SEQUENCE + "targetChangeDeg is opposite to currentSpeed; braking/reversal is not supported";
+        result.error = ON_GET_SERIES_SEQUENCE + " targetChangeDeg is opposite to currentSpeed; braking/reversal is not supported";
         return result;
     }
 
     // printf("\ntotalRotationDeg: %f --> targetDirectionForward: %d\n\n", totalRotationDeg, targetDirectionForward);
 
     if (targetSpeedDegPerSec * currentSpeedDegPerSec < -EPS) {
-        result.error = ON_GET_SERIES_SEQUENCE + "targetSpeed is opposite to currentSpeed";
+        result.error = ON_GET_SERIES_SEQUENCE + " targetSpeed is opposite to currentSpeed";
         return result;
     }
 
@@ -212,7 +212,7 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
 
     if (std::abs(targetSpeedDegPerSec - currentSpeedDegPerSec) <= std::max(SPEED_EPS, std::abs(targetSpeedDegPerSec) * RESULT_EPS_RATIO)) {
         if (!addAcceleratedSeries(result, currentSpeedDegPerSec, totalRotationDeg, expecterInterval, stepperOpts, intervalAlgorithm)) {
-            result.error = ON_GET_SERIES_SEQUENCE + "accelerationSequence for fixed speed isn't calculated correctly";
+            result.error = ON_GET_SERIES_SEQUENCE + " accelerationSequence for fixed speed isn't calculated correctly";
             // ??? and what
         }
         return result;
@@ -244,7 +244,7 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
             fastestSeries = evaluateSeries(fastestSeries, 0, stepperOpts);
         }
         float changeDeg = fastestSeries.totalRotationDeg(stepperOpts);
-        result.error = ON_GET_SERIES_SEQUENCE + ((std::abs(changeDeg - totalRotationDeg) < stepperOpts.degPulse)
+        result.error = ON_GET_SERIES_SEQUENCE + " " + ((std::abs(changeDeg - totalRotationDeg) < stepperOpts.degPulse)
                      ? "fastest series is cutted to targetChangeDeg" : "fastest series isn't cutted to targetChangeDeg correctly");
         result.seq.push_back(fastestSeries);
         return result;
@@ -255,7 +255,7 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
         result.seq.push_back(fastestSeries);
         const float remainingChangeDeg = totalRotationDeg - fastestSeries.totalRotationDeg(stepperOpts);
         if (!addAcceleratedSeries(result, expecterInterval ? fastestSeries.finalSpeed(stepperOpts) : fastestSeries.idealFinalSpeed(stepperOpts), remainingChangeDeg, expecterInterval, stepperOpts, intervalAlgorithm)) {
-            result.error = ON_GET_SERIES_SEQUENCE + "accelerationSequence for target speed isn't calculated correctly";
+            result.error = ON_GET_SERIES_SEQUENCE + " accelerationSequence for target speed isn't calculated correctly";
             // ??? and what
         }
         return result;
@@ -265,7 +265,7 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
 
         const float remainingChangeDeg = totalRotationDeg - fastestSeries.totalRotationDeg(stepperOpts);
         if (!addAcceleratedSeries(result, currentSpeedDegPerSec, remainingChangeDeg, expecterInterval, stepperOpts, intervalAlgorithm)) {
-            result.error = ON_GET_SERIES_SEQUENCE + "accelerationSequence for current speed isn't calculated correctly";
+            result.error = ON_GET_SERIES_SEQUENCE + " accelerationSequence for current speed isn't calculated correctly";
         }
         const moment at = result.seq.empty() ? 0 : result.seq.back().observedAt_;
         result.seq.push_back(evaluateSeries(fastestSeries, expecterInterval, stepperOpts, at));

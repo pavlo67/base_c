@@ -263,12 +263,12 @@
 ### `bool ensureDirectory(const std::filesystem::path& path, const std::string& label, bool createIfMissing = true)`
 
 Перевіряє, що `path` існує як директорія; якщо `createIfMissing == true`, створює її разом із батьківськими директоріями.
-Помилки друкуються у stdout з префіксом `ERROR: on ensureDirectory():`.
+Помилки друкуються у stdout з префіксом `[ensureDirectory()] ERROR:`.
 
 ### `bool ensureNotRegularFile(const std::filesystem::path& path, const std::string& label)`
 
 Перевіряє, що за шляхом `path` не лежить regular file, який заважатиме використати цей шлях як директорію.
-Помилки друкуються у stdout з префіксом `ERROR: on ensureNotRegularFile():`.
+Помилки друкуються у stdout з префіксом `[ensureNotRegularFile()] ERROR:`.
 
 ### `std::string safePathPart(std::string s)`
 
@@ -277,22 +277,22 @@
 ### `bool sameFileSize(const std::filesystem::path& a, const std::filesystem::path& b, bool& same)`
 
 Порівнює розмір двох файлів і записує результат у `same`.
-Помилки друкуються у stdout з префіксом `ERROR: on sameFileSize():`.
+Помилки друкуються у stdout з префіксом `[sameFileSize()] ERROR:`.
 
 ### `bool removeFsPath(const std::filesystem::path& path, const std::string& reason)`
 
 Видаляє файл/шлях через `std::filesystem::remove`.
-Помилки друкуються у stdout з префіксом `ERROR: on removeFsPath():`.
+Помилки друкуються у stdout з префіксом `[removeFsPath()] ERROR:`.
 
 ### `bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath)`
 
 Переносить файл: спершу пробує `rename`, а якщо це не вдалося, виконує `copy_file(overwrite_existing)` і видаляє source.
-Помилки друкуються у stdout з префіксом `ERROR: on moveFileReplacing():`.
+Помилки друкуються у stdout з префіксом `[moveFileReplacing()] ERROR:`.
 
 ### `bool cleanupDirectory(const std::filesystem::path& dirPath)`
 
 Видаляє директорію з усім вмістом через `std::filesystem::remove_all`.
-Помилки друкуються у stdout з префіксом `ERROR: on cleanupDirectory():`.
+Помилки друкуються у stdout з префіксом `[cleanupDirectory()] ERROR:`.
 
 ## mathlib
 
@@ -302,4 +302,4 @@
 
 ## Error output
 
-Project-owned filesystem, process-launch, configuration and JSON diagnostics print to stdout with `ERROR:` followed by the function context. Error codes, return values and caller-provided data streams keep their existing meaning. Multi-part filesystem messages carry one ERROR: prefix per diagnostic. Directory-open diagnostics retain the errno description. Informational messages are not marked as errors.
+Project-owned filesystem, process-launch, configuration and JSON diagnostics print to stdout with the bracketed function context followed by ` ERROR:`. Error codes, return values and caller-provided data streams keep their existing meaning. Multi-part filesystem messages carry one ERROR: prefix per diagnostic. Directory-open diagnostics retain the errno description. Informational messages are not marked as errors.

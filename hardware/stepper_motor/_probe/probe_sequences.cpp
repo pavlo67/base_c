@@ -44,7 +44,7 @@ int main() {
         .verbose_ = STEPPER_MOTOR_PROBE_VERBOSE
     };
     for (const float rotation : ROTATIONS) {
-        if (run(config, rotation, "probe") < 0) { return 1; }
+        if (stepperMotorRun(config, rotation, "probe") < 0) { return 1; }
     }
     return 0;
 }
