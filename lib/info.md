@@ -303,3 +303,7 @@
 ## Error output
 
 Project-owned filesystem, process-launch, configuration and JSON diagnostics print to stdout with the bracketed function context followed by ` ERROR:`. Error codes, return values and caller-provided data streams keep their existing meaning. Multi-part filesystem messages carry one ERROR: prefix per diagnostic. Directory-open diagnostics retain the errno description. Informational messages are not marked as errors.
+
+## Diagnostics
+
+Filesystem, configuration, JSON, process-launch and server diagnostics now place the context first: `[function()] ERROR: details`. Context constants omit trailing whitespace; callers supply separation in both printed messages and error strings. Return values and cleanup behavior are unchanged.

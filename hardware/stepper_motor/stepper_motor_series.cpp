@@ -44,6 +44,12 @@ float StepperMotorSeries::idealIntervalSec(uint64_t pulseIndex, const stepper_mo
         return 0.0F;
     }
 
+    if (!brakingModel_.empty()) {
+        const auto next = std::upper_bound(brakingModel_.begin(), brakingModel_.end(), pulseIndex,
+            [](uint64_t pulses, const StepperMotorBrakingPoint& point) { return pulses < point.pulses_; });
+        return static_cast<double>((next == brakingModel_.begin() ? next : next - 1)->interval_) / SECOND;
+    }
+
     if (intervalAlgorithm_ == LINEAR_INTERVAL_ACCELERATION) {
         const float interval = initialIntervalSec_  + intervalChangePerPulse_ * static_cast<float>(pulseIndex);
         return isFinitePositive(interval) ? interval : 0.0F;
@@ -75,6 +81,9 @@ float StepperMotorSeries::idealIntervalSec(uint64_t pulseIndex, const stepper_mo
 
 float StepperMotorSeries::scheduledIntervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) {
     frequencyLimited_ = false;
+    if (!brakingModel_.empty()) {
+        return idealIntervalSec(pulseIndex, stepperOpts);
+    }
     double interval = idealIntervalSec(pulseIndex, stepperOpts);
     if (!(interval > 0) || !std::isfinite(interval)) { return 0; }
     if (terminalInterval_) {
@@ -116,6 +125,7 @@ float StepperMotorSeries::idealTotalSec(const stepper_motor_options_t& stepperOp
 }
 
 float StepperMotorSeries::idealFinalSpeed(const stepper_motor_options_t& stepperOpts) const {
+    if (!brakingModel_.empty()) { return brakingFinalSpeed_; }
     if (expectedPulsesCount_ == 0) {
         return 0.0F;
     }
@@ -224,7 +234,7 @@ float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& 
         }
     }
     observedAt_ = at;
-    if (at < recalculateAfter_) {
+    if (at < recalculateAfter_ && brakingModel_.empty()) {
         return static_cast<double>(pendingInterval_ ? pendingInterval_ : activeInterval_) / SECOND;
     }
     if (repeatLastInterval_ && minimumPulsesCount_ == 0 && intervalIndex_ + 1 >= expectedPulsesCount_) {
@@ -233,7 +243,8 @@ float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& 
     if (intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ < minimumPulsesCount_) {
         return static_cast<double>(activeInterval_) / SECOND;
     }
-    if (!frequencyLimited_) { ++intervalIndex_; }
+    if (!brakingModel_.empty()) { intervalIndex_ = pulsesCount_; }
+    else if (!frequencyLimited_) { ++intervalIndex_; }
     const float interval = scheduledIntervalSec(intervalIndex_, stepperOpts);
     if (!isFinitePositive(interval)) {
         if (intervalIndex_ >= expectedPulsesCount_ && pulsesCount_ < minimumPulsesCount_) {

@@ -12,6 +12,26 @@ StepperMotorAction::StepperMotorAction(const StepperMotorSeriesSequence& sequenc
         duration pulseHigh, bool hardwarePwm)
     : sequence_(sequence), options_(options), pinStep_(pinStep), pinDir_(pinDir), pinEna_(pinEna),
       pulseHigh_(pulseHigh), hardwarePwm_(hardwarePwm) {
+    std::string error;
+    if (!optionsIsOk(options_, error)) { return; }
+    for (size_t i = 0; i < sequence_.seq.size(); ++i) {
+        auto& acceleration = sequence_.seq[i];
+        if (acceleration.accelerationDegPerSec2_ <= 0) { continue; }
+        size_t braking = i + 1;
+        if (braking < sequence_.seq.size() && sequence_.seq[braking].accelerationDegPerSec2_ == 0 &&
+                !sequence_.seq[braking].terminalInterval_) { ++braking; }
+        if (braking >= sequence_.seq.size() || sequence_.seq[braking].accelerationDegPerSec2_ >= 0 ||
+                sequence_.seq[braking].directionForward_ != acceleration.directionForward_) { continue; }
+        uint64_t target = acceleration.pairedTargetPulses_;
+        if (!target) {
+            for (size_t j = i; j <= braking; ++j) { target += sequence_.seq[j].expectedPulsesCount_; }
+        }
+        const float speedMax = std::min(options_.speedMaxDegSec, options_.freqMax * options_.degPulse);
+        acceleration = getFastestSeries(acceleration.initialSpeedDegPerSec_,
+            acceleration.directionForward_ ? speedMax : -speedMax, options_, acceleration.intervalAlgorithm_);
+        acceleration.pairedTargetPulses_ = target;
+        acceleration.stopAfterPulses_ = target;
+    }
     for (auto& series : sequence_.seq) {
         series.reset();
         series.livePwm_ = true;
@@ -60,7 +80,6 @@ int StepperMotorAction::action(moment at) {
         return status_;
     };
     if (hasMoment_ && at <= lastAt_) { return RUNNING; }
-    if (hasMoment_) { observedInterval_ = std::max(observedInterval_, at - lastAt_); }
     hasMoment_ = true;
     lastAt_ = at;
     auto& gpio = Gpio::instance();
@@ -103,9 +122,39 @@ int StepperMotorAction::action(moment at) {
     // State transitions and series parameters belong here, never in run().
     while (index_ < sequence_.seq.size()) {
         auto& series = sequence_.seq[index_];
-        if (!series.started_) { series.setupDelay_ = at - phaseStartedAt_; }
+        size_t brakingIndex = index_ + 1;
+        if (brakingIndex < sequence_.seq.size() && sequence_.seq[brakingIndex].accelerationDegPerSec2_ == 0 &&
+                !sequence_.seq[brakingIndex].terminalInterval_) { ++brakingIndex; }
+        const bool predictive = series.accelerationDegPerSec2_ > 0 && series.pairedTargetPulses_ &&
+            brakingIndex < sequence_.seq.size() && sequence_.seq[brakingIndex].accelerationDegPerSec2_ < 0;
+        duration modelInterval = 0;
+        if (!series.started_) {
+            series.setupDelay_ = at - phaseStartedAt_;
+            accelerationTicks_ = 0;
+        } else if (predictive) {
+            ++accelerationTicks_;
+            modelInterval = std::max<duration>(1, (at - series.startedAt_) / accelerationTicks_);
+        }
+        const auto before = predictive ? series : StepperMotorSeries(0, 0, 0, true, options_);
         const float interval = series.intervalSec(at, options_);
-        const bool threshold = series.stopAfterPulses_ && series.pulsesCount_ >= series.stopAfterPulses_;
+        bool threshold = series.stopAfterPulses_ && series.pulsesCount_ >= series.stopAfterPulses_;
+        if (predictive && modelInterval && interval > 0) {
+            auto nextTick = series;
+            const float nextInterval = nextTick.intervalSec(at + modelInterval, options_);
+            const uint64_t remaining = series.pairedTargetPulses_ > nextTick.pulsesCount_
+                ? series.pairedTargetPulses_ - nextTick.pulsesCount_ : 0;
+            const float nextSpeed = nextInterval > 0 ? (series.directionForward_ ? 1.0F : -1.0F) *
+                options_.degPulse / nextInterval : 0;
+            if (nextInterval <= 0 || !canBrake(nextSpeed, sequence_.seq[brakingIndex].idealFinalSpeed(options_),
+                    modelInterval, remaining, options_, series.intervalAlgorithm_)) {
+                // Count this observation at the actual old PWM command; the proposed
+                // acceleration command has not yet been sent to GPIO.
+                series = before;
+                series.recalculateAfter_ = at + 1;
+                (void)series.intervalSec(at, options_);
+                threshold = true;
+            }
+        }
         if (interval == 0 || threshold) {
             if (interval == 0 && series.intervalIndex_ < series.expectedPulsesCount_) {
                 return fail(Gpio::INVALID_ARGUMENT); // Unrepresentable period, not normal completion.
@@ -119,36 +168,29 @@ int StepperMotorAction::action(moment at) {
                 (void)stop();
                 return status_;
             }
-            // Inserting runtime cruise may reallocate the sequence.
+            // Replacing the planned tail may reallocate the sequence.
             const auto completed = series;
-            size_t brakingIndex = index_;
-            if (completed.stopAfterPulses_ && completed.accelerationDegPerSec2_ > 0 &&
-                    sequence_.seq[brakingIndex].accelerationDegPerSec2_ == 0 &&
-                    sequence_.seq[brakingIndex].pairedTargetPulses_ != 0) {
-                ++brakingIndex;
-            }
-            if (completed.stopAfterPulses_ && brakingIndex < sequence_.seq.size() &&
-                    sequence_.seq[brakingIndex].accelerationDegPerSec2_ < 0) {
+            if (predictive) {
                 const auto braking = sequence_.seq[brakingIndex];
                 const float targetSpeed = braking.idealFinalSpeed(options_);
-                const uint64_t target = completed.pairedTargetPulses_ != 0 ? completed.pairedTargetPulses_
-                    : completed.stopAfterPulses_ + braking.minimumPulsesCount_;
+                const uint64_t target = completed.pairedTargetPulses_;
                 const uint64_t remaining = target > completed.pulsesCount_ ? target - completed.pulsesCount_ : 0;
-                if (completed.accelerationDegPerSec2_ > 0) {
-                    auto tail = getCruiseAndBraking(completed.finalSpeed(options_), targetSpeed,
-                        remaining, observedInterval_, options_, braking.intervalAlgorithm_, 0, true);
-                    for (auto& section : tail) {
-                        section.reset();
-                        section.repeatLastInterval_ = section.stopAfterPulses_ != 0;
+                auto model = getBrakingModel((completed.directionForward_ ? 1.0F : -1.0F) *
+                    options_.degPulse * SECOND / completed.activeInterval_, targetSpeed,
+                    modelInterval, options_, braking.intervalAlgorithm_);
+                if (remaining && model.brakingModel_.empty()) { return fail(Gpio::INVALID_ARGUMENT); }
+                if (remaining) {
+                    // Fit the frozen pulse profile to the remaining integer distance.
+                    // No slow final-period completion tail is needed.
+                    for (auto& point : model.brakingModel_) {
+                        point.pulses_ = static_cast<uint64_t>(static_cast<long double>(point.pulses_) *
+                            remaining / model.expectedPulsesCount_);
                     }
-                    sequence_.seq.erase(sequence_.seq.begin() + index_, sequence_.seq.begin() + brakingIndex + 1);
-                    sequence_.seq.insert(sequence_.seq.begin() + index_, tail.begin(), tail.end());
-                } else {
-                    auto& next = sequence_.seq[index_];
-                    next = getFastestSeries(completed.finalSpeed(options_), targetSpeed, options_, braking.intervalAlgorithm_);
-                    next.minimumPulsesCount_ = remaining;
-                    next.livePwm_ = true;
+                    model.expectedPulsesCount_ = remaining;
                 }
+                sequence_.seq.erase(sequence_.seq.begin() + index_, sequence_.seq.begin() + brakingIndex + 1);
+                if (remaining) { sequence_.seq.insert(sequence_.seq.begin() + index_, model); }
+                if (index_ == sequence_.seq.size()) { (void)stop(); return status_; }
             }
             auto& next = sequence_.seq[index_];
             next.initialPulseInterval_ = completed.lastInterval_;

@@ -38,6 +38,11 @@ enum stepper_motor_algorithm_t {
     LINEAR_INTERVAL_ACCELERATION
 };
 
+struct StepperMotorBrakingPoint {
+    uint64_t pulses_ = 0;
+    duration interval_ = 0;
+};
+
 class StepperMotorSeries {
 
 public:
@@ -90,6 +95,10 @@ public:
     uint64_t pairedTargetPulses_ = 0; // Acceleration/cruise/braking budget, or remaining cruise/braking budget.
     bool frequencyLimited_        = false;
     bool livePwm_                  = false;
+    // Frozen model: select the command by elapsed braking pulses, not timer calls.
+    std::vector<StepperMotorBrakingPoint> brakingModel_;
+    duration modelInterval_ = 0;
+    float brakingFinalSpeed_ = 0;
     uint64_t minimumPulsesCount_   = 0; // Complete a remaining angle at the last period.
     moment   firstPulseAt_         = 0;
     moment   lastPulseAt_          = 0;
@@ -129,6 +138,14 @@ StepperMotorSeries getFastestSeries(
         float finalSpeedDegPerSec,
         const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
+
+// Model live braking on a fixed timer; an empty model means it is unrepresentable.
+StepperMotorSeries getBrakingModel(float speedDegPerSec, float finalSpeedDegPerSec,
+        duration modelInterval, const stepper_motor_options_t& options,
+        stepper_motor_algorithm_t algorithm = CONSTANT_ACCELERATION);
+bool canBrake(float speedDegPerSec, float finalSpeedDegPerSec, duration modelInterval,
+        uint64_t remainingPulses, const stepper_motor_options_t& options,
+        stepper_motor_algorithm_t algorithm = CONSTANT_ACCELERATION);
 
 // Evaluate optional cruise followed by braking over the remaining displacement.
 // The remaining count excludes any separately reserved terminal pulse.
@@ -185,7 +202,7 @@ private:
     bool initialized_ = false;
     bool hasMoment_ = false;
     moment lastAt_ = 0;
-    duration observedInterval_ = 0; // Largest external tick spacing observed so far.
+    uint64_t accelerationTicks_ = 0;
     moment readyAt_ = 0;
     moment phaseStartedAt_ = 0;
     size_t index_ = 0;

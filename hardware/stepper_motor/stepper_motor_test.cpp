@@ -382,13 +382,64 @@ TEST(stepper_motor_timing, quietLoggingGroupsBrakingAndKeepsAllTotals) {
     const size_t braking = quiet.find("ideal: Deceleration block total:");
     ASSERT_NE(braking, std::string::npos);
     ASSERT_EQ(quiet.find("ideal: Deceleration block total:", braking + 1), std::string::npos);
-    ASSERT_NE(quiet.substr(braking).find("pulses=101, expected=101"), std::string::npos);
+    ASSERT_NE(quiet.substr(braking).find("pulses=101,"), std::string::npos);
     ASSERT_NE(quiet.find("ideal TOTAL:"), std::string::npos);
+    ASSERT_EQ(quiet.find("expected="), std::string::npos);
     ::testing::internal::CaptureStdout();
     sequence.log(STEPPER_OPTS, "ideal", true);
     const std::string verbose = ::testing::internal::GetCapturedStdout();
     ASSERT_NE(verbose.find("expectedPulsesCount    :"), std::string::npos);
+    ASSERT_EQ(verbose.find("expected="), std::string::npos);
     ASSERT_NE(verbose.find("ideal: Deceleration block total:"), std::string::npos);
+}
+
+TEST(stepper_motor_timing, brakingControlUsesModeledTimerAndRemainingPulses) {
+    printf("[MODEL] Check exact braking budget, timer sensitivity and both directions\n");
+    for (const float direction : {1.0F, -1.0F}) {
+        for (const duration timer : {2 * MILLISECOND, 9 * MILLISECOND}) {
+            for (const float finalSpeed : {0.0F, 20.0F}) {
+                auto reference = getFastestSeries(direction * 90, direction * finalSpeed, STEPPER_OPTS);
+                reference.livePwm_ = true;
+                reference = evaluateSeries(reference, timer, STEPPER_OPTS);
+                const auto model = getBrakingModel(direction * 90, direction * finalSpeed, timer, STEPPER_OPTS);
+                ASSERT_FALSE(model.brakingModel_.empty());
+                ASSERT_EQ(model.expectedPulsesCount_, reference.pulsesCount_);
+                ASSERT_EQ(model.idealFinalSpeed(STEPPER_OPTS), direction * finalSpeed);
+                ASSERT_TRUE(canBrake(direction * 90, direction * finalSpeed, timer, reference.pulsesCount_, STEPPER_OPTS));
+                ASSERT_FALSE(canBrake(direction * 90, direction * finalSpeed, timer, reference.pulsesCount_ - 1, STEPPER_OPTS));
+                const auto replay = evaluateSeries(model, timer, STEPPER_OPTS);
+                ASSERT_EQ(replay.pulsesCount_, reference.pulsesCount_);
+                ASSERT_EQ(replay.lastInterval_, reference.lastInterval_);
+                ASSERT_NEAR(replay.totalSec(), reference.totalSec(), 1e-6);
+            }
+        }
+    }
+    ASSERT_GT(getBrakingModel(90, 0, 9 * MILLISECOND, STEPPER_OPTS).expectedPulsesCount_,
+        getBrakingModel(90, 0, 2 * MILLISECOND, STEPPER_OPTS).expectedPulsesCount_);
+    ASSERT_FALSE(canBrake(90, 0, 0, 1000, STEPPER_OPTS));
+    ASSERT_FALSE(canBrake(90, -20, MILLISECOND, 1000, STEPPER_OPTS));
+}
+
+TEST(stepper_motor_timing, frozenBrakingSkipsCommandsByElapsedPulses) {
+    printf("[MODEL] Delay updates and catch up by pulses, allowing stronger braking\n");
+    const stepper_motor_options_t options{10000, 0.1F, 100, 1000};
+    StepperMotorSeries braking(7, 100, 0, true, options);
+    braking.livePwm_ = true;
+    braking.brakingModel_ = {{0, MILLISECOND}, {3, 2 * MILLISECOND}, {5, 4 * MILLISECOND}};
+    ASSERT_NEAR(braking.intervalSec(0, options), 0.001, 1e-9);
+    ASSERT_NEAR(braking.intervalSec(4 * MILLISECOND, options), 0.002, 1e-9);
+    ASSERT_EQ(braking.pulsesCount_, 4U);
+    ASSERT_NEAR(braking.intervalSec(8 * MILLISECOND, options), 0.004, 1e-9);
+    ASSERT_EQ(braking.pulsesCount_, 6U);
+    ASSERT_GT(braking.maxAccelerationDegSec2_, options.accelMaxDegSec2);
+    ASSERT_NEAR(braking.intervalSec(8 * MILLISECOND, options), 0.004, 1e-9);
+    ASSERT_NEAR(braking.intervalSec(7 * MILLISECOND, options), 0.004, 1e-9);
+    ASSERT_EQ(braking.pulsesCount_, 6U);
+    ASSERT_EQ(braking.intervalSec(12 * MILLISECOND, options), 0);
+    ASSERT_EQ(braking.pulsesCount_, 7U);
+    braking.reset();
+    ASSERT_EQ(braking.brakingModel_.size(), 3U);
+    ASSERT_NEAR(braking.intervalSec(0, options), 0.001, 1e-9);
 }
 
 #if defined(SYSTEM_IS_DESKTOP) && SYSTEM_IS_DESKTOP
@@ -559,7 +610,7 @@ TEST_F(StepperMotorActionTest, emptySequenceDoesNotTouchPins) {
     ASSERT_EQ(gpio.read(1), 1);
 }
 TEST_F(StepperMotorActionTest, liveSequenceUsesRuntimeBrakingAndFiniteTerminalSpeed) {
-    printf("[LIVE] Check runtime cruise, braking and finite terminal speed\n");
+    printf("[LIVE] Check predictive braking and finite terminal speed\n");
     const auto plan = getSeriesSequence(0, 90, 0, 5 * MILLISECOND, STEPPER_OPTS);
     ASSERT_TRUE(plan.error.empty());
     StepperMotorAction motor(plan, 1, 2, 3, STEPPER_OPTS, MICROSECOND);
@@ -569,15 +620,18 @@ TEST_F(StepperMotorActionTest, liveSequenceUsesRuntimeBrakingAndFiniteTerminalSp
     }
     ASSERT_EQ(status, StepperMotorAction::COMPLETE);
     const auto& real = motor.result();
-    ASSERT_EQ(real.seq.size(), 4);
-    ASSERT_EQ(real.seq[1].accelerationDegPerSec2_, 0);
-    ASSERT_GT(real.seq[1].pulsesCount_, 0);
+    ASSERT_EQ(real.seq.size(), 3);
+    ASSERT_LT(real.seq[1].accelerationDegPerSec2_, 0);
+    ASSERT_FALSE(real.seq[1].brakingModel_.empty());
+    ASSERT_EQ(real.seq[1].modelInterval_, 5 * MILLISECOND);
+    ASSERT_EQ(real.seq[1].minimumPulsesCount_, 0U);
     ASSERT_NEAR(real.seq[1].initialSpeedDegPerSec_, real.seq[0].finalSpeed(STEPPER_OPTS), 1e-5);
     ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS), 2.25F, 1e-5);
     for (const auto& series : real.seq) {
         ASSERT_TRUE(series.finished_);
-        ASSERT_LE(series.maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
+        ASSERT_LE(series.maxSpeedDegSec_, STEPPER_OPTS.speedMaxDegSec + SPEED_EPS);
     }
+    ASSERT_LE(real.seq.front().maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
 }
 TEST(StepperMotorRunTest, ownsLifecycleAndRunsSignedRequestedAngles) {
     printf("[RUN] Execute small signed angles through the shared helper\n");
@@ -646,20 +700,19 @@ TEST_F(StepperMotorActionTest, brakingRetainsTargetAfterSimulatedHalfwayOvershoo
         }
         ASSERT_EQ(status, StepperMotorAction::COMPLETE);
         const auto& real = motor.result();
-        ASSERT_EQ(real.seq.front().pulsesCount_, 73U);
-        ASSERT_EQ(real.seq.size(), 4U);
-        const auto& cruise = real.seq[1];
-        const auto& braking = real.seq[2];
-        ASSERT_EQ(cruise.accelerationDegPerSec2_, 0);
-        ASSERT_GT(cruise.pulsesCount_, 0U);
-        ASSERT_NEAR(cruise.finalSpeed(STEPPER_OPTS), real.seq[0].finalSpeed(STEPPER_OPTS), SPEED_EPS);
+        ASSERT_GT(real.seq.front().pulsesCount_, plan.seq.front().stopAfterPulses_);
+        ASSERT_EQ(real.seq.size(), 3U);
+        const auto& braking = real.seq[1];
+        ASSERT_FALSE(braking.brakingModel_.empty());
+        ASSERT_EQ(braking.expectedPulsesCount_ + real.seq.front().pulsesCount_, 146U);
+        ASSERT_EQ(braking.minimumPulsesCount_, 0U);
         auto oldBraking = getFastestSeries(real.seq[0].finalSpeed(STEPPER_OPTS), 0, STEPPER_OPTS);
         oldBraking.livePwm_ = true;
-        oldBraking.minimumPulsesCount_ = 73;
+        oldBraking.minimumPulsesCount_ = braking.expectedPulsesCount_;
         oldBraking = evaluateSeries(oldBraking, 5 * MILLISECOND, STEPPER_OPTS);
-        ASSERT_LT(cruise.totalSec() + braking.totalSec(), oldBraking.totalSec());
-        printf("[LIVE] %.0f deg: cruise=%lu pulses, cruise+braking=%.3f s, old braking=%.3f s\n",
-            angle, cruise.pulsesCount_, cruise.totalSec() + braking.totalSec(), oldBraking.totalSec());
+        ASSERT_LT(braking.totalSec(), oldBraking.totalSec());
+        printf("[LIVE] %.0f deg: acceleration=%lu pulses, braking=%.3f s, old braking=%.3f s\n",
+            angle, real.seq[0].pulsesCount_, braking.totalSec(), oldBraking.totalSec());
         uint64_t total = 0;
         for (const auto& series : real.seq) {
             total += series.pulsesCount_;
@@ -669,8 +722,8 @@ TEST_F(StepperMotorActionTest, brakingRetainsTargetAfterSimulatedHalfwayOvershoo
     }
 }
 
-TEST_F(StepperMotorActionTest, runtimeCruiseReplacesPlannedCruiseWithUnevenTicks) {
-    printf("[LIVE] Rebuild cruise for both directions with uneven external timer ticks\n");
+TEST_F(StepperMotorActionTest, predictiveBrakingReplacesPlannedCruiseWithUnevenTicks) {
+    printf("[LIVE] Predict braking for both directions with uneven external timer ticks\n");
     for (const float angle : {33.0F, -33.0F, 180.0F, -180.0F}) {
         const auto plan = getSeriesSequence(0, angle, 0, 5 * MILLISECOND, STEPPER_OPTS);
         ASSERT_TRUE(plan.error.empty());
@@ -683,25 +736,115 @@ TEST_F(StepperMotorActionTest, runtimeCruiseReplacesPlannedCruiseWithUnevenTicks
         }
         ASSERT_EQ(status, StepperMotorAction::COMPLETE);
         const auto& real = motor.result();
-        ASSERT_GE(real.seq.size(), 3U);
-        ASSERT_LE(real.seq.size(), 4U);
+        ASSERT_EQ(real.seq.size(), 3U);
         ASSERT_GT(real.seq[0].accelerationDegPerSec2_, 0);
-        ASSERT_LT(real.seq[real.seq.size() - 2].accelerationDegPerSec2_, 0);
-        if (std::abs(angle) == 180) { ASSERT_EQ(real.seq.size(), 4U); }
-        if (real.seq.size() == 4) {
-            ASSERT_EQ(real.seq[1].accelerationDegPerSec2_, 0);
-            ASSERT_NEAR(real.seq[1].finalSpeed(STEPPER_OPTS), real.seq[0].finalSpeed(STEPPER_OPTS), SPEED_EPS);
-        }
+        ASSERT_LT(real.seq[1].accelerationDegPerSec2_, 0);
+        ASSERT_FALSE(real.seq[1].brakingModel_.empty());
+        ASSERT_LE(real.seq[0].maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
         uint64_t pulses = 0;
         for (const auto& section : real.seq) {
             ASSERT_TRUE(section.finished_);
             ASSERT_EQ(section.directionForward_, angle > 0);
-            ASSERT_LE(section.maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
+            ASSERT_LE(section.maxSpeedDegSec_, STEPPER_OPTS.speedMaxDegSec + SPEED_EPS);
             pulses += section.pulsesCount_;
         }
         const uint64_t target = STEPPER_OPTS.pulsesForDeg(angle, angle > 0);
         ASSERT_GE(pulses, target);
         ASSERT_LE(pulses, target + 5);
     }
+}
+
+TEST_F(StepperMotorActionTest, brakingFreezesMeanSinceAccelerationAndHandlesLaterDelays) {
+    printf("[LIVE] Exclude startup, ignore duplicate ticks, freeze mean and delay braking updates\n");
+    for (const duration planTimer : {duration(0), 5 * MILLISECOND}) {
+        for (const float angle : {33.0F, -33.0F, 720.0F, -720.0F}) {
+            const auto plan = getSeriesSequence(0, angle, 0, planTimer, STEPPER_OPTS);
+            ASSERT_TRUE(plan.error.empty());
+            StepperMotorAction motor(plan, 1, 2, 3, STEPPER_OPTS, 15 * MICROSECOND);
+            ASSERT_EQ(motor.action(0), StepperMotorAction::RUNNING);
+            // A large startup delay must not become the model timer.
+            moment at = 100 * MILLISECOND;
+            ASSERT_EQ(motor.action(at), StepperMotorAction::RUNNING);
+            const moment started = motor.result().seq.front().startedAt_;
+            uint64_t samples = 0;
+            while (!motor.result().seq.front().finished_ && at < 10 * SECOND) {
+                at += (++samples % 2 ? 1 : 9) * MILLISECOND;
+                ASSERT_EQ(motor.action(at), StepperMotorAction::RUNNING);
+                ASSERT_EQ(motor.action(at), StepperMotorAction::RUNNING);
+                ASSERT_EQ(motor.action(at - 1), StepperMotorAction::RUNNING);
+            }
+            ASSERT_TRUE(motor.result().seq.front().finished_);
+            ASSERT_EQ(motor.result().seq.size(), 3U);
+            const duration mean = (at - started) / samples;
+            ASSERT_EQ(motor.result().seq[1].modelInterval_, mean);
+            ASSERT_LT(mean, 6 * MILLISECOND);
+            const auto frozen = motor.result().seq[1].brakingModel_;
+            ASSERT_FALSE(frozen.empty());
+            int status = StepperMotorAction::RUNNING;
+            unsigned brakingTicks = 0;
+            while (status == StepperMotorAction::RUNNING && at < 20 * SECOND) {
+                at += (++brakingTicks % 3 ? 5 : 20) * MILLISECOND;
+                status = motor.action(at);
+            }
+            ASSERT_EQ(status, StepperMotorAction::COMPLETE);
+            const auto& real = motor.result();
+            ASSERT_EQ(real.seq[1].modelInterval_, mean);
+            ASSERT_EQ(real.seq[1].brakingModel_.size(), frozen.size());
+            for (size_t i = 0; i < frozen.size(); ++i) {
+                ASSERT_EQ(real.seq[1].brakingModel_[i].pulses_, frozen[i].pulses_);
+                ASSERT_EQ(real.seq[1].brakingModel_[i].interval_, frozen[i].interval_);
+            }
+            uint64_t pulses = 0;
+            for (const auto& section : real.seq) {
+                ASSERT_TRUE(section.finished_);
+                ASSERT_LE(section.maxSpeedDegSec_, STEPPER_OPTS.speedMaxDegSec + SPEED_EPS);
+                pulses += section.pulsesCount_;
+            }
+            ASSERT_LE(real.seq[0].maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
+            ASSERT_GE(pulses, STEPPER_OPTS.pulsesForDeg(angle, angle > 0));
+            ASSERT_LE(pulses, STEPPER_OPTS.pulsesForDeg(angle, angle > 0) + 5);
+            ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS), angle > 0 ? 2.25F : -2.25F, SPEED_EPS);
+        }
+    }
+}
+
+TEST_F(StepperMotorActionTest, predictiveBrakingPreservesNonzeroFinalSpeed) {
+    printf("[LIVE] Finish both directions at a finite nonzero base speed\n");
+    for (const float direction : {1.0F, -1.0F}) {
+        const auto plan = getSeriesSequence(direction * 20, direction * 180, direction * 20,
+            5 * MILLISECOND, STEPPER_OPTS);
+        ASSERT_TRUE(plan.error.empty());
+        StepperMotorAction motor(plan, 1, 2, 3, STEPPER_OPTS, 15 * MICROSECOND);
+        int status = StepperMotorAction::RUNNING;
+        for (moment at = 0; at < 5 * SECOND && status == StepperMotorAction::RUNNING; at += 5 * MILLISECOND) {
+            status = motor.action(at);
+        }
+        ASSERT_EQ(status, StepperMotorAction::COMPLETE);
+        const auto& real = motor.result();
+        ASSERT_EQ(real.seq.size(), 2U);
+        ASSERT_FALSE(real.seq.back().brakingModel_.empty());
+        ASSERT_NEAR(real.seq.back().idealFinalSpeed(STEPPER_OPTS), direction * 20, SPEED_EPS);
+        // finalSpeed is the last pulse's average, not the kinematic endpoint.
+        const float lastPulseMaximum = (20 + std::sqrt(400 + 2 * STEPPER_OPTS.accelMaxDegSec2 *
+            STEPPER_OPTS.degPulse)) / 2;
+        ASSERT_GE(std::abs(real.seq.back().finalSpeed(STEPPER_OPTS)), 20 - STEPPER_OPTS.degPulse);
+        ASSERT_LE(std::abs(real.seq.back().finalSpeed(STEPPER_OPTS)), lastPulseMaximum + SPEED_EPS);
+        ASSERT_GE(real.seq[0].pulsesCount_ + real.seq[1].pulsesCount_, 800U);
+    }
+}
+
+TEST_F(StepperMotorActionTest, exhaustedBrakingBudgetSkipsTailAfterLargeDelay) {
+    printf("[LIVE] Retain overshoot observations and skip an exhausted braking budget\n");
+    const auto plan = getSeriesSequence(0, 33, 0, 5 * MILLISECOND, STEPPER_OPTS);
+    ASSERT_TRUE(plan.error.empty());
+    StepperMotorAction motor(plan, 1, 2, 3, STEPPER_OPTS, 15 * MICROSECOND);
+    ASSERT_EQ(motor.action(0), StepperMotorAction::RUNNING);
+    ASSERT_EQ(motor.action(5 * MILLISECOND), StepperMotorAction::RUNNING);
+    ASSERT_EQ(motor.action(5 * SECOND), StepperMotorAction::RUNNING);
+    ASSERT_EQ(motor.result().seq.size(), 2U);
+    ASSERT_GT(motor.result().seq.front().pulsesCount_, 146U);
+    ASSERT_EQ(motor.action(5 * SECOND + 100 * MILLISECOND), StepperMotorAction::COMPLETE);
+    ASSERT_TRUE(motor.result().error.empty());
+    ASSERT_EQ(motor.result().seq.back().pulsesCount_, 1U);
 }
 #endif
