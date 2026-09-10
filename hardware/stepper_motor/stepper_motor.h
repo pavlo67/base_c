@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -128,7 +129,8 @@ struct StepperMotorSeriesSequence {
     std::vector<StepperMotorSeries> seq;
     std::string error;
 
-    void log(const stepper_motor_options_t& stepperOpts, const char* label, bool verbose = false) const;
+    void log(const stepper_motor_options_t& stepperOpts, const char* label, bool verbose = false,
+        std::optional<duration> expecterInterval = std::nullopt) const;
 };
 
 bool optionsIsOk(const stepper_motor_options_t& stepperOpts, std::string& error);

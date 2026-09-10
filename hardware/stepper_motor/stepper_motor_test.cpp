@@ -336,19 +336,19 @@ TEST(stepper_motor_timing, completesRemainingRoundedAngleAndReplaysCorrection) {
     }
 }
 
-TEST(stepper_motor_timing, terminalIntervalLowersSpeedWithoutAddingDisplacement) {
+TEST(stepper_motor_timing, terminalIntervalUsesKinematicsWithoutAddingDisplacement) {
+    printf("[TERM] Check natural terminal timing in both directions\n");
     for (const float direction : {1.0F, -1.0F}) {
         for (const duration timer : {duration(0), 5 * MILLISECOND}) {
             const auto sequence = getSeriesSequence(0, direction * 90, 0, timer, STEPPER_OPTS);
             ASSERT_TRUE(sequence.error.empty());
             ASSERT_GE(sequence.seq.size(), 3);
             const auto& terminal = sequence.seq.back();
-            const auto& braking = sequence.seq[sequence.seq.size() - 2];
+            const double naturalPeriod = 2 * std::sqrt(STEPPER_OPTS.degPulse / STEPPER_OPTS.accelMaxDegSec2);
             ASSERT_EQ(terminal.pulsesCount_, 1);
-            ASSERT_NEAR(terminal.finalSpeed(STEPPER_OPTS), direction * 2.25F, 1e-5);
-            ASSERT_LT(std::abs(terminal.finalSpeed(STEPPER_OPTS)), std::abs(braking.finalSpeed(STEPPER_OPTS)));
-            ASSERT_GE(terminal.totalSec(), 0.1F);
-            ASSERT_LT(terminal.totalSec(), 0.11F);
+            ASSERT_NEAR(terminal.finalSpeed(STEPPER_OPTS), direction * STEPPER_OPTS.degPulse / naturalPeriod, 1e-5);
+            ASSERT_GE(terminal.totalSec() + 1e-7, naturalPeriod);
+            ASSERT_LE(terminal.totalSec(), naturalPeriod + static_cast<double>(timer) / SECOND + 1e-7);
             uint64_t pulses = 0;
             for (const auto& series : sequence.seq) {
                 pulses += series.pulsesCount_;
@@ -626,7 +626,8 @@ TEST_F(StepperMotorActionTest, liveSequenceUsesRuntimeBrakingAndFiniteTerminalSp
     ASSERT_EQ(real.seq[1].modelInterval_, 5 * MILLISECOND);
     ASSERT_EQ(real.seq[1].minimumPulsesCount_, 0U);
     ASSERT_NEAR(real.seq[1].initialSpeedDegPerSec_, real.seq[0].finalSpeed(STEPPER_OPTS), 1e-5);
-    ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS), 2.25F, 1e-5);
+    ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS),
+        STEPPER_OPTS.degPulse * std::floor(1.0 / (2 * std::sqrt(STEPPER_OPTS.degPulse / STEPPER_OPTS.accelMaxDegSec2))), 1e-5);
     for (const auto& series : real.seq) {
         ASSERT_TRUE(series.finished_);
         ASSERT_LE(series.maxSpeedDegSec_, STEPPER_OPTS.speedMaxDegSec + SPEED_EPS);
@@ -803,7 +804,8 @@ TEST_F(StepperMotorActionTest, brakingFreezesMeanSinceAccelerationAndHandlesLate
             ASSERT_LE(real.seq[0].maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
             ASSERT_GE(pulses, STEPPER_OPTS.pulsesForDeg(angle, angle > 0));
             ASSERT_LE(pulses, STEPPER_OPTS.pulsesForDeg(angle, angle > 0) + 5);
-            ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS), angle > 0 ? 2.25F : -2.25F, SPEED_EPS);
+            ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS), (angle > 0 ? 1.F : -1.F) * STEPPER_OPTS.degPulse *
+                std::floor(1.0 / (2 * std::sqrt(STEPPER_OPTS.degPulse / STEPPER_OPTS.accelMaxDegSec2))), SPEED_EPS);
         }
     }
 }
@@ -845,6 +847,26 @@ TEST_F(StepperMotorActionTest, exhaustedBrakingBudgetSkipsTailAfterLargeDelay) {
     ASSERT_GT(motor.result().seq.front().pulsesCount_, 146U);
     ASSERT_EQ(motor.action(5 * SECOND + 100 * MILLISECOND), StepperMotorAction::COMPLETE);
     ASSERT_TRUE(motor.result().error.empty());
-    ASSERT_EQ(motor.result().seq.back().pulsesCount_, 1U);
+    // The 100-ms observation gap spans two natural terminal PWM periods.
+    ASSERT_EQ(motor.result().seq.back().pulsesCount_, 2U);
 }
 #endif
+
+TEST(stepper_motor_timing, shortPlatformMovesHaveNoFixedTerminalDelay) {
+    printf("[TERM] Check one/two pulses and quarter/one/two-degree moves\n");
+    const stepper_motor_options_t options{8000, 0.125F, 180, 11444.94F};
+    for (const float angle : {0.125F, 0.25F, 1.F, 2.F, -0.125F, -0.25F, -1.F, -2.F}) {
+        const auto sequence = getSeriesSequence(0, angle, 0, 0, options);
+        ASSERT_TRUE(sequence.error.empty());
+        double elapsed = 0;
+        double rotation = 0;
+        for (const auto& section : sequence.seq) {
+            elapsed += section.totalSec();
+            rotation += section.totalRotationDeg(options);
+        }
+        ASSERT_NEAR(rotation, angle, 1e-6);
+        ASSERT_GT(elapsed, 0);
+        ASSERT_LT(elapsed, 0.05);
+        ASSERT_NEAR(sequence.seq.back().totalSec(), 2 * std::sqrt(options.degPulse / options.accelMaxDegSec2), 1e-7);
+    }
+}

@@ -307,3 +307,10 @@ Project-owned filesystem, process-launch, configuration and JSON diagnostics pri
 ## Diagnostics
 
 Filesystem, configuration, JSON, process-launch and server diagnostics now place the context first: `[function()] ERROR: details`. Context constants omit trailing whitespace; callers supply separation in both printed messages and error strings. Return values and cleanup behavior are unchanged.
+
+## Number parsing
+
+`number_parse.h` provides `parseFiniteFloat(text, value)` for strict signed decimal/scientific
+notation. It accepts a leading plus or minus, requires full consumption, rejects nonfinite
+and out-of-range values, and preserves the output on failure. Errors go to stdout with
+`[parseFiniteFloat()] ERROR:`.

@@ -24,13 +24,13 @@ CONSTANT_ACCELERATION uses per-step kinematics. Near-zero squared speeds tolerat
 
 `addAcceleratedSeries()` and `getSeriesSequence()` take `duration expecterInterval` before motor options and return evaluated sections. `getFastestSeries()` returns an unevaluated plan.
 
-For an accelerated move with zero base speed, one pulse is reserved from the quantized requested displacement for a slow terminal interval. The preceding displacement uses the existing acceleration/deceleration construction. The terminal period is the greater of 100 ms and the natural single-pulse rest-to-rest period respecting speed/acceleration limits. Thus the extra slowing is bounded at 100 ms; naturally slower moves are not accelerated. No extra pulse is added to the requested angle, no infinite interval is requested, and no post-stop zero speed is reported. The terminal section is grouped with Deceleration in logs. Nonzero-base-speed sequences retain their endpoint behavior.
+For an accelerated move with zero base speed, one pulse is reserved from the quantized requested displacement for a slow terminal interval. The preceding displacement uses the existing acceleration/deceleration construction. The terminal period is the natural single-pulse rest-to-rest period respecting speed/acceleration limits, rounded to nanoseconds. There is no fixed 100-ms minimum. No extra pulse is added to the requested angle, no infinite interval is requested, and no post-stop zero speed is reported. The terminal section is grouped with Deceleration in logs. Nonzero-base-speed sequences retain their endpoint behavior.
 
 With timer zero, the preceding motion contains acceleration, optional cruise and deceleration. With a nonzero timer it accelerates until the first tick at or beyond half of the preceding quantized displacement, rounded upward to a pulse; the speed-limit period can repeat inside that section. A deceleration section is then built from its last interval-average speed. Optional cruise uses surplus displacement before braking. `stopAfterPulses_` records the simulated halfway threshold. `pairedTargetPulses_` retains the full acceleration/cruise/braking target before timer overshoot, excluding the reserved terminal pulse; REAL uses this full target rather than reconstructing it from the simulated halfway remainder.
 
 Timed deceleration uses `minimumPulsesCount_` to fill any remaining integer angle at its last period. `getSeriesSequence()` also corrects overall shortfalls. Coarse-timer overshoots are retained. Reserving the terminal pulse does not guarantee exactly N physical edges from a free-running PWM generator.
 
-For default 90-degree / 5-ms settings, clocked simulation has 200 acceleration pulses, 199 pulses distributed across cruise/main braking and one reserved terminal pulse: 400 pulses / 90 degrees. Last-interval speed is 2.25 deg/s, versus approximately 9 deg/s before terminal slowing. REAL phase counts and timing come from predictive execution and actual call spacing.
+For default 90-degree / 5-ms settings, clocked simulation has 200 acceleration pulses, 199 pulses distributed across cruise/main braking and one reserved terminal pulse: 400 pulses / 90 degrees. The terminal period and last-interval speed now depend on the configured kinematic limits; live PWM additionally quantizes frequency. REAL phase counts and timing come from predictive execution and actual call spacing.
 
 ## Incremental GPIO execution
 
@@ -92,3 +92,17 @@ Hardware PWM in this probe uses the explicit `HARDWARE_PWM_PIN_STEP = 18` consta
 The `stepper_motor_test` GTest/CTest target covers existing simulation behavior, both directions, pulse quantization/replay, finite terminal slowing, grouped/verbose output, external ticks, repeated/older timestamps, runtime PWM settings, independent pins, hardware mode through the desktop contract, errors, timeout and cleanup. Raspberry Pi waveform behavior requires on-device validation. The older `probe_180_360_180` and `probe_infinite` retain their APIs and implementation.
 
 Additional GTest/CTest cases cover braking prediction against fixed-timer replay (including nonzero final speed), the exact fits/does-not-fit pulse boundary, skipping commands after delayed observations, signed 33/90/180/720-degree moves, full target retention after simulated halfway overshoot, startup exclusion and mean timing, duplicate/older timestamps, frozen profiles during later delays, zero-timer input plans, speed/acceleration limits during acceleration, and permitted stronger braking. Runtime timing comparisons are deterministic desktop PWM-model results; Raspberry Pi waveforms and mechanical behavior require on-device validation.
+
+## Platform configuration
+
+See [platform mechanics and CLI probe](info_add_1789076359688.md) for the shared YAML loader, torque/inertia model, platform units and `probe_platform`.
+
+## Scheduler interval in statistics
+
+`StepperMotorSeriesSequence::log()` accepts an optional fourth argument,
+`expecterInterval` (nanoseconds). When supplied, every phase block total and TOTAL
+row includes `expecterInterval=… ms` with six decimal places. `stepperMotorRun()`
+supplies the configured simulation interval for `clocked` and the requested polling
+cadence for `real`. With configured zero, these are respectively 0 ms (ideal
+simulation) and 0.001 ms (run's 1-us polling fallback). This is the requested
+scheduler cadence, not the measured spacing between calls or the STEP pulse period.

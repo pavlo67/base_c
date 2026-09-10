@@ -183,7 +183,8 @@ bool addAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float base
     if (!calculateAcceleratedSeries(seriesSequence, baseSpeedDegPerSec, precedingDeg,
             expecterInterval, stepperOpts, intervalAlgorithm)) { return false; }
     StepperMotorSeries terminal(1, 0, 0, forward, stepperOpts, CONSTANT_ACCELERATION);
-    terminal.terminalInterval_ = 100 * MILLISECOND;
+    terminal.terminalInterval_ = std::max<duration>(1,
+        std::llround(static_cast<double>(terminal.idealIntervalSec(0, stepperOpts)) * SECOND));
     const moment at = seriesSequence.seq.empty() ? 0 : seriesSequence.seq.back().observedAt_;
     seriesSequence.seq.push_back(evaluateSeries(terminal, expecterInterval, stepperOpts, at));
     return true;
@@ -350,14 +351,19 @@ struct SeriesStatistics {
         maxAcceleration_ = std::max(maxAcceleration_, acceleration);
     }
 
-    void log(const std::string& label) const {
-        printf("%s: time=%.9f s, rotation=%.6f deg, pulses=%lu, finalSpeed=%.6f deg/s, maxSpeed=%.6f deg/s, maxAcceleration=%.6f deg/s^2\n",
+    void log(const std::string& label, std::optional<duration> expecterInterval) const {
+        printf("%s: time=%.9f s, rotation=%.6f deg, pulses=%lu, finalSpeed=%.6f deg/s, maxSpeed=%.6f deg/s, maxAcceleration=%.6f deg/s^2",
             label.c_str(), time_, rotation_, pulses_, finalSpeed_, maxSpeed_, maxAcceleration_);
+        if (expecterInterval) {
+            printf(", expecterInterval=%.6f ms", static_cast<double>(*expecterInterval) / MILLISECOND);
+        }
+        printf("\n");
     }
 };
 }
 
-void StepperMotorSeriesSequence::log(const stepper_motor_options_t& stepperOpts, const char* label, bool verbose) const {
+void StepperMotorSeriesSequence::log(const stepper_motor_options_t& stepperOpts, const char* label, bool verbose,
+        std::optional<duration> expecterInterval) const {
     SeriesStatistics total;
     SeriesStatistics block;
     std::string blockPhase;
@@ -367,7 +373,7 @@ void StepperMotorSeriesSequence::log(const stepper_motor_options_t& stepperOpts,
         const std::string phase = series.terminalInterval_ || series.accelerationDegPerSec2_ < 0 ? "Deceleration"
             : series.accelerationDegPerSec2_ > 0 ? "Acceleration" : "Cruise";
         if (phase != blockPhase) {
-            if (!blockPhase.empty()) { block.log(std::string(label) + ": " + blockPhase + " block total"); }
+            if (!blockPhase.empty()) { block.log(std::string(label) + ": " + blockPhase + " block total", expecterInterval); }
             block = {};
             blockPhase = phase;
             printf("\n%s: %s\n", label, phase.c_str());
@@ -387,6 +393,6 @@ void StepperMotorSeriesSequence::log(const stepper_motor_options_t& stepperOpts,
             previousSpeed = series.finalSpeed(stepperOpts);
         }
     }
-    if (!blockPhase.empty()) { block.log(std::string(label) + ": " + blockPhase + " block total"); }
-    total.log("\n" + std::string(label) + " TOTAL");
+    if (!blockPhase.empty()) { block.log(std::string(label) + ": " + blockPhase + " block total", expecterInterval); }
+    total.log("\n" + std::string(label) + " TOTAL", expecterInterval);
 }

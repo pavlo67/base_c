@@ -289,7 +289,7 @@ int stepperMotorRun(const StepperMotorRunConfig& cfg, float rotationDeg,
     const auto ideal = getSeriesSequence(0, rotationDeg, 0, 0, cfg.options_);
     if (!ideal.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, ideal.error); }
     ideal.log(cfg.options_, (prefix + " ideal").c_str(), cfg.verbose_);
-    clocked.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_);
+    clocked.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_, cfg.expecterInterval_);
     fflush(stdout);
 
     auto& gpio = Gpio::instance();
@@ -304,7 +304,8 @@ int stepperMotorRun(const StepperMotorRunConfig& cfg, float rotationDeg,
         observed = motor.result();
     }
     if (real) { *real = observed; }
-    observed.log(cfg.options_, (prefix + " real").c_str(), cfg.verbose_);
+    observed.log(cfg.options_, (prefix + " real").c_str(), cfg.verbose_,
+        cfg.expecterInterval_ ? cfg.expecterInterval_ : MICROSECOND);
     if (result < 0) { (void)fail(result, "motion failed"); }
     const int terminated = gpio.terminate();
     if (terminated < 0) {

@@ -1,1 +1,36 @@
 API_KEY: replace-with-a-secret
+
+# Platform motion configuration.
+pan:
+  pinStep: 17
+  pinDir: 24
+  pinEna: 27
+  freqMax: 8000
+  degPulse: 0.225 # motor degrees per pulse
+  speedMaxDegSec: 180 # platform degrees per second
+  gearRatio: 0.5555555555555556 # 225 x 14 mm HTD-3M, 20/36 teeth
+  momentOfInertia: 0.00421875 # kg*m^2, uniform disk 1.5 kg, diameter 0.15 m
+  rotorInertia: 0.00002 # kg*m^2
+  transmissionEfficiency: 0.95 # preliminary estimate, 5% transmission loss
+  torqueMaxNm: 0.5 # motor torque used for acceleration planning
+  expecterIntervalUs: 5000
+  pulseHighUs: 15
+  hardwarePwm: false
+  timeLimitMs: 60000
+
+tilt:
+  pinStep: 18
+  pinDir: 23
+  pinEna: 22
+  freqMax: 8000
+  degPulse: 0.225 # motor degrees per pulse
+  speedMaxDegSec: 180 # platform degrees per second
+  gearRatio: 0.5 # 195 x 15 mm HTD-3M, 18/36 teeth
+  momentOfInertia: 0.000703125 # kg*m^2, uniform disk 1 kg, diameter 0.075 m
+  rotorInertia: 0.0000054 # kg*m^2
+  transmissionEfficiency: 0.95 # preliminary estimate, 5% transmission loss
+  torqueMaxNm: 0.5 # motor torque used for acceleration planning
+  expecterIntervalUs: 5000
+  pulseHighUs: 15
+  hardwarePwm: false
+  timeLimitMs: 60000

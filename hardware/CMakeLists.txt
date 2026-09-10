@@ -67,3 +67,12 @@ add_executable(pwm_sysfs_test gpio/pwm/pwm_sysfs_test.cpp gpio/pwm/pwm_sysfs.cpp
 target_compile_definitions(pwm_sysfs_test PRIVATE GPIO_SYSFS_TEST=1)
 target_link_libraries(pwm_sysfs_test PRIVATE GTest::gtest_main Threads::Threads)
 add_test(NAME pwm_sysfs_test COMMAND pwm_sysfs_test)
+
+# Shared platform mechanics and YAML configuration.
+add_library(stepper_platform stepper_motor/platform_config.cpp ../lib/config/config.cpp)
+target_link_libraries(stepper_platform PUBLIC stepper_motor yaml-cpp::yaml-cpp)
+add_executable(probe_platform stepper_motor/_probe/probe_platform.cpp)
+target_link_libraries(probe_platform PRIVATE stepper_platform)
+add_executable(stepper_platform_test stepper_motor/platform_config_test.cpp)
+target_link_libraries(stepper_platform_test PRIVATE stepper_platform GTest::gtest_main)
+add_test(NAME stepper_platform_test COMMAND stepper_platform_test)
