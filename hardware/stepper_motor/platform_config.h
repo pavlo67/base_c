@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BASE_CPP_HARDWARE_STEPPER_MOTOR_PLATFORM_CONFIG_H
+#define BASE_CPP_HARDWARE_STEPPER_MOTOR_PLATFORM_CONFIG_H
 
 #include <array>
 #include "stepper_motor.h"
@@ -17,3 +18,5 @@ struct PlatformMechanics {
 bool platformMotorOptions(const PlatformMechanics& mechanics, stepper_motor_options_t& options);
 // Loads both axes atomically, with platform units in the resulting run configurations.
 bool loadPlatformMotorConfig(const Config& config, std::array<StepperMotorRunConfig, 2>& motors);
+
+#endif // BASE_CPP_HARDWARE_STEPPER_MOTOR_PLATFORM_CONFIG_H

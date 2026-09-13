@@ -1,8 +1,12 @@
 #ifndef TIMING_H
 #define TIMING_H
 
+#include <chrono>
 #include <cstdint>
 #include <string>
+
+// Shared monotonic application clock; independent of wall-clock corrections.
+using Clock = std::chrono::steady_clock;
 
 // base types & functions ---------------------------------------------------------
 

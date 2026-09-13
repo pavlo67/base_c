@@ -1,10 +1,12 @@
-#pragma once
+#ifndef BASE_CPP_HARDWARE_STEPPER_MOTOR_STEPPER_MOTOR_RUNNER_H
+#define BASE_CPP_HARDWARE_STEPPER_MOTOR_STEPPER_MOTOR_RUNNER_H
 
 #include <array>
 #include <algorithm>
 #include <chrono>
 #include <optional>
 
+#include "lib/timelib.h"
 #include "stepper_motor.h"
 #include "hardware/gpio/gpio.h"
 
@@ -13,7 +15,6 @@
 // until these objects are destroyed. Neither method owns GPIO lifecycle.
 class StepperMotorRunner {
 public:
-    using Clock = std::chrono::steady_clock;
     int prepare(const StepperMotorRunConfig& config, float angle,
         std::array<bool, Gpio::PIN_COUNT>& usedPins);
     int update();
@@ -28,3 +29,5 @@ private:
     bool started_ = false;
     int status_ = StepperMotorAction::COMPLETE;
 };
+
+#endif // BASE_CPP_HARDWARE_STEPPER_MOTOR_STEPPER_MOTOR_RUNNER_H

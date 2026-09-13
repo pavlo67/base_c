@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BASE_CPP_HARDWARE_GPIO_PWM_PWM_SYSFS_H
+#define BASE_CPP_HARDWARE_GPIO_PWM_PWM_SYSFS_H
 
 #include "../gpio.h"
 #include <array>
@@ -44,3 +45,5 @@ private:
     std::string treeRoot_;
 };
 #endif
+
+#endif // BASE_CPP_HARDWARE_GPIO_PWM_PWM_SYSFS_H

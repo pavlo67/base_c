@@ -29,12 +29,8 @@ uint64_t nowMs() {
 }
 
 uint64_t monotonicNowMs() {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
-    timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) [[unlikely]] {
-        return 0;
-    }
-    return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        Clock::now().time_since_epoch()).count());
 }
 
 uint32_t internal32Ms() {

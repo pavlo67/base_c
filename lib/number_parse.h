@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BASE_CPP_LIB_NUMBER_PARSE_H
+#define BASE_CPP_LIB_NUMBER_PARSE_H
 
 #include <charconv>
 #include <cmath>
@@ -23,3 +24,5 @@ inline bool parseFiniteFloat(std::string_view text, float& value) {
     value = candidate;
     return true;
 }
+
+#endif // BASE_CPP_LIB_NUMBER_PARSE_H

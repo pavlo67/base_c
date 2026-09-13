@@ -10,7 +10,7 @@
 - `strlib.h/.cpp` - базові операції з рядками і printf-style логування.
 - `csvlib.h/.cpp` - CSV escaping і форматування bool-значень для CSV.
 - `mathlib.h/.cpp` - дрібні математичні helpers, зокрема 2D-вектори.
-- `time.h/.cpp` - timestamp helpers і накопичення статистики часу виконання.
+- `timelib.h/.cpp` - timestamp helpers і накопичення статистики часу виконання.
 
 ## execlib
 
@@ -316,3 +316,11 @@ and out-of-range values, and preserves the output on failure. Errors go to stdou
 `[parseFiniteFloat()] ERROR:`.
 
 `probe_platform` uses `parseFiniteFloat()` to validate the complete CLI angle list before starting any movement.
+
+## Shared monotonic clock
+
+`timelib.h` defines `Clock = std::chrono::steady_clock` for application scheduling,
+independently of motor hardware. `monotonicNowMs()` converts this clock's epoch to
+milliseconds; `internal32Ms()` returns elapsed milliseconds since library startup,
+wrapping at 32 bits. The epoch is unspecified and is not a wall-clock timestamp.
+`now()` and `nowMs()` retain realtime semantics.

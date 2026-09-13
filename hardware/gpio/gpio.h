@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BASE_CPP_HARDWARE_GPIO_GPIO_H
+#define BASE_CPP_HARDWARE_GPIO_GPIO_H
 
 #include <array>
 
@@ -67,3 +68,4 @@ private:
     int update(unsigned pin, const PwmSettings& settings);
 };
 
+#endif // BASE_CPP_HARDWARE_GPIO_GPIO_H

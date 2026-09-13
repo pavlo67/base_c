@@ -183,3 +183,6 @@ already complete. The return status is RUNNING, COMPLETE or a negative error.
 Keep execution ownership through runner destruction; the contained motor stops
 before the owning actor releases the shared mutex. GPIO initialization/termination
 remain at application scope.
+
+`StepperMotorRunner` uses the shared `Clock` from `lib/timelib.h` for its timer
+and watchdog time points; there is no runner-owned clock alias.
