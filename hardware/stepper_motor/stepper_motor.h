@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -172,6 +173,11 @@ StepperMotorSeriesSequence getSeriesSequence(
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
 
 // GPIO lifecycle belongs to the caller. Serialize calls for each motor.
+struct StepperMotorRunConfig;
+
+// Shared ownership of motor execution, held through PWM cleanup.
+std::mutex& stepperMotorExecutionMutex();
+
 class StepperMotorAction {
 public:
     static constexpr int RUNNING = 0;
@@ -188,7 +194,11 @@ public:
     // No sleeps: one update at a monotonic timestamp. Negative results are errors.
     int action(moment at);
     // Fixed timer and independent watchdog; does not inspect the series plan.
-    int run(duration expecterInterval, duration timeLimit = 60 * SECOND);
+    int probeReal(duration expecterInterval, duration timeLimit = 60 * SECOND);
+    // rotationDeg is signed degrees, independent of application command encoding.
+    // Logs ideal/clocked/real statistics; real also receives partial results on failure.
+    static int probeAll(const StepperMotorRunConfig& config, float rotationDeg,
+            const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
     int stop();
     [[nodiscard]] const StepperMotorSeriesSequence& result() const { return sequence_; }
 
@@ -212,7 +222,7 @@ private:
     unsigned frequency_ = 0;
 };
 
-// Complete, serialized move from rest to rest; owns GPIO initialization/termination.
+// Configuration for a rest-to-rest move; the application owns GPIO lifecycle.
 struct StepperMotorRunConfig {
     unsigned pinStep_ = 0;
     unsigned pinDir_ = 0;
@@ -224,11 +234,6 @@ struct StepperMotorRunConfig {
     bool hardwarePwm_ = false;
     bool verbose_ = false;
 };
-
-// rotationDeg is signed degrees, independent of application command encoding.
-// Logs ideal/clocked/real statistics; real also receives partial results on failure.
-int stepperMotorRun(const StepperMotorRunConfig& config, float rotationDeg,
-        const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
 
 // Evaluate a fresh copy on a timer grid anchored at zero. A zero timer visits pulse boundaries.
 // stopAfterPulses is checked on timer ticks; repeated PWM pulses can cross this threshold.

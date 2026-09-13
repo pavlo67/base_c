@@ -6,6 +6,7 @@
 #include "hardware/gpio/gpio.h"
 
 constexpr const char* ON_PLATFORM_OPTIONS = "[platformMotorOptions()]";
+
 bool platformMotorOptions(const PlatformMechanics& m, stepper_motor_options_t& options) {
     if (!std::isfinite(m.gearRatio_) || m.gearRatio_ <= 0 ||
             !std::isfinite(m.momentOfInertia_) || m.momentOfInertia_ <= 0 ||

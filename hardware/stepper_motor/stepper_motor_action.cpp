@@ -222,14 +222,14 @@ int StepperMotorAction::action(moment at) {
     return status_;
 }
 
-const std::string ON_STEPPER_RUN = "[StepperMotorAction.run()]";
+const std::string ON_PROBE_REAL = "[StepperMotorAction.probeReal()]";
 
-int StepperMotorAction::run(duration expecterInterval, duration timeLimit) {
-    const duration maximum = static_cast<duration>(std::numeric_limits<int64_t>::max() / 2);
+int StepperMotorAction::probeReal(duration expecterInterval, duration timeLimit) {
+    const duration maximum = std::numeric_limits<int64_t>::max() / 2;
     if (timeLimit == 0 || timeLimit > maximum || expecterInterval > maximum) {
         status_ = Gpio::INVALID_ARGUMENT;
-        sequence_.error = ON_STEPPER_RUN + " invalid timer or time limit";
-        printf("%s ERROR: invalid timer or time limit\n", ON_STEPPER_RUN.c_str());
+        sequence_.error = ON_PROBE_REAL + " invalid timer or time limit";
+        printf("%s ERROR: invalid timer or time limit\n", ON_PROBE_REAL.c_str());
         return stop();
     }
     const auto origin = std::chrono::steady_clock::now();
@@ -240,13 +240,15 @@ int StepperMotorAction::run(duration expecterInterval, duration timeLimit) {
         const auto current = std::chrono::steady_clock::now();
         if (current >= deadline) {
             status_ = TIME_LIMIT;
-            sequence_.error = ON_STEPPER_RUN + " time limit exceeded";
-            printf("%s ERROR: time limit exceeded\n", ON_STEPPER_RUN.c_str());
+            sequence_.error = ON_PROBE_REAL + " time limit exceeded";
+            printf("%s ERROR: time limit exceeded\n", ON_PROBE_REAL.c_str());
             return stop();
         }
         const moment at = std::chrono::duration_cast<std::chrono::nanoseconds>(current.time_since_epoch()).count();
         const int code = action(at);
-        if (code != RUNNING) { return code < 0 ? code : Gpio::SUCCESS; }
+        if (code != RUNNING) {
+            return code < 0 ? code : Gpio::SUCCESS;
+        }
         next += tick;
         const auto after = std::chrono::steady_clock::now();
         if (next < after) { next += tick * ((after - next) / tick + 1); }
@@ -254,21 +256,27 @@ int StepperMotorAction::run(duration expecterInterval, duration timeLimit) {
     }
 }
 
-constexpr const char* ON_RUN_MOTOR = "[stepper_motor.run()]";
+std::mutex& stepperMotorExecutionMutex() {
+    static std::mutex executionMutex;
+    return executionMutex;
+}
 
-int stepperMotorRun(const StepperMotorRunConfig& cfg, float rotationDeg,
+constexpr const char* ON_PROBE_ALL = "[stepper_motor.probeAll()]";
+
+int StepperMotorAction::probeAll(const StepperMotorRunConfig& cfg, float rotationDeg,
         const std::string& label, StepperMotorSeriesSequence* real) {
+    const std::lock_guard<std::mutex> execution(stepperMotorExecutionMutex());
     if (real) { *real = {}; }
     const auto fail = [&](int code, const std::string& message) {
-        const std::string error = std::string(ON_RUN_MOTOR) + " " + label + ": " + message;
-        printf("%s ERROR: %s: %s (code %d)\n", ON_RUN_MOTOR, label.c_str(), message.c_str(), code);
+        const std::string error = std::string(ON_PROBE_ALL) + " " + label + ": " + message;
+        printf("%s ERROR: %s: %s (code %d)\n", ON_PROBE_ALL, label.c_str(), message.c_str(), code);
         if (real && real->error.empty()) { real->error = error; }
         fflush(stdout);
         return code;
     };
     std::string error;
     if (!optionsIsOk(cfg.options_, error)) { return fail(Gpio::INVALID_ARGUMENT, error); }
-    const duration maximum = static_cast<duration>(std::numeric_limits<int64_t>::max() / 2);
+    const duration maximum = std::numeric_limits<int64_t>::max() / 2;
     if (!std::isfinite(rotationDeg) || cfg.timeLimit_ == 0 || cfg.timeLimit_ > maximum ||
             cfg.expecterInterval_ > maximum || cfg.pulseHigh_ == 0 || cfg.pulseHigh_ > SECOND / 2 ||
             cfg.pinStep_ >= Gpio::PIN_COUNT || cfg.pinDir_ >= Gpio::PIN_COUNT || cfg.pinEna_ >= Gpio::PIN_COUNT ||
@@ -292,26 +300,18 @@ int stepperMotorRun(const StepperMotorRunConfig& cfg, float rotationDeg,
     clocked.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_, cfg.expecterInterval_);
     fflush(stdout);
 
-    auto& gpio = Gpio::instance();
-    const int initialized = gpio.initialize();
-    if (initialized < 0) { return fail(initialized, "GPIO initialization failed"); }
     StepperMotorSeriesSequence observed;
     int result;
     {
         StepperMotorAction motor(clocked, cfg.pinStep_, cfg.pinDir_, cfg.pinEna_,
             cfg.options_, cfg.pulseHigh_, cfg.hardwarePwm_);
-        result = motor.run(cfg.expecterInterval_, cfg.timeLimit_);
+        result = motor.probeReal(cfg.expecterInterval_, cfg.timeLimit_);
         observed = motor.result();
     }
     if (real) { *real = observed; }
     observed.log(cfg.options_, (prefix + " real").c_str(), cfg.verbose_,
         cfg.expecterInterval_ ? cfg.expecterInterval_ : MICROSECOND);
     if (result < 0) { (void)fail(result, "motion failed"); }
-    const int terminated = gpio.terminate();
-    if (terminated < 0) {
-        (void)fail(terminated, "GPIO termination failed");
-        if (result >= 0) { result = terminated; }
-    }
     printf("%s Motion finished; result: %d\n", prefix.c_str(), result);
     fflush(stdout);
     return result;

@@ -1,3 +1,4 @@
+#include "hardware/gpio/gpio.h"
 #include <cstdio>
 
 #include "_base_defines.h"
@@ -43,8 +44,12 @@ int main() {
         .hardwarePwm_ = hardwarePwm,
         .verbose_ = STEPPER_MOTOR_PROBE_VERBOSE
     };
+    auto& gpio = Gpio::instance();
+    if (gpio.initialize() < 0) { return 1; }
+    int result = 0;
     for (const float rotation : ROTATIONS) {
-        if (stepperMotorRun(config, rotation, "probe") < 0) { return 1; }
+        if (StepperMotorAction::probeAll(config, rotation, "probe") < 0) { result = 1; break; }
     }
-    return 0;
+    if (gpio.terminate() < 0) { result = 1; }
+    return result;
 }

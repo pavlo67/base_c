@@ -1,3 +1,4 @@
+#include "hardware/gpio/gpio.h"
 #include "hardware/stepper_motor/platform_config.h"
 #include "lib/number_parse.h"
 
@@ -25,9 +26,13 @@ int main(int argc, char** argv) {
     std::array<StepperMotorRunConfig, 2> motors{};
     if (!loadPlatformMotorConfig(config, motors)) { return 1; }
     const char* axis = AXIS == 0 ? "pan" : "tilt";
+    auto& gpio = Gpio::instance();
+    if (gpio.initialize() < 0) { return 1; }
+    int result = 0;
     for (size_t i = 0; i < rotations.size(); ++i) {
         printf("[PRB] %s move %zu/%zu\n", axis, i + 1, rotations.size());
-        if (stepperMotorRun(motors[AXIS], rotations[i], axis) < 0) { return 1; }
+        if (StepperMotorAction::probeAll(motors[AXIS], rotations[i], axis) < 0) { result = 1; break; }
     }
-    return 0;
+    if (gpio.terminate() < 0) { result = 1; }
+    return result;
 }

@@ -314,3 +314,5 @@ Filesystem, configuration, JSON, process-launch and server diagnostics now place
 notation. It accepts a leading plus or minus, requires full consumption, rejects nonfinite
 and out-of-range values, and preserves the output on failure. Errors go to stdout with
 `[parseFiniteFloat()] ERROR:`.
+
+`probe_platform` uses `parseFiniteFloat()` to validate the complete CLI angle list before starting any movement.

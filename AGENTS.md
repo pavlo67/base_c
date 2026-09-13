@@ -1,15 +1,12 @@
 # Repository Instructions
 
-## View
+## View && Analysis
 
-* Read info.md / task.md files and source code only within the scope explicitly specified by the user. Do not proactively explore the repository outside that scope.
+Read info.md / task.md files and source code only within the scope explicitly specified by the user. Do not proactively explore the repository outside that scope.
 
-* Expand the scope only when there is a clear technical dependency or when the requested change cannot be implemented safely with the information available in the specified area.
+Expand the scope only when there is a clear technical dependency or when the requested change cannot be implemented safely with the information available in the specified area.
 
-* When expanding the scope, inspect only the minimum additional files or directories required.
-
-
-## Analysis
+When expanding the scope, inspect only the minimum additional files or directories required.
 
 For code analysis, treat info.md in its directory as the primary source of information and if it is missing, look for it higher in the hierarchy (up to first-level subtree info.md)
 
@@ -25,6 +22,8 @@ Read source code only when:
 
 Before every non-trivial action, first analyze the task and discuss likely difficulties, nuances, and specification gaps with the user. Do not start that action until the user initiates it with an explicit formal command.
 
+Запуск CMake і CTest для перевірки погоджених змін дозволений без додаткового обговорення та окремої формальної команди. Це виняток із попереднього правила.
+
 Prefer existing repository patterns over new conventions.
 
 Always look for helper functions in lib/ and hardware/ first (using corresponding `info.md`). 
@@ -39,6 +38,8 @@ Don't create `info.md` in `_docs`, `_env`, `_bin`, `_sessions` and other undersc
 Don't describe static functions in `info.md`.
 
 Do not show diffs.
+
+
 
 
 ## Coding style
