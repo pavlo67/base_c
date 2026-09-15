@@ -18,14 +18,8 @@ extern std::string COMMIT;
 #define PROCESS_INFO_STEP  400
 #define SAVE_IMAGES_EXT    ".png"
 
-#define RUN_PROBE false
-
-#ifndef STEPPER_MOTOR_PROBE_VERBOSE
 #define STEPPER_MOTOR_PROBE_VERBOSE false
-#endif
-#ifndef STEPPER_MOTOR_PROBE_HARDWARE_PWM
 #define STEPPER_MOTOR_PROBE_HARDWARE_PWM true
-#endif
 
 #endif // BASE_DEFINES_H
 

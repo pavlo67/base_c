@@ -7,7 +7,7 @@
 // pon 25 is bad!!!
 
 inline constexpr int PIN_STEP = 17; // GPIO17 -> PUL-
-inline constexpr int PIN_DIR  = 24; // GPIO24 -> DIR-
+inline constexpr int PIN_DIR  = 22; // GPIO22 -> DIR-
 inline constexpr int PIN_ENA  = 27; // GPIO27 -> ENA-
 
 inline constexpr float FREQ_MAX_DEFAULT   = 8000;   // 5 rpm * 1600 microsteps per rotation

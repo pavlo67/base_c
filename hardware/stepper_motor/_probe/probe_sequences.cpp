@@ -27,12 +27,12 @@ const float ROTATIONS[] = {90.0F}; // , -180.0F, 90.0F
 
 int main() {
     bool hardwarePwm = STEPPER_MOTOR_PROBE_HARDWARE_PWM;
-#if defined(SYSTEM_IS_DESKTOP) && SYSTEM_IS_DESKTOP
-    if (hardwarePwm) {
-        printf("Warning: hardware PWM is unavailable on desktop; STEPPER_MOTOR_PROBE_HARDWARE_PWM=OFF\n");
-        hardwarePwm = false;
-    }
-#endif
+    #if defined(SYSTEM_IS_DESKTOP) && SYSTEM_IS_DESKTOP
+        if (hardwarePwm) {
+            printf("Warning: hardware PWM is unavailable on desktop; STEPPER_MOTOR_PROBE_HARDWARE_PWM=OFF\n");
+            hardwarePwm = false;
+        }
+    #endif
     const StepperMotorRunConfig config {
         .pinStep_ = hardwarePwm ? HARDWARE_PWM_PIN_STEP : static_cast<unsigned>(PIN_STEP),
         .pinDir_ = PIN_DIR,

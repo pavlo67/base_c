@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+echo "=== RPi health: $(date '+%F %T') ==="
+
+printf "%-12s " "Temp:"
+vcgencmd measure_temp
+
+printf "%-12s " "Throttled:"
+vcgencmd get_throttled
+
+printf "%-12s " "Core volts:"
+vcgencmd measure_volts core
+
+printf "%-12s " "CPU freq:"
+awk '{printf "%.0f MHz\n", $1/1000}' \
+    /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+
+printf "%-12s " "Load:"
+cut -d' ' -f1-3 /proc/loadavg
+
+printf "%-12s " "Memory:"
+free -m | awk '/^Mem:/ {
+    printf "%d/%d MB used, %d MB available\n", $3, $2, $7
+}'
+
+printf "%-12s " "Swap:"
+free -m | awk '/^Swap:/ {
+    printf "%d/%d MB used\n", $3, $2
+}'
+
+printf "%-12s " "Uptime:"
+uptime -p
+
+echo
+echo "=== Kernel warnings/errors ==="
+dmesg --level=err,warn 2>/dev/null | tail -20
