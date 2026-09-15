@@ -18,7 +18,9 @@ PWM setters accept OUTPUT or hardwarePwm. Settings changed while disabled produc
 
 ## Platforms and PWM
 
-BASE_GPIO_PLATFORM in CMake selects AUTO, RPI4, RPI5 or DESKTOP. AUTO detects Raspberry Pi 4/5 from /proc/device-tree/model on native ARM, and selects desktop on non-ARM. ARM cross-builds and unrecognized ARM boards require explicit selection. Missing platform libraries fail configuration. Native includes and implementations are guarded by SYSTEM_IS_RPI4/RPI5/DESKTOP.
+BASE_GPIO_PLATFORM in CMake selects AUTO, RPI4, RPI5, "RPI CM4", "RPI CM5" or DESKTOP. AUTO detects Raspberry Pi 4/5 and Compute Module 4/5 from /proc/device-tree/model on native ARM, and selects desktop on non-ARM. ARM cross-builds and unrecognized ARM boards require explicit selection. Missing platform libraries fail configuration. Native includes and implementations are guarded by SYSTEM_IS_RPI4/RPI5/DESKTOP.
+
+"RPI CM4" uses the RPI4 implementation (pigpio and SYSTEM_IS_RPI4); "RPI CM5" uses the RPI5 implementation (lgpio, RP1 sysfs PWM and SYSTEM_IS_RPI5). CMake reports both the selected board and its implementation. For explicit selection, quote the value: `cmake -S . -B cmake-build-release -DBASE_GPIO_PLATFORM="RPI CM4"` (or "RPI CM5"). AUTO remains the default. Hardware access and PWM routing requirements of the corresponding implementation still apply.
 
 RPI4 requires pigpio. Software PWM uses gpioPWM with a native scale of 40000, converting public duty ratios; pigpio chooses its nearest frequency. Dedicated hardware PWM uses pigpio hardware PWM.
 
