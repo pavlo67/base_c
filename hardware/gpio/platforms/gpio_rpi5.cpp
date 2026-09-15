@@ -1,6 +1,6 @@
 #if defined(SYSTEM_IS_RPI5) && SYSTEM_IS_RPI5
 
-#include "gpio.h"
+#include "../gpio.h"
 #include "pwm_sysfs.h"
 #include <lgpio.h>
 #include <cstring>

@@ -1,6 +1,6 @@
 #if defined(SYSTEM_IS_RPI4) && SYSTEM_IS_RPI4
 
-#include "gpio.h"
+#include "../gpio.h"
 #include <pigpio.h>
 #include <cstdint>
 
