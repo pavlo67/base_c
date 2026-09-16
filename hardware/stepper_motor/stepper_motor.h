@@ -23,12 +23,9 @@ public:
 
     // No sleeps: one update at a monotonic timestamp. Negative results are errors.
     virtual int action(moment at) = 0;
-    // rotationDeg is signed degrees, independent of application command encoding.
-    // Executes and logs the real move; real also receives partial results on failure.
-    static int probeReal(const StepperMotorRunConfig& config, float rotationDeg,
-            const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
-    // Logs ideal and clocked estimates before executing the same real move.
-    static int probeAll(const StepperMotorRunConfig& config, float rotationDeg,
+    // rotationDeg is signed degrees. Optional estimates log ideal and clocked plans.
+    // The real output receives runtime/partial results even on failure.
+    static int probe(const StepperMotorRunConfig& config, float rotationDeg, bool withEstimates,
             const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
     int stop();
     [[nodiscard]] const StepperMotorSeriesSequence& result() const { return sequence_; }

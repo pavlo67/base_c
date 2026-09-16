@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
     int result = 0;
     for (size_t i = 0; i < rotations.size(); ++i) {
         printf("[PRB] %s move %zu/%zu\n", axis, i + 1, rotations.size());
-        if (StepperMotor::probeReal(motors[AXIS], rotations[i], axis) < 0) { result = 1; break; }
+        if (StepperMotor::probe(motors[AXIS], rotations[i], false, axis) < 0) { result = 1; break; }
     }
     if (gpio.terminate() < 0) { result = 1; }
     return result;

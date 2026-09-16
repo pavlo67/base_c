@@ -76,8 +76,7 @@ std::mutex& stepperMotorExecutionMutex() {
 
 constexpr const char* ON_RUN_REAL = "[StepperMotor.runReal()]";
 
-int StepperMotor::runReal(const StepperMotorRunConfig& cfg, const StepperMotorSeriesSequence& plan,
-        const std::string& label, StepperMotorSeriesSequence* real) {
+int StepperMotor::runReal(const StepperMotorRunConfig& cfg, const StepperMotorSeriesSequence& plan,  const std::string& label, StepperMotorSeriesSequence* real) {
     StepperMotorSeriesSequence observed;
     int result;
     {
@@ -119,15 +118,15 @@ int StepperMotor::runReal(const StepperMotorRunConfig& cfg, const StepperMotorSe
     return result;
 }
 
-constexpr const char* ON_PROBE_REAL = "[StepperMotor.probeReal()]";
+constexpr const char* ON_PROBE = "[StepperMotor.probe()]";
 
-int StepperMotor::probeReal(const StepperMotorRunConfig& cfg, float rotationDeg,
+int StepperMotor::probe(const StepperMotorRunConfig& cfg, float rotationDeg, bool withEstimates,
         const std::string& label, StepperMotorSeriesSequence* real) {
     const std::lock_guard<std::mutex> execution(stepperMotorExecutionMutex());
     if (real) { *real = {}; }
     const auto fail = [&](int code, const std::string& message) {
-        const std::string error = std::string(ON_PROBE_REAL) + " " + label + ": " + message;
-        printf("%s ERROR: %s: %s (code %d)\n", ON_PROBE_REAL, label.c_str(), message.c_str(), code);
+        const std::string error = std::string(ON_PROBE) + " " + label + ": " + message;
+        printf("%s ERROR: %s: %s (code %d)\n", ON_PROBE, label.c_str(), message.c_str(), code);
         if (real && real->error.empty()) { real->error = error; }
         fflush(stdout);
         return code;
@@ -152,46 +151,12 @@ int StepperMotor::probeReal(const StepperMotorRunConfig& cfg, float rotationDeg,
     }
     const auto plan = getSeriesSequence(0, rotationDeg, 0, cfg.expecterInterval_, cfg.options_);
     if (!plan.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, plan.error); }
+    if (withEstimates) {
+        const auto ideal = getSeriesSequence(0, rotationDeg, 0, 0, cfg.options_);
+        if (!ideal.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, ideal.error); }
+        ideal.log(cfg.options_, (prefix + " ideal").c_str(), cfg.verbose_);
+        plan.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_, cfg.expecterInterval_);
+        fflush(stdout);
+    }
     return runReal(cfg, plan, label, real);
-}
-
-constexpr const char* ON_PROBE_ALL = "[StepperMotor.probeAll()]";
-
-int StepperMotor::probeAll(const StepperMotorRunConfig& cfg, float rotationDeg,
-        const std::string& label, StepperMotorSeriesSequence* real) {
-    const std::lock_guard<std::mutex> execution(stepperMotorExecutionMutex());
-    if (real) { *real = {}; }
-    const auto fail = [&](int code, const std::string& message) {
-        const std::string error = std::string(ON_PROBE_ALL) + " " + label + ": " + message;
-        printf("%s ERROR: %s: %s (code %d)\n", ON_PROBE_ALL, label.c_str(), message.c_str(), code);
-        if (real && real->error.empty()) { real->error = error; }
-        fflush(stdout);
-        return code;
-    };
-    std::string error;
-    if (!optionsIsOk(cfg.options_, error)) { return fail(Gpio::INVALID_ARGUMENT, error); }
-    const duration maximum = std::numeric_limits<int64_t>::max() / 2;
-    if (!std::isfinite(rotationDeg) || cfg.timeLimit_ == 0 || cfg.timeLimit_ > maximum ||
-            cfg.expecterInterval_ > maximum || cfg.pulseHigh_ == 0 || cfg.pulseHigh_ > SECOND / 2 ||
-            cfg.pinStep_ >= Gpio::PIN_COUNT || cfg.pinDir_ >= Gpio::PIN_COUNT || cfg.pinEna_ >= Gpio::PIN_COUNT ||
-            cfg.pinStep_ == cfg.pinDir_ || cfg.pinStep_ == cfg.pinEna_ || cfg.pinDir_ == cfg.pinEna_) {
-        return fail(Gpio::INVALID_ARGUMENT, "invalid angle, timing or pins");
-    }
-    const std::string prefix = "[" + label + "]";
-    printf("\n%s Target: %.3f deg; timer: %.3f ms; real uses runtime PWM estimates\n",
-        prefix.c_str(), rotationDeg, static_cast<double>(cfg.expecterInterval_) / MILLISECOND);
-    fflush(stdout);
-    if (rotationDeg == 0) {
-        printf("%s No movement: zero angle\n", prefix.c_str());
-        fflush(stdout);
-        return Gpio::SUCCESS;
-    }
-    const auto clocked = getSeriesSequence(0, rotationDeg, 0, cfg.expecterInterval_, cfg.options_);
-    if (!clocked.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, clocked.error); }
-    const auto ideal = getSeriesSequence(0, rotationDeg, 0, 0, cfg.options_);
-    if (!ideal.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, ideal.error); }
-    ideal.log(cfg.options_, (prefix + " ideal").c_str(), cfg.verbose_);
-    clocked.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_, cfg.expecterInterval_);
-    fflush(stdout);
-    return runReal(cfg, clocked, label, real);
 }
