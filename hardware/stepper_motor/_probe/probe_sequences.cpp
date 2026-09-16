@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
     if (gpio.initialize() < 0) { return 1; }
     int result = 0;
     for (const float rotation : rotations) {
-        if (StepperMotorAction::probeAll(config, rotation, "probe") < 0) { result = 1; break; }
+        if (StepperMotor::probeReal(config, rotation, "probe") < 0) { result = 1; break; }
     }
     if (gpio.terminate() < 0) { result = 1; }
     return result;

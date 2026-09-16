@@ -1,4 +1,4 @@
-#include "stepper_motor.h"
+#include "smart/helpers.h"
 #include "lib/mathlib.h"
 
 StepperMotorSeries::StepperMotorSeries(

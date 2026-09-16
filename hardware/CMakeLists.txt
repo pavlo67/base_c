@@ -29,7 +29,8 @@ target_link_libraries(gpio_probe PRIVATE hardware_gpio)
 
 add_library(stepper_motor
         stepper_motor/stepper_motor.cpp
-        stepper_motor/stepper_motor_action.cpp
+        stepper_motor/smart/helpers.cpp
+        stepper_motor/smart/stepper_motor_smart.cpp
         stepper_motor/stepper_motor_runner.cpp
         stepper_motor/stepper_motor_series.cpp
 )

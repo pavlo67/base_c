@@ -9,7 +9,7 @@ constexpr const char* ON_RUNNER_PREPARE = "[StepperMotorRunner.prepare()]";
 int StepperMotorRunner::prepare(const StepperMotorRunConfig& config, float angle,
         std::array<bool, Gpio::PIN_COUNT>& usedPins) {
     motor_.reset();
-    status_ = StepperMotorAction::COMPLETE;
+    status_ = StepperMotor::COMPLETE;
     started_ = false;
     std::string error;
     const duration maximum = std::numeric_limits<int64_t>::max() / 2;
@@ -36,14 +36,14 @@ int StepperMotorRunner::prepare(const StepperMotorRunConfig& config, float angle
         config.pulseHigh_, config.hardwarePwm_);
     tick_ = std::chrono::nanoseconds(std::max<duration>(MICROSECOND, config.expecterInterval_));
     timeLimit_ = config.timeLimit_;
-    status_ = StepperMotorAction::RUNNING;
+    status_ = StepperMotor::RUNNING;
     return status_;
 }
 
 constexpr const char* ON_RUNNER_UPDATE = "[StepperMotorRunner.update()]";
 
 int StepperMotorRunner::update() {
-    if (status_ != StepperMotorAction::RUNNING) { return status_; }
+    if (status_ != StepperMotor::RUNNING) { return status_; }
     const auto current = Clock::now();
     if (!started_) {
         next_ = current;
@@ -52,7 +52,7 @@ int StepperMotorRunner::update() {
     }
     if (current >= deadline_) {
         const int cleanup = motor_->stop();
-        status_ = cleanup < 0 ? cleanup : StepperMotorAction::TIME_LIMIT;
+        status_ = cleanup < 0 ? cleanup : StepperMotor::TIME_LIMIT;
         printf("%s ERROR: motion failed (code %d)\n", ON_RUNNER_UPDATE, status_);
         return status_;
     }

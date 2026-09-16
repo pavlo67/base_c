@@ -1,76 +1,13 @@
-#include "stepper_motor.h"
+#include "stepper_motor_smart.h"
 #include "hardware/gpio/gpio.h"
 
 #include <algorithm>
-#include <chrono>
+#include <cmath>
 #include <cstdio>
-#include <limits>
-#include <thread>
 
-StepperMotorAction::StepperMotorAction(const StepperMotorSeriesSequence& sequence, unsigned pinStep,
-        unsigned pinDir, unsigned pinEna, const stepper_motor_options_t& options,
-        duration pulseHigh, bool hardwarePwm)
-    : sequence_(sequence), options_(options), pinStep_(pinStep), pinDir_(pinDir), pinEna_(pinEna),
-      pulseHigh_(pulseHigh), hardwarePwm_(hardwarePwm) {
-    std::string error;
-    if (!optionsIsOk(options_, error)) { return; }
-    for (size_t i = 0; i < sequence_.seq.size(); ++i) {
-        auto& acceleration = sequence_.seq[i];
-        if (acceleration.accelerationDegPerSec2_ <= 0) { continue; }
-        size_t braking = i + 1;
-        if (braking < sequence_.seq.size() && sequence_.seq[braking].accelerationDegPerSec2_ == 0 &&
-                !sequence_.seq[braking].terminalInterval_) { ++braking; }
-        if (braking >= sequence_.seq.size() || sequence_.seq[braking].accelerationDegPerSec2_ >= 0 ||
-                sequence_.seq[braking].directionForward_ != acceleration.directionForward_) { continue; }
-        uint64_t target = acceleration.pairedTargetPulses_;
-        if (!target) {
-            for (size_t j = i; j <= braking; ++j) { target += sequence_.seq[j].expectedPulsesCount_; }
-        }
-        const float speedMax = std::min(options_.speedMaxDegSec, options_.freqMax * options_.degPulse);
-        acceleration = getFastestSeries(acceleration.initialSpeedDegPerSec_,
-            acceleration.directionForward_ ? speedMax : -speedMax, options_, acceleration.intervalAlgorithm_);
-        acceleration.pairedTargetPulses_ = target;
-        acceleration.stopAfterPulses_ = target;
-    }
-    for (auto& series : sequence_.seq) {
-        series.reset();
-        series.livePwm_ = true;
-        series.repeatLastInterval_ = series.stopAfterPulses_ != 0;
-    }
-}
+const std::string ON_STEPPER_ACTION = "[StepperMotorSmart.action()]";
 
-StepperMotorAction::~StepperMotorAction() { (void)stop(); }
-
-const std::string ON_STEPPER_STOP = "[StepperMotorAction.stop()]";
-
-int StepperMotorAction::stop() {
-    auto& gpio = Gpio::instance();
-    int result = Gpio::SUCCESS;
-    if (stepConfigured_) {
-        result = gpio.setEnabled(pinStep_, false);
-        if (result >= 0) { stepConfigured_ = false; }
-    }
-    if (enableConfigured_) {
-        const int cleanup = gpio.write(pinEna_, 1);
-        if (cleanup >= 0) { enableConfigured_ = false; }
-        if (result >= 0) { result = cleanup; }
-    }
-    if (directionConfigured_) {
-        const int cleanup = gpio.write(pinDir_, 0);
-        if (cleanup >= 0) { directionConfigured_ = false; }
-        if (result >= 0) { result = cleanup; }
-    }
-    if (result < 0) {
-        printf("%s ERROR: GPIO cleanup failed: %d\n", ON_STEPPER_STOP.c_str(), result);
-        if (status_ >= 0) { status_ = result; }
-    }
-    if (status_ == RUNNING) { status_ = COMPLETE; }
-    return status_ < 0 ? status_ : Gpio::SUCCESS;
-}
-
-const std::string ON_STEPPER_ACTION = "[StepperMotorAction.action()]";
-
-int StepperMotorAction::action(moment at) {
+int StepperMotorSmart::action(moment at) {
     if (status_ != RUNNING) { return status_; }
     const auto fail = [&](int code) {
         status_ = code;
@@ -222,97 +159,3 @@ int StepperMotorAction::action(moment at) {
     return status_;
 }
 
-const std::string ON_PROBE_REAL = "[StepperMotorAction.probeReal()]";
-
-int StepperMotorAction::probeReal(duration expecterInterval, duration timeLimit) {
-    const duration maximum = std::numeric_limits<int64_t>::max() / 2;
-    if (timeLimit == 0 || timeLimit > maximum || expecterInterval > maximum) {
-        status_ = Gpio::INVALID_ARGUMENT;
-        sequence_.error = ON_PROBE_REAL + " invalid timer or time limit";
-        printf("%s ERROR: invalid timer or time limit\n", ON_PROBE_REAL.c_str());
-        return stop();
-    }
-    const auto origin = std::chrono::steady_clock::now();
-    const auto deadline = origin + std::chrono::nanoseconds(timeLimit);
-    const auto tick = std::chrono::nanoseconds(std::max<duration>(MICROSECOND, expecterInterval));
-    auto next = origin;
-    for (;;) {
-        const auto current = std::chrono::steady_clock::now();
-        if (current >= deadline) {
-            status_ = TIME_LIMIT;
-            sequence_.error = ON_PROBE_REAL + " time limit exceeded";
-            printf("%s ERROR: time limit exceeded\n", ON_PROBE_REAL.c_str());
-            return stop();
-        }
-        const moment at = std::chrono::duration_cast<std::chrono::nanoseconds>(current.time_since_epoch()).count();
-        const int code = action(at);
-        if (code != RUNNING) {
-            return code < 0 ? code : Gpio::SUCCESS;
-        }
-        next += tick;
-        const auto after = std::chrono::steady_clock::now();
-        if (next < after) { next += tick * ((after - next) / tick + 1); }
-        std::this_thread::sleep_until(std::min(next, deadline));
-    }
-}
-
-std::mutex& stepperMotorExecutionMutex() {
-    static std::mutex executionMutex;
-    return executionMutex;
-}
-
-constexpr const char* ON_PROBE_ALL = "[stepper_motor.probeAll()]";
-
-int StepperMotorAction::probeAll(const StepperMotorRunConfig& cfg, float rotationDeg,
-        const std::string& label, StepperMotorSeriesSequence* real) {
-    const std::lock_guard<std::mutex> execution(stepperMotorExecutionMutex());
-    if (real) { *real = {}; }
-    const auto fail = [&](int code, const std::string& message) {
-        const std::string error = std::string(ON_PROBE_ALL) + " " + label + ": " + message;
-        printf("%s ERROR: %s: %s (code %d)\n", ON_PROBE_ALL, label.c_str(), message.c_str(), code);
-        if (real && real->error.empty()) { real->error = error; }
-        fflush(stdout);
-        return code;
-    };
-    std::string error;
-    if (!optionsIsOk(cfg.options_, error)) { return fail(Gpio::INVALID_ARGUMENT, error); }
-    const duration maximum = std::numeric_limits<int64_t>::max() / 2;
-    if (!std::isfinite(rotationDeg) || cfg.timeLimit_ == 0 || cfg.timeLimit_ > maximum ||
-            cfg.expecterInterval_ > maximum || cfg.pulseHigh_ == 0 || cfg.pulseHigh_ > SECOND / 2 ||
-            cfg.pinStep_ >= Gpio::PIN_COUNT || cfg.pinDir_ >= Gpio::PIN_COUNT || cfg.pinEna_ >= Gpio::PIN_COUNT ||
-            cfg.pinStep_ == cfg.pinDir_ || cfg.pinStep_ == cfg.pinEna_ || cfg.pinDir_ == cfg.pinEna_) {
-        return fail(Gpio::INVALID_ARGUMENT, "invalid angle, timing or pins");
-    }
-    const std::string prefix = "[" + label + "]";
-    printf("\n%s Target: %.3f deg; timer: %.3f ms; real uses runtime PWM estimates\n",
-        prefix.c_str(), rotationDeg, static_cast<double>(cfg.expecterInterval_) / MILLISECOND);
-    fflush(stdout);
-    if (rotationDeg == 0) {
-        printf("%s No movement: zero angle\n", prefix.c_str());
-        fflush(stdout);
-        return Gpio::SUCCESS;
-    }
-    const auto clocked = getSeriesSequence(0, rotationDeg, 0, cfg.expecterInterval_, cfg.options_);
-    if (!clocked.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, clocked.error); }
-    const auto ideal = getSeriesSequence(0, rotationDeg, 0, 0, cfg.options_);
-    if (!ideal.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, ideal.error); }
-    ideal.log(cfg.options_, (prefix + " ideal").c_str(), cfg.verbose_);
-    clocked.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_, cfg.expecterInterval_);
-    fflush(stdout);
-
-    StepperMotorSeriesSequence observed;
-    int result;
-    {
-        StepperMotorAction motor(clocked, cfg.pinStep_, cfg.pinDir_, cfg.pinEna_,
-            cfg.options_, cfg.pulseHigh_, cfg.hardwarePwm_);
-        result = motor.probeReal(cfg.expecterInterval_, cfg.timeLimit_);
-        observed = motor.result();
-    }
-    if (real) { *real = observed; }
-    observed.log(cfg.options_, (prefix + " real").c_str(), cfg.verbose_,
-        cfg.expecterInterval_ ? cfg.expecterInterval_ : MICROSECOND);
-    if (result < 0) { (void)fail(result, "motion failed"); }
-    printf("%s Motion finished; result: %d\n", prefix.c_str(), result);
-    fflush(stdout);
-    return result;
-}

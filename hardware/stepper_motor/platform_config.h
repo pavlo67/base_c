@@ -2,7 +2,7 @@
 #define BASE_CPP_HARDWARE_STEPPER_MOTOR_PLATFORM_CONFIG_H
 
 #include <array>
-#include "stepper_motor.h"
+#include "smart/helpers.h"
 #include "lib/config/config.h"
 
 struct PlatformMechanics {

@@ -44,27 +44,33 @@ Do not show diffs.
 
 ## Coding style
 
-Wrap all if/for/while single-operator bodies into curly braces, for example:
+Wrap all single-statement `if`/`for`/`while` bodies in curly braces, for example:
 
     if (<CONDITION>) { continue; }
 
-All class member field names shoud be finished with underscore: for.ex. "original_"
+All class member field names must end with an underscore, e.g. `original_`.
 
-Guard platform-specific code, including its headers, with platform preprocessor macros so it is active only on its target platform.
+Never create overloaded functions or methods. Every function or method must have a unique name within its scope, regardless of differences in parameter types, parameter count, qualifiers, or return type. If two operations require different signatures, give them different, descriptive names.
 
-For any function except `main()` that reports an error (output, out-parameter or exception), define an error-context constant immediately before the function and prefix all error messages with it. Use `[<function>()]` if the name is unambiguous; otherwise use `[<context>.<function>()]` (e.g. `[requiredDirectory()]`, but `[on <context>.move()]` where <context> is unambiguous object, class, directory, package or file name).
+Guard platform-specific code, including its headers, with platform preprocessor macros so that it is active only on its target platform.
 
-Example for error message:  printf("%s ERROR: <details template>\n", ON_CONTEXT, <details values>);
+For any function except `main()` that reports an error (via output, an out-parameter, or an exception), define an error-context constant immediately before the function and prefix all error messages with it. Use `[<function>()]` if the function name is unambiguous; otherwise use `[<context>.<function>()]` (e.g. `[requiredDirectory()]`, but `[on <context>.move()]`, where `<context>` is an unambiguous object, class, directory, package, or file name).
+
+Example error message:
+
+    printf("%s ERROR: <details template>\n", ON_CONTEXT, <details values>);
 
 Wherever possible, use error codes/messages instead of throwing exceptions.
 
-Don't use stderr (std::cerr), let all error messages go to stdout with prefix "ERROR".  
+Don't use stderr (`std::cerr`); send all error messages to stdout. Error messages must follow the format `<context> ERROR: <details>`.
 
-Don't use CLI-parameters in apps — define all parameters as constants in main.cpp.
+The `main()` function in `main.cpp` should appear first — after includes, constants, types, static variables, and helper declarations (without bodies), of course.
+
+Don't use CLI parameters in apps unless explicitly required by the task — define all parameters as constants in main.cpp.
+
+For every new function, ask: - Is it's not tightly coupled to one function and reusable outside this file? If the answer is yes, move it to `lib/` or `hardware/` as appropriate. In particular, CSV/text helpers, bool/string conversion helpers, math helpers, filesystem helpers, and small formatting helpers are reusable and should be moved to common directories by default unless proven otherwise.
 
 Function main() in main.cpp should be written first — after includes, constants, types, static variables and helper declarations (without bodies), of course.
-
-All csv-files must be stored with .xls-extension
 
 
 ## Testing

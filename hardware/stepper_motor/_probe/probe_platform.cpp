@@ -1,5 +1,6 @@
 #include "hardware/gpio/gpio.h"
 #include "hardware/stepper_motor/platform_config.h"
+#include "hardware/stepper_motor/stepper_motor.h"
 #include "lib/number_parse.h"
 
 #include <cstdio>
@@ -31,7 +32,7 @@ int main(int argc, char** argv) {
     int result = 0;
     for (size_t i = 0; i < rotations.size(); ++i) {
         printf("[PRB] %s move %zu/%zu\n", axis, i + 1, rotations.size());
-        if (StepperMotorAction::probeAll(motors[AXIS], rotations[i], axis) < 0) { result = 1; break; }
+        if (StepperMotor::probeReal(motors[AXIS], rotations[i], axis) < 0) { result = 1; break; }
     }
     if (gpio.terminate() < 0) { result = 1; }
     return result;
