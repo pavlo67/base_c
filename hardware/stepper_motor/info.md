@@ -66,7 +66,7 @@ Following sections carry the preceding pulse interval into their acceleration st
 
 Blocking callers construct `StepperMotorAction` and call `motor.probeReal(expecterInterval, timeLimit)`, then read `motor.result()` for runtime statistics, including partial observations on failure. The complete probe wrapper performs this directly. Applications initialize GPIO once at startup and terminate it after all motor objects have stopped and been destroyed.
 
-`probe_sequences` keeps its rotation list, 5-ms timer, 60-second watchdog and pins as source constants. It prints `Target`, ideal zero-timer statistics, clocked simulation statistics, and `real` statistics collected during `probeReal()`.
+`probe_sequences` accepts one or more signed relative angles in degrees from the command line (for example, `probe_sequences 90 -90`). It validates the complete list before initializing GPIO, then executes the moves in order and stops on the first motion error. The 5-ms timer, 60-second watchdog and pins remain source constants. It prints `Target`, ideal zero-timer statistics, clocked simulation statistics, and `real` statistics collected during `probeReal()`.
 
 The configuration files in this checkout are `_base_defines.h` and `_base_defines_example.h` at the repository root (there is no `_base_defines/` directory). Both define:
 
@@ -81,7 +81,7 @@ Hardware PWM in this probe uses the explicit `HARDWARE_PWM_PIN_STEP = 18` consta
 
 `StepperMotorRunConfig` contains `pinStep_`, `pinDir_`, `pinEna_` (BCM), `options_`, `expecterInterval_`, `pulseHigh_`, `timeLimit_` (nanoseconds), `hardwarePwm_` and `verbose_`. Rotation is signed degrees; application wire units must be decoded by the caller. The application owns the shared GPIO lifecycle; probe calls preserve other GPIO consumers. Serialize GPIO access and use distinct motor pins. Logging is outside the timed execution loop. Runtime values are PWM estimates, not encoder observations; pulse quantization and timer overshoot still apply.
 
-`probe_sequences` chooses its source configuration/platform PWM preference and iterates angles through `StepperMotorAction::probeAll()`. Machina's HTTP action dispatcher uses the complete probe wrapper; its separate real motor worker uses the incremental two-axis actor and does not publish commands yet. Low-level callers with an existing sequence and caller-owned GPIO use `StepperMotorAction::probeReal()` and `result()` directly; there is no free `probeReal()` or `executeSequence()` API. Cleanup happens before GPIO termination. Diagnostics use `[function()] ERROR: details`, with qualified context names where needed.
+`probe_sequences` chooses its source configuration/platform PWM preference and iterates command-line angles through `StepperMotorAction::probeAll()`. Machina's HTTP action dispatcher uses the complete probe wrapper; its separate real motor worker uses the incremental two-axis actor and does not publish commands yet. Low-level callers with an existing sequence and caller-owned GPIO use `StepperMotorAction::probeReal()` and `result()` directly; there is no free `probeReal()` or `executeSequence()` API. Cleanup happens before GPIO termination. Diagnostics use `[function()] ERROR: details`, with qualified context names where needed.
 
 ## Statistics, limitations and tests
 
@@ -148,7 +148,7 @@ path `_env/machina.yaml` and axis `AXIS` (0 pan, 1 tilt) are source constants. R
 repository root, or base root for a standalone base build. Each angle goes through `StepperMotorAction::probeAll()`; execution stops on the first error.
 GPIO is initialized once before the rotation list and terminated after the list, including motion failure.
 Example from repository root: `_bin/probe_platform +90 -45 180`. Zero is a no-op.
-The existing `probe_sequences` keeps its original low-level source-constant configuration.
+`probe_sequences` keeps its original low-level source-constant motor configuration while accepting angles from the command line.
 
 `stepper_platform_test` (GTest/CTest) covers torque balance, both ratios and directions,
 invalid mechanics, signed argument parsing, YAML disk parameters and atomic reload rejection.

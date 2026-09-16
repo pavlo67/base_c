@@ -3,6 +3,8 @@
 
 #include "_base_defines.h"
 #include "hardware/hardware.h"
+#include "lib/number_parse.h"
+#include <vector>
 
 #ifndef STEPPER_MOTOR_PROBE_VERBOSE
 #define STEPPER_MOTOR_PROBE_VERBOSE false
@@ -22,10 +24,20 @@ const duration STEPPER_INTERVAL = 5 * MILLISECOND;
 const duration RUN_TIME_LIMIT = 60 * SECOND;
 // Hardware PWM needs a routed PWM pin; wire STEP to BCM18 when enabled.
 const unsigned HARDWARE_PWM_PIN_STEP = 18;
-const float ROTATIONS[] = {90.0F}; // , -180.0F, 90.0F
-
-
-int main() {
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        printf("ERROR: supply relative angles in degrees, e.g. probe_sequences 90 -90\n");
+        return 1;
+    }
+    std::vector<float> rotations;
+    for (int i = 1; i < argc; ++i) {
+        float angle = 0;
+        if (!parseFiniteFloat(argv[i], angle)) {
+            printf("ERROR: invalid angle at argument %d\n", i);
+            return 1;
+        }
+        rotations.push_back(angle);
+    }
     bool hardwarePwm = STEPPER_MOTOR_PROBE_HARDWARE_PWM;
     #if defined(SYSTEM_IS_DESKTOP) && SYSTEM_IS_DESKTOP
         if (hardwarePwm) {
@@ -47,7 +59,7 @@ int main() {
     auto& gpio = Gpio::instance();
     if (gpio.initialize() < 0) { return 1; }
     int result = 0;
-    for (const float rotation : ROTATIONS) {
+    for (const float rotation : rotations) {
         if (StepperMotorAction::probeAll(config, rotation, "probe") < 0) { result = 1; break; }
     }
     if (gpio.terminate() < 0) { result = 1; }
