@@ -24,8 +24,11 @@ public:
     // No sleeps: one update at a monotonic timestamp. Negative results are errors.
     virtual int action(moment at) = 0;
     // rotationDeg is signed degrees, independent of application command encoding.
-    // Logs ideal/clocked/real statistics; real also receives partial results on failure.
+    // Executes and logs the real move; real also receives partial results on failure.
     static int probeReal(const StepperMotorRunConfig& config, float rotationDeg,
+            const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
+    // Logs ideal and clocked estimates before executing the same real move.
+    static int probeAll(const StepperMotorRunConfig& config, float rotationDeg,
             const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
     int stop();
     [[nodiscard]] const StepperMotorSeriesSequence& result() const { return sequence_; }
@@ -48,6 +51,10 @@ protected:
     size_t index_ = 0;
     int status_ = RUNNING;
     unsigned frequency_ = 0;
+
+private:
+    static int runReal(const StepperMotorRunConfig& config, const StepperMotorSeriesSequence& plan,
+            const std::string& label, StepperMotorSeriesSequence* real);
 };
 
 #endif // BASE_CPP_STEPPER_MOTOR_H

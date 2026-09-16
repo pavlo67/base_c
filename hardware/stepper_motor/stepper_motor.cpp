@@ -69,20 +69,101 @@ int StepperMotor::stop() {
     return status_ < 0 ? status_ : Gpio::SUCCESS;
 }
 
-const std::string ON_PROBE_REAL = "[StepperMotor.probeReal()]";
-
 std::mutex& stepperMotorExecutionMutex() {
     static std::mutex executionMutex;
     return executionMutex;
 }
+
+constexpr const char* ON_RUN_REAL = "[StepperMotor.runReal()]";
+
+int StepperMotor::runReal(const StepperMotorRunConfig& cfg, const StepperMotorSeriesSequence& plan,
+        const std::string& label, StepperMotorSeriesSequence* real) {
+    StepperMotorSeriesSequence observed;
+    int result;
+    {
+        StepperMotorSmart motor(plan, cfg.pinStep_, cfg.pinDir_, cfg.pinEna_,
+            cfg.options_, cfg.pulseHigh_, cfg.hardwarePwm_);
+        const auto origin = std::chrono::steady_clock::now();
+        const auto deadline = origin + std::chrono::nanoseconds(cfg.timeLimit_);
+        const auto tick = std::chrono::nanoseconds(std::max<duration>(MICROSECOND, cfg.expecterInterval_));
+        auto next = origin;
+        for (;;) {
+            const auto current = std::chrono::steady_clock::now();
+            if (current >= deadline) {
+                motor.status_ = TIME_LIMIT;
+                motor.sequence_.error = std::string(ON_RUN_REAL) + " time limit exceeded";
+                printf("%s ERROR: time limit exceeded\n", ON_RUN_REAL);
+                result = motor.stop();
+                break;
+            }
+            const moment at = std::chrono::duration_cast<std::chrono::nanoseconds>(current.time_since_epoch()).count();
+            const int code = motor.action(at);
+            if (code != RUNNING) {
+                result = code < 0 ? code : Gpio::SUCCESS;
+                break;
+            }
+            next += tick;
+            const auto after = std::chrono::steady_clock::now();
+            if (next < after) { next += tick * ((after - next) / tick + 1); }
+            std::this_thread::sleep_until(std::min(next, deadline));
+        }
+        observed = motor.result();
+    }
+    if (real) { *real = observed; }
+    const std::string prefix = "[" + label + "]";
+    observed.log(cfg.options_, (prefix + " real").c_str(), cfg.verbose_,
+        cfg.expecterInterval_ ? cfg.expecterInterval_ : MICROSECOND);
+    if (result < 0) { printf("%s ERROR: %s: motion failed (code %d)\n", ON_RUN_REAL, label.c_str(), result); }
+    printf("%s Motion finished; result: %d\n", prefix.c_str(), result);
+    fflush(stdout);
+    return result;
+}
+
+constexpr const char* ON_PROBE_REAL = "[StepperMotor.probeReal()]";
 
 int StepperMotor::probeReal(const StepperMotorRunConfig& cfg, float rotationDeg,
         const std::string& label, StepperMotorSeriesSequence* real) {
     const std::lock_guard<std::mutex> execution(stepperMotorExecutionMutex());
     if (real) { *real = {}; }
     const auto fail = [&](int code, const std::string& message) {
-        const std::string error = ON_PROBE_REAL + " " + label + ": " + message;
-        printf("%s ERROR: %s: %s (code %d)\n", ON_PROBE_REAL.c_str(), label.c_str(), message.c_str(), code);
+        const std::string error = std::string(ON_PROBE_REAL) + " " + label + ": " + message;
+        printf("%s ERROR: %s: %s (code %d)\n", ON_PROBE_REAL, label.c_str(), message.c_str(), code);
+        if (real && real->error.empty()) { real->error = error; }
+        fflush(stdout);
+        return code;
+    };
+    std::string error;
+    if (!optionsIsOk(cfg.options_, error)) { return fail(Gpio::INVALID_ARGUMENT, error); }
+    const duration maximum = std::numeric_limits<int64_t>::max() / 2;
+    if (!std::isfinite(rotationDeg) || cfg.timeLimit_ == 0 || cfg.timeLimit_ > maximum ||
+            cfg.expecterInterval_ > maximum || cfg.pulseHigh_ == 0 || cfg.pulseHigh_ > SECOND / 2 ||
+            cfg.pinStep_ >= Gpio::PIN_COUNT || cfg.pinDir_ >= Gpio::PIN_COUNT || cfg.pinEna_ >= Gpio::PIN_COUNT ||
+            cfg.pinStep_ == cfg.pinDir_ || cfg.pinStep_ == cfg.pinEna_ || cfg.pinDir_ == cfg.pinEna_) {
+        return fail(Gpio::INVALID_ARGUMENT, "invalid angle, timing or pins");
+    }
+    const std::string prefix = "[" + label + "]";
+    printf("\n%s Target: %.3f deg; timer: %.3f ms; real uses runtime PWM estimates\n",
+        prefix.c_str(), rotationDeg, static_cast<double>(cfg.expecterInterval_) / MILLISECOND);
+    fflush(stdout);
+    if (rotationDeg == 0) {
+        printf("%s No movement: zero angle\n", prefix.c_str());
+        fflush(stdout);
+        return Gpio::SUCCESS;
+    }
+    const auto plan = getSeriesSequence(0, rotationDeg, 0, cfg.expecterInterval_, cfg.options_);
+    if (!plan.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, plan.error); }
+    return runReal(cfg, plan, label, real);
+}
+
+constexpr const char* ON_PROBE_ALL = "[StepperMotor.probeAll()]";
+
+int StepperMotor::probeAll(const StepperMotorRunConfig& cfg, float rotationDeg,
+        const std::string& label, StepperMotorSeriesSequence* real) {
+    const std::lock_guard<std::mutex> execution(stepperMotorExecutionMutex());
+    if (real) { *real = {}; }
+    const auto fail = [&](int code, const std::string& message) {
+        const std::string error = std::string(ON_PROBE_ALL) + " " + label + ": " + message;
+        printf("%s ERROR: %s: %s (code %d)\n", ON_PROBE_ALL, label.c_str(), message.c_str(), code);
         if (real && real->error.empty()) { real->error = error; }
         fflush(stdout);
         return code;
@@ -112,43 +193,5 @@ int StepperMotor::probeReal(const StepperMotorRunConfig& cfg, float rotationDeg,
     ideal.log(cfg.options_, (prefix + " ideal").c_str(), cfg.verbose_);
     clocked.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_, cfg.expecterInterval_);
     fflush(stdout);
-
-    StepperMotorSeriesSequence observed;
-    int result;
-    {
-        StepperMotorSmart motor(clocked, cfg.pinStep_, cfg.pinDir_, cfg.pinEna_,
-            cfg.options_, cfg.pulseHigh_, cfg.hardwarePwm_);
-        const auto origin = std::chrono::steady_clock::now();
-        const auto deadline = origin + std::chrono::nanoseconds(cfg.timeLimit_);
-        const auto tick = std::chrono::nanoseconds(std::max<duration>(MICROSECOND, cfg.expecterInterval_));
-        auto next = origin;
-        for (;;) {
-            const auto current = std::chrono::steady_clock::now();
-            if (current >= deadline) {
-                motor.status_ = TIME_LIMIT;
-                motor.sequence_.error = ON_PROBE_REAL + " time limit exceeded";
-                printf("%s ERROR: time limit exceeded\n", ON_PROBE_REAL.c_str());
-                result = motor.stop();
-                break;
-            }
-            const moment at = std::chrono::duration_cast<std::chrono::nanoseconds>(current.time_since_epoch()).count();
-            const int code = motor.action(at);
-            if (code != RUNNING) {
-                result = code < 0 ? code : Gpio::SUCCESS;
-                break;
-            }
-            next += tick;
-            const auto after = std::chrono::steady_clock::now();
-            if (next < after) { next += tick * ((after - next) / tick + 1); }
-            std::this_thread::sleep_until(std::min(next, deadline));
-        }
-        observed = motor.result();
-    }
-    if (real) { *real = observed; }
-    observed.log(cfg.options_, (prefix + " real").c_str(), cfg.verbose_,
-        cfg.expecterInterval_ ? cfg.expecterInterval_ : MICROSECOND);
-    if (result < 0) { (void)fail(result, "motion failed"); }
-    printf("%s Motion finished; result: %d\n", prefix.c_str(), result);
-    fflush(stdout);
-    return result;
+    return runReal(cfg, clocked, label, real);
 }
