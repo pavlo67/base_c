@@ -120,7 +120,6 @@ constexpr unsigned PWM_PIN = 12;
 constexpr unsigned PWM_RANGE = 100;
 constexpr unsigned PWM_DUTY = 25;
 constexpr unsigned PWM_FREQUENCY = 1000;
-constexpr char ON_MAIN[] = "on main(): ";
 
 int main() {
     auto& gpio = Gpio::instance();
@@ -137,7 +136,7 @@ int main() {
     const int closed = gpio.terminate();
     if (result >= 0) { result = closed; }
     if (result < 0) {
-        std::fprintf(stderr, "%sPWM failed: %d\n", ON_MAIN, result);
+        std::fprintf(stderr, "PWM failed: %d\n", result);
         return 1;
     }
     return 0;

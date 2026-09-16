@@ -31,11 +31,9 @@ void moveSeries(int steps) {
     }
 }
 
-const std::string ON_MAIN = "[main()]";
-
 int main() {
     if (Gpio::instance().initialize() < 0) {
-        std::cout << ON_MAIN << " ERROR: GPIO initialization failed\n";
+        std::cout << " ERROR: GPIO initialization failed\n";
         return 1;
     }
 
