@@ -5,6 +5,7 @@ _defines.h
 _base_defines.h
 hardware.h
 
+
 # Video artifacts
 *.jpg
 *.jpeg
