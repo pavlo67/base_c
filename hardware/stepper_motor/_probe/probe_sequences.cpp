@@ -13,6 +13,7 @@
 #define STEPPER_MOTOR_PROBE_HARDWARE_PWM true
 #endif
 #include "hardware/stepper_motor/stepper_motor.h"
+#include "hardware/stepper_motor/smart/stepper_motor_smart.h"
 
 const stepper_motor_options_t STEPPER_OPTS {
     .freqMax         = FREQ_MAX_DEFAULT,
@@ -60,7 +61,7 @@ int main(int argc, char** argv) {
     if (gpio.initialize() < 0) { return 1; }
     int result = 0;
     for (const float rotation : rotations) {
-        if (StepperMotor::probe(config, rotation, true, "probe") < 0) { result = 1; break; }
+        if (StepperMotorSmart(config).probe(rotation, true, "probe") < 0) { result = 1; break; }
     }
     if (gpio.terminate() < 0) { result = 1; }
     return result;

@@ -2,7 +2,7 @@
 
 ## Units and metrics
 
-The planning API is in `smart/helpers.h`; the base motor API is in `stepper_motor.h`, and `smart/stepper_motor_smart.h` declares the GPIO executor. `moment` and `duration` are uint64_t nanoseconds from `lib/timelib.h`; angles are degrees. Simulations use a synthetic clock starting at zero. External execution callers provide monotonically increasing timestamps from one clock. `probe()` uses `std::chrono::steady_clock`, not the realtime clock in `now()`.
+The planning API is in `stepper_motor_series.h`; the base motor API is in `stepper_motor.h`, and `smart/stepper_motor_smart.h` declares the GPIO executor. `moment` and `duration` are uint64_t nanoseconds from `lib/timelib.h`; angles are degrees. Simulations use a synthetic clock starting at zero. External execution callers provide monotonically increasing timestamps from one clock. `probe()` uses `std::chrono::steady_clock`, not the realtime clock in `now()`.
 
 `expectedPulsesCount_` is the undelayed section plan, or the fitted pulse budget for a frozen braking profile; `intervalIndex_` tracks interval-law progress (elapsed pulses for frozen braking). `pulsesCount_` counts elapsed PWM periods in the execution model. `firstPulseAt_`, `lastPulseAt_`, `startedAt_` and `observedAt_` describe that execution. `totalSec()` includes the initial pulse interval and the final observation delay. Live sections also include their enable/direction setup delay. It excludes unobserved time inside the final GPIO calls. Before execution actual metrics are zero.
 
@@ -34,9 +34,9 @@ For default 90-degree / 5-ms settings, clocked simulation has 200 acceleration p
 
 ## Incremental GPIO execution
 
-`StepperMotorSmart(sequence, pinStep, pinDir, pinEna, options, pulseHigh, hardwarePwm=false)` owns a reset execution copy. Callers initialize the shared GPIO backend before constructing/executing motors, serialize shared access and terminate it after motor objects have been stopped/destroyed. The class is non-copyable and does not create threads.
+`StepperMotor(config)` owns motor configuration, the execution sequence, GPIO state, incremental scheduling and the watchdog. `StepperMotorSmart(config, sequence)` prepares the smart execution copy for direct `action()` callers, while `StepperMotorSmart(config)` accepts an angle through inherited `probe()`. Callers initialize the shared GPIO backend before constructing/executing motors, serialize shared access and terminate it after motor objects have been stopped/destroyed. The classes are non-copyable and do not create threads.
 
-`StepperMotor::action(moment at)` is virtual, with the GPIO state machine implemented by `StepperMotorSmart::action()`. Each call makes one state-machine update and does not sleep or replay future pulses. Return values are `RUNNING` (0), `COMPLETE` (1), or a negative error. Repeated/older timestamps are ignored; completed/error states are sticky. The initial update configures only the three supplied distinct BCM pins, starts with PWM disabled, sets DIR and active-low ENA, then schedules a 500-us enable guard plus `pulseHigh`. Subsequent calls start/update PWM when the guard expires. Direction changes receive a `pulseHigh` guard; all waiting belongs to the external scheduler.
+`StepperMotor::action(moment at)` is virtual, with the GPIO state machine implemented by `StepperMotorSmart::action()`. Each call makes one state-machine update and does not sleep or replay future pulses. Return values are `RUNNING` (0), `COMPLETE` (1), or a negative error. Repeated/older timestamps are ignored; completed/error states are sticky. The nonvirtual `StepperMotor::initialize(at)` called by the smart action configures only the three supplied distinct BCM pins, starts with PWM disabled, sets DIR and active-low ENA, then schedules a 500-us enable guard plus `pulseHigh`. Subsequent calls start/update PWM when the guard expires. Direction changes receive a `pulseHigh` guard; all waiting belongs to the external scheduler.
 
 STEP uses the existing GPIO PWM setters, with range 40000 and 50% duty. `pulseHigh` is the minimum HIGH and LOW duration, not a manually generated pulse width. Hardware mode uses `GpioMode::hardwarePwm`; OFF uses `GpioMode::output` with the backend's software/DMA PWM. No manual per-pulse sleeps or writes are used. Invalid pins/options, unsupported hardware channels, periods below the GPIO API's 1-Hz minimum and pulse-width/frequency conflicts return errors.
 
@@ -62,7 +62,7 @@ Following sections carry the preceding pulse interval into their acceleration st
 
 ## Blocking run and probe configuration
 
-`StepperMotor::probe(config, rotationDeg, withEstimates, label, real)` always builds the clocked movement plan and executes the real move. With `withEstimates=true`, it also builds and logs the ideal plan and logs the clocked plan; with `false`, it does neither. It validates the configuration, constructs `StepperMotorSmart`, and calls its virtual `action()` on a steady-clock timer until completion. A zero interval selects 1-us polling; missed ticks are skipped. An independent deadline stops PWM and returns `TIME_LIMIT` (-10008), though it cannot interrupt a blocking backend call. Invalid limits are rejected before motion. Applications initialize GPIO once at startup and terminate it after all motor objects have stopped and been destroyed.
+`StepperMotorSmart(config).probe(rotationDeg, withEstimates, label, real)` always builds the clocked movement plan and executes the real move. With `withEstimates=true`, it also builds and logs the ideal plan and logs the clocked plan; with `false`, it does neither. The nonvirtual `StepperMotor::probe()` validates its stored configuration and calls virtual `action()` on a steady-clock timer until completion. Its private nonvirtual `runReal()` owns that timer and reporting; the virtual `prepareSequence()` hook in `StepperMotorSmart` applies predictive braking setup. A zero interval selects 1-us polling; missed ticks are skipped. An independent deadline stops PWM and returns `TIME_LIMIT` (-10008), though it cannot interrupt a blocking backend call. Invalid limits are rejected before motion. Applications initialize GPIO once at startup and terminate it after all motor objects have stopped and been destroyed.
 
 `probe_sequences` accepts one or more signed relative angles in degrees from the command line (for example, `probe_sequences 90 -90`). It validates the complete list before initializing GPIO, then executes the moves in order and stops on the first motion error. The 5-ms timer, 60-second watchdog and pins remain source constants. It prints `Target`, ideal zero-timer statistics, clocked simulation statistics, and `real` statistics collected during `probe()` with estimates enabled.
 
@@ -73,13 +73,13 @@ The configuration files in this checkout are `_base_defines.h` and `_base_define
 
 Hardware PWM in this probe uses the explicit `HARDWARE_PWM_PIN_STEP = 18` constant: STEP must be wired/routed to BCM18. OFF retains `PIN_STEP` (currently BCM17); DIR and ENA retain the shared hardware constants. Hardware routing, overlays and resource constraints are documented in `hardware/gpio/pwm/PWM.md`.
 
-## Shared complete-move runner
+## Shared complete-move execution
 
-`StepperMotor::probe(const StepperMotorRunConfig&, float rotationDeg, bool withEstimates, const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr)` in `stepper_motor.cpp` validates options/angle/pins/timing, builds the clocked movement plan, and optionally builds/logs the ideal plan and logs the clocked plan. It constructs `StepperMotorSmart`, executes its timer loop, logs runtime statistics even on failure and destroys the motor. GPIO initialization and termination belong to the application. The return value is zero on success or a negative error code. Optional `real` is reset on entry and receives runtime/partial results and failure diagnostics. Zero angles return without touching GPIO. Invalid inputs are rejected before planning and GPIO access.
+`StepperMotor::probe(float rotationDeg, bool withEstimates, const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr)` in `stepper_motor.cpp` validates options/angle/pins/timing, builds the clocked movement plan, and optionally builds/logs the ideal plan and logs the clocked plan. It prepares the smart motor's execution sequence, runs its timer loop, and logs runtime statistics even on failure. GPIO initialization and termination belong to the application. The return value is zero on success or a negative error code. Optional `real` is reset on entry and receives runtime/partial results and failure diagnostics. Zero angles return without touching GPIO. Invalid inputs are rejected before planning and GPIO access.
 
 `StepperMotorRunConfig` contains `pinStep_`, `pinDir_`, `pinEna_` (BCM), `options_`, `expecterInterval_`, `pulseHigh_`, `timeLimit_` (nanoseconds), `hardwarePwm_` and `verbose_`. Rotation is signed degrees; application wire units must be decoded by the caller. The application owns the shared GPIO lifecycle; probe calls preserve other GPIO consumers. Serialize GPIO access and use distinct motor pins. Logging is outside the timed execution loop. Runtime values are PWM estimates, not encoder observations; pulse quantization and timer overshoot still apply.
 
-`probe_sequences` chooses its source configuration/platform PWM preference and iterates command-line angles through `StepperMotor::probe(..., true)`. Machina's HTTP action dispatcher passes the selected motor and signed angle to `StepperMotor::probe(..., false)`; its separate real motor worker uses the incremental two-axis actor and does not publish commands yet. Low-level callers with an existing sequence construct `StepperMotorSmart` and drive virtual `action()` through `StepperMotor` with their own monotonic scheduler. Cleanup happens before GPIO termination. Diagnostics use `[function()] ERROR: details`, with qualified context names where needed.
+`probe_sequences` chooses its source configuration/platform PWM preference and iterates command-line angles through `StepperMotorSmart(config).probe(angle, true)`. Machina's HTTP action dispatcher passes the selected motor and signed angle to `StepperMotorSmart(config).probe(angle, false)`; its separate real motor worker uses the incremental two-axis actor and does not publish commands yet. Low-level callers with an existing sequence construct `StepperMotorSmart` and drive virtual `action()` through `StepperMotor` with their own monotonic scheduler. Cleanup happens before GPIO termination. Diagnostics use `[function()] ERROR: details`, with qualified context names where needed.
 
 ## Statistics, limitations and tests
 
@@ -87,17 +87,17 @@ Hardware PWM in this probe uses the explicit `HARDWARE_PWM_PIN_STEP = 18` consta
 
 `real` means runtime observations and commanded PWM estimates, not encoder readings or measured GPIO edges. The GPIO API does not expose waveform phase, native frequency quantization or edge counts. Startup edges, backend reconfiguration gaps and physical timing can differ from the model; desktop has no physical waveform at all. PWM is not a hardware N-pulse counter, and scheduler delays can overshoot the target. Mechanical inertia/settling is not estimated.
 
-The `stepper_motor_test` GTest/CTest target covers existing simulation behavior, both directions, pulse quantization/replay, finite terminal slowing, grouped/verbose output, external ticks, repeated/older timestamps, runtime PWM settings, independent pins, hardware mode through the desktop contract, errors, timeout and cleanup. Natural terminal-period tests also cover one/two-pulse moves, signed 0.25/1/2-degree platform moves, slow single-pulse motion, timer rounding and live braking after delayed calls. Raspberry Pi waveform behavior requires on-device validation. The older `probe_180_360_180` and `probe_infinite` retain their APIs and implementation.
+The `stepper_motor_test` GTest/CTest target compiles `stepper_motor_test.cpp` for series planning/simulation and `smart/stepper_motor_smart_test.cpp` for smart motor braking and GPIO execution. Together they cover both directions, pulse quantization/replay, finite terminal slowing, grouped/verbose output, external ticks, repeated/older timestamps, runtime PWM settings, independent pins, hardware mode through the desktop contract, errors, timeout and cleanup. Natural terminal-period tests also cover one/two-pulse moves, signed 0.25/1/2-degree platform moves, slow single-pulse motion, timer rounding and live braking after delayed calls. Raspberry Pi waveform behavior requires on-device validation. The older `probe_180_360_180` and `probe_infinite` retain their APIs and implementation.
 
 Additional GTest/CTest cases cover braking prediction against fixed-timer replay (including nonzero final speed), the exact fits/does-not-fit pulse boundary, skipping commands after delayed observations, signed 33/90/180/720-degree moves, full target retention after simulated halfway overshoot, startup exclusion and mean timing, duplicate/older timestamps, frozen profiles during later delays, zero-timer input plans, speed/acceleration limits during acceleration, and permitted stronger braking. Runtime timing comparisons are deterministic desktop PWM-model results; Raspberry Pi waveforms and mechanical behavior require on-device validation.
 
 ## Platform configuration
 
-`platform_config.h` provides `PlatformMechanics`,
+`machina/config/platform_config.h` provides `PlatformMechanics`,
 `platformMotorOptions()` and `loadPlatformMotorConfig()`. The latter loads pan and
 tilt together and preserves both previous configurations on any error. Machina
 and `probe_platform` share this loader. `stepper_platform` links YAML configuration
-support separately from the low-level `stepper_motor` library.
+support separately from the low-level `stepper_motor` library. Its source and test live in `machina/config`, and its CMake target is defined at the repository root.
 
 YAML fields for each axis:
 
@@ -143,12 +143,12 @@ torque are not modeled by these parameters.
 platform angles in degrees, including decimal/scientific notation. All arguments are parsed
 before motion; nonfinite/out-of-range values and trailing garbage are rejected. Configuration
 path `_env/machina.yaml` and axis `AXIS` (0 pan, 1 tilt) are source constants. Run from the
-repository root, or base root for a standalone base build. Each angle goes through `StepperMotor::probe(..., false)`; execution stops on the first error.
+repository root. Each angle goes through `StepperMotorSmart(config).probe(angle, false)`; execution stops on the first error.
 GPIO is initialized once before the rotation list and terminated after the list, including motion failure.
 Example from repository root: `_bin/probe_platform +90 -45 180`. Zero is a no-op.
 `probe_sequences` keeps its original low-level source-constant motor configuration while accepting angles from the command line.
 
-`stepper_platform_test` (GTest/CTest) covers torque balance, both ratios and directions,
+`stepper_platform_test` in `machina/config` (GTest/CTest) covers torque balance, both ratios and directions,
 invalid mechanics, signed argument parsing, YAML disk parameters and atomic reload rejection.
 Desktop tests/probes use the GPIO stub and do not validate physical motion.
 
@@ -156,7 +156,7 @@ Desktop tests/probes use the GPIO stub and do not validate physical motion.
 
 `StepperMotorSeriesSequence::log()` accepts an optional fourth argument,
 `expecterInterval` (nanoseconds). When supplied, every phase block total and TOTAL
-row includes `expecterInterval=… ms` with six decimal places. `StepperMotor::probe(..., true)`
+row includes `expecterInterval=… ms` with six decimal places. `StepperMotorSmart(config).probe(angle, true)`
 supplies the configured simulation interval for `clocked` and the requested polling
 cadence for `real`. With estimates disabled, only the real cadence is logged.
 With configured zero, these are respectively 0 ms (ideal simulation) and
@@ -170,18 +170,16 @@ probes and Machina's real actor. A probe owns it for its full call; the actor ow
 it from command preparation through destruction of both motors. Idle polling does
 not own it. Low-level direct callers still need to coordinate GPIO access.
 
-`StepperMotorRunner` in `stepper_motor_runner.h/.cpp` handles one real motor without
-sleeping or probe statistics. `prepare(config, angle, usedPins)` validates options,
-timing and pins against a shared pin-use array, prepares the plan and constructs
-the action without accessing GPIO. Prepare every axis before starting any update.
+`StepperMotor` handles one real motor without sleeping or probe statistics. `prepare(angle, usedPins)` validates options,
+timing and pins against a shared pin-use array and prepares the plan without accessing GPIO. Machina creates concrete smart motors before preparation. Prepare every axis before starting any update.
 `update()` uses current steady-clock time, directly calls `action(at)` when due,
 skips missed ticks and stops PWM on its independent watchdog. `nextWake()` gives
 the next timer/deadline wake time after the first update. Zero-angle preparation is
 already complete. The return status is RUNNING, COMPLETE or a negative error.
 
-Keep execution ownership through runner destruction; the contained motor stops
+Keep execution ownership through motor destruction; the motor stops
 before the owning actor releases the shared mutex. GPIO initialization/termination
 remain at application scope.
 
-`StepperMotorRunner` uses the shared `Clock` from `lib/timelib.h` for its timer
-and watchdog time points; there is no runner-owned clock alias.
+`StepperMotor` uses the shared `Clock` from `lib/timelib.h` for its timer
+and watchdog time points.

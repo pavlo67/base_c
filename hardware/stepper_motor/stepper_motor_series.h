@@ -1,5 +1,5 @@
-#ifndef BASE_CPP_STEPPER_MOTOR_SMART_HELPERS_H
-#define BASE_CPP_STEPPER_MOTOR_SMART_HELPERS_H
+#ifndef BASE_CPP_STEPPER_MOTOR_SERIES_H
+#define BASE_CPP_STEPPER_MOTOR_SERIES_H
 
 #include <cmath>
 #include <cstdio>
@@ -142,14 +142,6 @@ StepperMotorSeries getFastestSeries(
         const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
 
-// Model live braking on a fixed timer; an empty model means it is unrepresentable.
-StepperMotorSeries getBrakingModel(float speedDegPerSec, float finalSpeedDegPerSec,
-        duration modelInterval, const stepper_motor_options_t& options,
-        stepper_motor_algorithm_t algorithm = CONSTANT_ACCELERATION);
-bool canBrake(float speedDegPerSec, float finalSpeedDegPerSec, duration modelInterval,
-        uint64_t remainingPulses, const stepper_motor_options_t& options,
-        stepper_motor_algorithm_t algorithm = CONSTANT_ACCELERATION);
-
 // Evaluate optional cruise followed by braking over the remaining displacement.
 // The remaining count excludes any separately reserved terminal pulse.
 std::vector<StepperMotorSeries> getCruiseAndBraking(float speedDegPerSec, float finalSpeedDegPerSec,
@@ -191,4 +183,4 @@ StepperMotorSeries evaluateSeries(StepperMotorSeries series, duration expecterIn
         const stepper_motor_options_t& stepperOpts, moment startedAt = 0,
         uint64_t stopAfterPulses = 0, const std::function<void(moment)>& onPulse = {});
 
-#endif // BASE_CPP_STEPPER_MOTOR_SMART_HELPERS_H
+#endif // BASE_CPP_STEPPER_MOTOR_SERIES_H

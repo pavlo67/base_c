@@ -1,9 +1,14 @@
 #ifndef BASE_CPP_STEPPER_MOTOR_H
 #define BASE_CPP_STEPPER_MOTOR_H
 
+#include <array>
+#include <algorithm>
+#include <chrono>
 #include <mutex>
 
-#include "smart/helpers.h"
+#include "hardware/gpio/gpio.h"
+
+#include "stepper_motor_series.h"
 
 // GPIO lifecycle belongs to the caller. Serialize calls for each motor.
 std::mutex& stepperMotorExecutionMutex();
@@ -14,9 +19,7 @@ public:
     static constexpr int COMPLETE = 1;
     static constexpr int TIME_LIMIT = -10008;
 
-    StepperMotor(const StepperMotorSeriesSequence& sequence, unsigned pinStep,
-        unsigned pinDir, unsigned pinEna, const stepper_motor_options_t& options,
-        duration pulseHigh, bool hardwarePwm = false);
+    explicit StepperMotor(const StepperMotorRunConfig& config);
     virtual ~StepperMotor();
     StepperMotor(const StepperMotor&) = delete;
     StepperMotor& operator=(const StepperMotor&) = delete;
@@ -25,33 +28,37 @@ public:
     virtual int action(moment at) = 0;
     // rotationDeg is signed degrees. Optional estimates log ideal and clocked plans.
     // The real output receives runtime/partial results even on failure.
-    static int probe(const StepperMotorRunConfig& config, float rotationDeg, bool withEstimates,
-            const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
-    int stop();
+    int probe(float rotationDeg, bool withEstimates, const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
+    int prepare(float angle, std::array<bool, Gpio::PIN_COUNT>& usedPins);
+    int update();
+    [[nodiscard]] Clock::time_point nextWake() const { return std::min(next_, deadline_); }
     [[nodiscard]] const StepperMotorSeriesSequence& result() const { return sequence_; }
+    int stop();
 
 protected:
+    virtual void prepareSequence() = 0;
+    void setSequence(const StepperMotorSeriesSequence& sequence);
+    int initialize(moment at);
+    StepperMotorRunConfig config_;
     StepperMotorSeriesSequence sequence_;
-    stepper_motor_options_t options_;
-    unsigned pinStep_, pinDir_, pinEna_;
-    duration pulseHigh_;
-    bool hardwarePwm_;
     bool enableConfigured_ = false;
     bool stepConfigured_ = false;
     bool directionConfigured_ = false;
     bool initialized_ = false;
-    bool hasMoment_ = false;
     moment lastAt_ = 0;
     uint64_t accelerationTicks_ = 0;
     moment readyAt_ = 0;
     moment phaseStartedAt_ = 0;
     size_t index_ = 0;
-    int status_ = RUNNING;
+    int status_ = COMPLETE;
     unsigned frequency_ = 0;
+    Clock::time_point next_{};
+    Clock::time_point deadline_{};
+    std::chrono::nanoseconds tick_{};
+    bool started_ = false;
 
 private:
-    static int runReal(const StepperMotorRunConfig& config, const StepperMotorSeriesSequence& plan,
-            const std::string& label, StepperMotorSeriesSequence* real);
+    int runReal(const std::string& label, StepperMotorSeriesSequence* real);
 };
 
 #endif // BASE_CPP_STEPPER_MOTOR_H

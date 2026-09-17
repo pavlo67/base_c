@@ -29,9 +29,8 @@ target_link_libraries(gpio_probe PRIVATE hardware_gpio)
 
 add_library(stepper_motor
         stepper_motor/stepper_motor.cpp
-        stepper_motor/smart/helpers.cpp
+        stepper_motor/stepper_motor_series_helpers.cpp
         stepper_motor/smart/stepper_motor_smart.cpp
-        stepper_motor/stepper_motor_runner.cpp
         stepper_motor/stepper_motor_series.cpp
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)
@@ -40,6 +39,7 @@ target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)
 
 add_executable(stepper_motor_test
         stepper_motor/stepper_motor_test.cpp
+        stepper_motor/smart/stepper_motor_smart_test.cpp
 )
 target_link_libraries(stepper_motor_test PRIVATE stepper_motor GTest::gtest_main)
 add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
@@ -69,12 +69,3 @@ add_executable(pwm_sysfs_test gpio/pwm/pwm_sysfs_test.cpp gpio/pwm/pwm_sysfs.cpp
 target_compile_definitions(pwm_sysfs_test PRIVATE GPIO_SYSFS_TEST=1)
 target_link_libraries(pwm_sysfs_test PRIVATE GTest::gtest_main Threads::Threads)
 add_test(NAME pwm_sysfs_test COMMAND pwm_sysfs_test)
-
-# Shared platform mechanics and YAML configuration.
-add_library(stepper_platform stepper_motor/platform_config.cpp ../lib/config/config.cpp)
-target_link_libraries(stepper_platform PUBLIC stepper_motor yaml-cpp::yaml-cpp)
-add_executable(probe_platform stepper_motor/_probe/probe_platform.cpp)
-target_link_libraries(probe_platform PRIVATE stepper_platform)
-add_executable(stepper_platform_test stepper_motor/platform_config_test.cpp)
-target_link_libraries(stepper_platform_test PRIVATE stepper_platform GTest::gtest_main)
-add_test(NAME stepper_platform_test COMMAND stepper_platform_test)

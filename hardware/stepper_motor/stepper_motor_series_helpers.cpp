@@ -1,4 +1,4 @@
-#include "helpers.h"
+#include "stepper_motor_series.h"
 
 #include <algorithm>
 #include <chrono>
@@ -25,44 +25,7 @@ StepperMotorSeries getFastestSeries(float initialSpeedDegPerSec, float finalSpee
     return s;
 }
 
-StepperMotorSeries getBrakingModel(float speedDegPerSec, float finalSpeedDegPerSec,
-        duration modelInterval, const stepper_motor_options_t& options, stepper_motor_algorithm_t algorithm) {
-    StepperMotorSeries empty(0, 0, 0, speedDegPerSec >= 0, options, algorithm);
-    std::string error;
-    if (!optionsIsOk(options, error) || !std::isfinite(speedDegPerSec) ||
-            !std::isfinite(finalSpeedDegPerSec) || modelInterval == 0 ||
-            std::abs(speedDegPerSec) < std::abs(finalSpeedDegPerSec) ||
-            speedDegPerSec * finalSpeedDegPerSec < 0) { return empty; }
-    auto modeled = getFastestSeries(speedDegPerSec, finalSpeedDegPerSec, options, algorithm);
-    modeled.livePwm_ = true;
-    auto result = modeled;
-    float interval = modeled.intervalSec(0, options);
-    if (!(interval > 0)) { return empty; }
-    result.brakingModel_.push_back({0, modeled.activeInterval_});
-    moment at = 0;
-    while (interval > 0) {
-        // Skip timer calls which cannot change the model's command.
-        const duration wait = modeled.recalculateAfter_ > at ? modeled.recalculateAfter_ - at : 1;
-        const uint64_t ticks = (wait - 1) / modelInterval + 1;
-        if (ticks > (std::numeric_limits<moment>::max() - at) / modelInterval) { return empty; }
-        at += ticks * modelInterval;
-        interval = modeled.intervalSec(at, options);
-        if (interval > 0 && modeled.activeInterval_ != result.brakingModel_.back().interval_) {
-            result.brakingModel_.push_back({modeled.pulsesCount_, modeled.activeInterval_});
-        }
-    }
-    if (modeled.intervalIndex_ < modeled.expectedPulsesCount_ || modeled.pulsesCount_ == 0) { return empty; }
-    result.expectedPulsesCount_ = modeled.pulsesCount_;
-    result.modelInterval_ = modelInterval;
-    result.brakingFinalSpeed_ = finalSpeedDegPerSec;
-    return result;
-}
 
-bool canBrake(float speedDegPerSec, float finalSpeedDegPerSec, duration modelInterval,
-        uint64_t remainingPulses, const stepper_motor_options_t& options, stepper_motor_algorithm_t algorithm) {
-    const auto model = getBrakingModel(speedDegPerSec, finalSpeedDegPerSec, modelInterval, options, algorithm);
-    return !model.brakingModel_.empty() && model.expectedPulsesCount_ <= remainingPulses;
-}
 
 std::vector<StepperMotorSeries> getCruiseAndBraking(float speedDegPerSec, float finalSpeedDegPerSec,
         uint64_t remainingPulses, duration timer, const stepper_motor_options_t& options,
