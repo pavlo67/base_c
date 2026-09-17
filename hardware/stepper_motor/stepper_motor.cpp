@@ -57,6 +57,10 @@ void StepperMotor::setSequence(const StepperMotorSeriesSequence& sequence) {
     started_ = false;
 }
 
+StepperMotorSeriesSequence StepperMotor::planSequence(float angle, duration expecterInterval) const {
+    return getSeriesSequence(0, angle, 0, expecterInterval, config_.options_);
+}
+
 constexpr const char* ON_STEPPER_INITIALIZE = "[StepperMotor.initialize()]";
 
 int StepperMotor::initialize(moment at) {
@@ -122,7 +126,7 @@ int StepperMotor::prepare(float angle, std::array<bool, Gpio::PIN_COUNT>& usedPi
         usedPins[pin] = true;
     }
     if (angle == 0) { status_ = COMPLETE; return COMPLETE; }
-    const auto plan = getSeriesSequence(0, angle, 0, config_.expecterInterval_, config_.options_);
+    const auto plan = planSequence(angle, config_.expecterInterval_);
     if (!plan.error.empty()) {
         printf("%s ERROR: planning failed: %s\n", ON_STEPPER_PREPARE, plan.error.c_str());
         return Gpio::INVALID_ARGUMENT;
@@ -227,10 +231,10 @@ int StepperMotor::probe(float rotationDeg, bool withEstimates, const std::string
         fflush(stdout);
         return Gpio::SUCCESS;
     }
-    const auto plan = getSeriesSequence(0, rotationDeg, 0, cfg.expecterInterval_, cfg.options_);
+    const auto plan = planSequence(rotationDeg, cfg.expecterInterval_);
     if (!plan.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, plan.error); }
     if (withEstimates) {
-        const auto ideal = getSeriesSequence(0, rotationDeg, 0, 0, cfg.options_);
+        const auto ideal = planSequence(rotationDeg, 0);
         if (!ideal.error.empty()) { return fail(Gpio::INVALID_ARGUMENT, ideal.error); }
         ideal.log(cfg.options_, (prefix + " ideal").c_str(), cfg.verbose_);
         plan.log(cfg.options_, (prefix + " clocked").c_str(), cfg.verbose_, cfg.expecterInterval_);

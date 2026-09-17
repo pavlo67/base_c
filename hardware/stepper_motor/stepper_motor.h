@@ -36,6 +36,7 @@ public:
     int stop();
 
 protected:
+    virtual StepperMotorSeriesSequence planSequence(float angle, duration expecterInterval) const;
     virtual void prepareSequence() = 0;
     void setSequence(const StepperMotorSeriesSequence& sequence);
     int initialize(moment at);

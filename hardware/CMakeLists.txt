@@ -31,6 +31,7 @@ add_library(stepper_motor
         stepper_motor/stepper_motor.cpp
         stepper_motor/stepper_motor_series_helpers.cpp
         stepper_motor/smart/stepper_motor_smart.cpp
+        stepper_motor/stepper_motor_dumb/stepper_motor_dumb.cpp
         stepper_motor/stepper_motor_series.cpp
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)
@@ -40,6 +41,7 @@ target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)
 add_executable(stepper_motor_test
         stepper_motor/stepper_motor_test.cpp
         stepper_motor/smart/stepper_motor_smart_test.cpp
+        stepper_motor/stepper_motor_dumb/stepper_motor_dumb_test.cpp
 )
 target_link_libraries(stepper_motor_test PRIVATE stepper_motor GTest::gtest_main)
 add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
