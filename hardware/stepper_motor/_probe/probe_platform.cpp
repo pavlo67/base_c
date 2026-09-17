@@ -16,7 +16,7 @@ constexpr const char* CONFIG_PATH = "_env/machina.yaml";
 
 int main(int argc, char** argv) {
     if (argc < 3 || (argc - 1) % 2 != 0) {
-        printf("[probe_platform.main()] ERROR: supply pan/tilt angle pairs, e.g. probe_platform 10 0 -5 1\n");
+        printf("ERROR: supply pan/tilt angle pairs, e.g. probe_platform 10 0 -5 1\n");
         return 1;
     }
     std::vector<std::array<float, 2>> movements;
@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i += 2) {
         std::array<float, 2> angles{};
         if (!parseFiniteFloat(argv[i], angles[0]) || !parseFiniteFloat(argv[i + 1], angles[1])) {
-            printf("[probe_platform.main()] ERROR: invalid pan/tilt pair at arguments %d and %d\n", i, i + 1);
+            printf("ERROR: invalid pan/tilt pair at arguments %d and %d\n", i, i + 1);
             return 1;
         }
         movements.push_back(angles);
@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
     if (!loadStepperMotorProbeConfig(config, probe)) { return 1; }
     auto& gpio = Gpio::instance();
     if (gpio.initialize() < 0) {
-        printf("[probe_platform.main()] ERROR: GPIO initialization failed\n");
+        printf("ERROR: GPIO initialization failed\n");
         return 1;
     }
     int result = 0;
@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
         }
     }
     if (gpio.terminate() < 0) {
-        printf("[probe_platform.main()] ERROR: GPIO termination failed\n");
+        printf("ERROR: GPIO termination failed\n");
         result = 1;
     }
     return result;

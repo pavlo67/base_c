@@ -16,7 +16,7 @@ int movePulses(int64_t pulses);
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("[probe_pulses.main()] ERROR: supply signed pulse counts, e.g. probe_pulses +800 -1600 +800\n");
+        printf("ERROR: supply signed pulse counts, e.g. probe_pulses +800 -1600 +800\n");
         return 1;
     }
     std::vector<int64_t> movements;
@@ -30,14 +30,14 @@ int main(int argc, char** argv) {
         if (value.empty() || (explicitPlus && value.front() == '-') ||
                 parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
                 pulses == std::numeric_limits<int64_t>::min()) {
-            printf("[probe_pulses.main()] ERROR: argument %d must be a signed integer pulse count\n", i);
+            printf("ERROR: argument %d must be a signed integer pulse count\n", i);
             return 1;
         }
         movements.push_back(pulses);
     }
     auto& gpio = Gpio::instance();
     if (gpio.initialize() < 0) {
-        printf("[probe_pulses.main()] ERROR: GPIO initialization failed\n");
+        printf("ERROR: GPIO initialization failed\n");
         return 1;
     }
     int result = 0;
@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
     if (code >= 0) { code = gpio.setMode(PIN_ENA, GpioMode::output); }
     if (code >= 0) { code = gpio.write(PIN_ENA, 0); }
     if (code < 0) {
-        printf("[probe_pulses.main()] ERROR: GPIO setup failed: %d\n", code);
+        printf("ERROR: GPIO setup failed: %d\n", code);
         result = 1;
     } else {
         std::this_thread::sleep_for(std::chrono::microseconds(500));
