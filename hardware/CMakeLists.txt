@@ -31,7 +31,7 @@ add_library(stepper_motor
         stepper_motor/stepper_motor.cpp
         stepper_motor/stepper_motor_series_helpers.cpp
         stepper_motor/smart/stepper_motor_smart.cpp
-        stepper_motor/stepper_motor_dumb/stepper_motor_dumb.cpp
+        stepper_motor/dumb/stepper_motor_dumb.cpp
         stepper_motor/stepper_motor_series.cpp
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)
@@ -41,31 +41,24 @@ target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)
 add_executable(stepper_motor_test
         stepper_motor/stepper_motor_test.cpp
         stepper_motor/smart/stepper_motor_smart_test.cpp
-        stepper_motor/stepper_motor_dumb/stepper_motor_dumb_test.cpp
+        stepper_motor/dumb/stepper_motor_dumb_test.cpp
 )
 target_link_libraries(stepper_motor_test PRIVATE stepper_motor GTest::gtest_main)
 add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
 
-# probe_infinite --------------------------------------
+# probe_pulses ---------------------------------------
 
-add_executable(probe_infinite
-        stepper_motor/_probe/probe_infinite.cpp
-)
-target_link_libraries(probe_infinite PRIVATE stepper_motor ${RPI_LIBS})
+add_executable(probe_pulses stepper_motor/_probe/probe_pulses.cpp)
+target_link_libraries(probe_pulses PRIVATE hardware_gpio)
 
-# probe_180_360_180 -------------------------------------
-
-add_executable(probe_180_360_180
-        stepper_motor/_probe/probe_180_360_180.cpp
-)
-target_link_libraries(probe_180_360_180 PRIVATE stepper_motor ${RPI_LIBS})
-
-# probe_sequences -------------------------------------
-
-add_executable(probe_sequences
-        stepper_motor/_probe/probe_sequences.cpp
-)
-target_link_libraries(probe_sequences PRIVATE stepper_motor ${RPI_LIBS})
+# Shared platform mechanics, YAML configuration and probe.
+add_library(stepper_platform stepper_motor/config/platform_config.cpp ../lib/config/config.cpp)
+target_link_libraries(stepper_platform PUBLIC stepper_motor yaml-cpp::yaml-cpp)
+add_executable(probe_platform stepper_motor/_probe/probe_platform.cpp)
+target_link_libraries(probe_platform PRIVATE stepper_platform)
+add_executable(stepper_platform_test stepper_motor/config/platform_config_test.cpp)
+target_link_libraries(stepper_platform_test PRIVATE stepper_platform GTest::gtest_main)
+add_test(NAME stepper_platform_test COMMAND stepper_platform_test)
 
 add_executable(pwm_sysfs_test gpio/pwm/pwm_sysfs_test.cpp gpio/pwm/pwm_sysfs.cpp gpio/pwm/pwm_sysfs_rpi5.cpp)
 target_compile_definitions(pwm_sysfs_test PRIVATE GPIO_SYSFS_TEST=1)

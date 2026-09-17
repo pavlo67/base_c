@@ -1,9 +1,12 @@
 API_KEY: replace-with-a-secret
 
 # Platform motion configuration.
+# The paired probe uses Smart by default; set Dumb for fixed-speed PWM.
+motorClass: Smart
+
 pan:
   pinStep: 17
-  pinDir: 24
+  pinDir: 22
   pinEna: 27
   freqMax: 8000
   degPulse: 0.225 # motor degrees per pulse
@@ -17,11 +20,14 @@ pan:
   pulseHighUs: 15
   hardwarePwm: false
   timeLimitMs: 60000
+  dumbSpeedDegSec: 90 # platform deg/s upper bound when motorClass is Dumb
+  dumbPauseMs: 10
+  dumbRemainingPulsesTolerance: 3
 
 tilt:
   pinStep: 18
   pinDir: 23
-  pinEna: 22
+  pinEna: 26
   freqMax: 8000
   degPulse: 0.225 # motor degrees per pulse
   speedMaxDegSec: 180 # platform degrees per second
@@ -34,3 +40,6 @@ tilt:
   pulseHighUs: 15
   hardwarePwm: false
   timeLimitMs: 60000
+  dumbSpeedDegSec: 90 # platform deg/s upper bound when motorClass is Dumb
+  dumbPauseMs: 10
+  dumbRemainingPulsesTolerance: 3
