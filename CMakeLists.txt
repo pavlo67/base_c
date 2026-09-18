@@ -133,7 +133,7 @@ endif()
 
 # project libs ---------------------------------------------------------
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/_bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_SOURCE_DIR}/_bin>")
 
 include_directories(./)
 add_subdirectory(hardware/)

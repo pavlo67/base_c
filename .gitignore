@@ -34,6 +34,8 @@ ai.md
 *.app
 _bin/*
 bin/*
+_probe/*
+_test/*
 
 # Prerequisites
 *.d

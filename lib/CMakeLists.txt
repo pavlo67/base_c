@@ -15,6 +15,7 @@ add_executable(server_http_test
         server/cpp-httplib/http_test.cpp
         server/server.cpp
 )
+set_target_properties(server_http_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_SOURCE_DIR}/_test>")
 target_link_libraries(server_http_test PRIVATE lib_server_http GTest::gtest_main)
 add_test(NAME http_test COMMAND server_http_test)
 
@@ -35,5 +36,6 @@ add_executable(server_http_mngs_test
         server/mongoose/mngs_test.cpp
         server/server.cpp
 )
+set_target_properties(server_http_mngs_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_SOURCE_DIR}/_test>")
 target_link_libraries(server_http_mngs_test PRIVATE lib_server_http_mngs GTest::gtest_main)
 add_test(NAME server_http_mngs_test COMMAND server_http_mngs_test)
