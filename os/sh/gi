@@ -1,0 +1,5 @@
+git submodule foreach 'git add . && git commit && git push origin HEAD' 
+
+git add .
+git commit
+git push origin HEAD
