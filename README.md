@@ -2,8 +2,8 @@
 
 ### Всі
 
-    $ cmake --build cmake-build-release
-    $ ctest --test-dir cmake-build-release --output-on-failure
+    $ ./build_all.sh
+    $ ./test_all.sh
 
 ### Один
 
