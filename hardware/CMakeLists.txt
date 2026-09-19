@@ -25,7 +25,7 @@ add_executable(gpio_probe
         gpio/_probes/gpio_probe.cpp
 )
 set_target_properties(gpio_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_SOURCE_DIR}/_probe>")
-target_link_libraries(gpio_probe PRIVATE hardware_gpio)
+target_link_libraries(gpio_probe PRIVATE hardware_gpio cxxopts::cxxopts)
 
 # stepper_motor library -------------------------------
 

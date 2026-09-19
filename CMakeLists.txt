@@ -29,6 +29,13 @@ if(NOT PAN_TILT_ROOT)
     )
     FetchContent_MakeAvailable(googletest)
 
+    FetchContent_Declare(
+            cxxopts
+            GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+            GIT_TAG v3.3.1
+    )
+    FetchContent_MakeAvailable(cxxopts)
+
     find_package(yaml-cpp)
     find_package(jsoncpp)
     # find_package(fmt REQUIRED)
