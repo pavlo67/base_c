@@ -23,3 +23,16 @@ Press Space to pause/resume sampling and `q` to quit. Ctrl+C and SIGTERM request
 The Linux health monitor implementation lives in `os/health/`. `health_monitor.cpp` contains the monitor implementation, while `main_monitor.cpp` is only the executable launcher.
 
 When Space pauses the monitor, the screen is redrawn once with `[PAUSED]` and then remains completely unchanged: no periodic sampling or output occurs while paused. Pressing Space again resumes immediately with a fresh sample and restarts the one-second refresh interval.
+
+## Git shell scripts
+
+`sh/gi` stages changes with `git add .`, commits only when the index differs from
+HEAD, and pushes to `origin HEAD`. `sh/ga` uses the same check before
+`git commit --amend` and pushes with `--force-with-lease`. Thus a clean index
+skips commit/amend, but still pushes any existing local commits. `ga` does not
+open the editor for a message-only amend when there are no staged changes.
+
+Both scripts process initialized direct submodules through `git submodule foreach`
+before the current repository. Errors from staging, index inspection, commit or
+push stop processing and propagate a nonzero exit code; an unchanged index is
+not an error. Commit messages retain Git's normal interactive editor behavior.

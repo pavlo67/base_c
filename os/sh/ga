@@ -1,5 +1,18 @@
-git submodule foreach 'git add . && git commit --amend && git push --force-with-lease origin HEAD' 
+#!/bin/sh
 
-git add .
-git commit --amend
+ga_commands='
+git add . || exit $?
+if git diff --cached --quiet --exit-code; then
+    :
+else
+    staged_status=$?
+    case "$staged_status" in
+        1) git commit --amend || exit $? ;;
+        *) exit "$staged_status" ;;
+    esac
+fi
 git push --force-with-lease origin HEAD
+'
+
+git submodule foreach "$ga_commands" || exit $?
+sh -c "$ga_commands"

@@ -1,5 +1,18 @@
-git submodule foreach 'git add . && git commit && git push origin HEAD' 
+#!/bin/sh
 
-git add .
-git commit
+gi_commands='
+git add . || exit $?
+if git diff --cached --quiet --exit-code; then
+    :
+else
+    staged_status=$?
+    case "$staged_status" in
+        1) git commit || exit $? ;;
+        *) exit "$staged_status" ;;
+    esac
+fi
 git push origin HEAD
+'
+
+git submodule foreach "$gi_commands" || exit $?
+sh -c "$gi_commands"
