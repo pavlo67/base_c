@@ -67,14 +67,11 @@ required fields and units.
 
 `gpio_test`, `stepper_motor_test`, `gpio_probe` and `pulses_probe` each define
 `HARDWARE_CONFIG_PATH` in their main source. Replace its value with a string path
-when another configuration is required. Its default, supplied by CMake as
-`HARDWARE_DEFAULT_CONFIG_PATH`, is the absolute build-source path to
-`base/hardware/hardware.yaml` (or `hardware/hardware.yaml` in a standalone base
-checkout). Relative custom paths are relative to the process working directory.
-Files are read once at program startup, so editing YAML needs no rebuild;
-changing a source path constant needs a rebuild. A failed load exits before tests
-or hardware activity. Moving binaries to another machine requires setting a
-suitable path. There is no fallback to compiled pins.
+when another configuration is required. Relative custom paths are relative to the 
+process working directory. Files are read once at program startup, so editing YAML 
+needs no rebuild; changing a source path constant needs a rebuild. A failed load 
+exits before tests or hardware activity. Moving binaries to another machine requires 
+setting a suitable path. There is no fallback to compiled pins.
 
 The local `hardware.yaml` contains both axes: pan STEP=17, DIR=22, ENA=27 and
 tilt STEP=18, DIR=23, ENA=26. Tilt ENA uses BCM26 to avoid pan DIR=22. The tracked

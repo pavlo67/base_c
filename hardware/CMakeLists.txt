@@ -59,8 +59,6 @@ target_link_libraries(pulses_probe PRIVATE stepper_platform)
 add_library(stepper_platform stepper_motor/config/platform_config.cpp ../lib/config/config.cpp)
 target_link_libraries(stepper_platform PUBLIC stepper_motor yaml-cpp::yaml-cpp)
 # Programs may override their source path constant with a machina.yaml path.
-target_compile_definitions(stepper_platform INTERFACE
-    HARDWARE_DEFAULT_CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hardware.yaml")
 add_executable(platform_probe stepper_motor/_probe/platform_probe.cpp)
 set_target_properties(platform_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_SOURCE_DIR}/_probe>")
 target_link_libraries(platform_probe PRIVATE stepper_platform)

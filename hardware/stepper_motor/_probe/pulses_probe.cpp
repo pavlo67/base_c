@@ -10,14 +10,17 @@
 #include <thread>
 #include <vector>
 
-constexpr const char* HARDWARE_CONFIG_PATH = HARDWARE_DEFAULT_CONFIG_PATH; // Or a path to machina.yaml.
+constexpr const char* HARDWARE_CONFIG_PATH = "_env/machina.yaml";
 
-constexpr int STEP_LOW_US = 605;
-constexpr int BETWEEN_SERIES_MS = 10;
+constexpr float SPEED_DEG_S = 20;
+constexpr int   STEP_LOW_US = 1e9 / (SPEED_DEG_S / 0.225) - 15;
+constexpr int   BETWEEN_SERIES_MS = 10;
 
 int movePulses(int64_t pulses, const StepperMotorRunConfig& pan);
 
 int main(int argc, char** argv) {
+    printf("PULSE DELAY IS %.3f ms\n", float(STEP_LOW_US) / 1e6);
+
     if (argc < 2) {
         printf("[main()] ERROR: supply signed pulse counts, e.g. pulses_probe +800 -1600 +800\n");
         return 1;

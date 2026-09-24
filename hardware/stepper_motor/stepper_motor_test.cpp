@@ -25,8 +25,7 @@ const float LIMIT1            = -2.25F;
 const float LIMIT2            =  2.25F;
 const float TARGET_CHANGE_DEG = 91.0F;
 
-
-constexpr const char* HARDWARE_CONFIG_PATH = HARDWARE_DEFAULT_CONFIG_PATH; // Or a path to machina.yaml.
+constexpr const char* HARDWARE_CONFIG_PATH = "_env/machina.yaml";
 StepperMotorRunConfig testPanHardware;
 
 int main(int argc, char** argv) {
