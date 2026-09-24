@@ -1,4 +1,5 @@
-#include "hardware/hardware.h"
+#include "hardware/stepper_motor/config/platform_config.h"
+#include "hardware/gpio/gpio.h"
 
 #include <charconv>
 #include <chrono>
@@ -9,14 +10,16 @@
 #include <thread>
 #include <vector>
 
+constexpr const char* HARDWARE_CONFIG_PATH = HARDWARE_DEFAULT_CONFIG_PATH; // Or a path to machina.yaml.
+
 constexpr int STEP_LOW_US = 605;
 constexpr int BETWEEN_SERIES_MS = 10;
 
-int movePulses(int64_t pulses);
+int movePulses(int64_t pulses, const StepperMotorRunConfig& pan);
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("ERROR: supply signed pulse counts, e.g. probe_pulses +800 -1600 +800\n");
+        printf("[main()] ERROR: supply signed pulse counts, e.g. pulses_probe +800 -1600 +800\n");
         return 1;
     }
     std::vector<int64_t> movements;
@@ -30,57 +33,63 @@ int main(int argc, char** argv) {
         if (value.empty() || (explicitPlus && value.front() == '-') ||
                 parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
                 pulses == std::numeric_limits<int64_t>::min()) {
-            printf("ERROR: argument %d must be a signed integer pulse count\n", i);
+            printf("[main()] ERROR: argument %d must be a signed integer pulse count\n", i);
             return 1;
         }
         movements.push_back(pulses);
     }
+
+    printf("[PUL] Load pan hardware from %s\n", HARDWARE_CONFIG_PATH);
+    std::array<StepperMotorRunConfig, 2> motors;
+    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
+    const auto& pan = motors[0];
     auto& gpio = Gpio::instance();
     if (gpio.initialize() < 0) {
-        printf("ERROR: GPIO initialization failed\n");
+        printf("[main()] ERROR: GPIO initialization failed\n");
         return 1;
     }
+
     int result = 0;
-    int code = gpio.setMode(PIN_STEP, GpioMode::output);
-    if (code >= 0) { code = gpio.setMode(PIN_DIR, GpioMode::output); }
-    if (code >= 0) { code = gpio.setMode(PIN_ENA, GpioMode::output); }
-    if (code >= 0) { code = gpio.write(PIN_ENA, 0); }
+    int code = gpio.setMode(pan.pinStep_, GpioMode::output);
+    if (code >= 0) { code = gpio.setMode(pan.pinDir_, GpioMode::output); }
+    if (code >= 0) { code = gpio.setMode(pan.pinEna_, GpioMode::output); }
+    if (code >= 0) { code = gpio.write(pan.pinEna_, 0); }
     if (code < 0) {
-        printf("ERROR: GPIO setup failed: %d\n", code);
+        printf("[main()] ERROR: GPIO setup failed: %d\n", code);
         result = 1;
     } else {
         std::this_thread::sleep_for(std::chrono::microseconds(500));
         for (size_t i = 0; i < movements.size(); ++i) {
             printf("[PUL] Series %zu/%zu: %lld pulses\n", i + 1, movements.size(),
                 static_cast<long long>(movements[i]));
-            if (movePulses(movements[i]) < 0) { result = 1; break; }
+            if (movePulses(movements[i], pan) < 0) { result = 1; break; }
             if (i + 1 < movements.size()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(BETWEEN_SERIES_MS));
             }
         }
     }
-    if (gpio.write(PIN_STEP, 0) < 0) { result = 1; }
-    if (gpio.write(PIN_ENA, 1) < 0) { result = 1; }
-    if (gpio.write(PIN_DIR, 0) < 0) { result = 1; }
+    if (gpio.write(pan.pinStep_, 0) < 0) { result = 1; }
+    if (gpio.write(pan.pinEna_, 1) < 0) { result = 1; }
+    if (gpio.write(pan.pinDir_, 0) < 0) { result = 1; }
     if (gpio.terminate() < 0) { result = 1; }
     return result;
 }
 
 constexpr const char* ON_MOVE_PULSES = "[movePulses()]";
 
-int movePulses(int64_t pulses) {
+int movePulses(int64_t pulses, const StepperMotorRunConfig& pan) {
     auto& gpio = Gpio::instance();
-    int code = gpio.write(PIN_DIR, pulses >= 0 ? 1 : 0);
+    int code = gpio.write(pan.pinDir_, pulses >= 0 ? 1 : 0);
     if (code < 0) {
         printf("%s ERROR: failed to set direction: %d\n", ON_MOVE_PULSES, code);
         return code;
     }
-    std::this_thread::sleep_for(std::chrono::microseconds(PULSE_HIGH_US_MIN));
+    std::this_thread::sleep_for(std::chrono::nanoseconds(pan.pulseHigh_));
     const uint64_t count = pulses >= 0 ? static_cast<uint64_t>(pulses) : static_cast<uint64_t>(-pulses);
     for (uint64_t i = 0; i < count; ++i) {
-        code = gpio.write(PIN_STEP, 1);
-        if (code >= 0) { std::this_thread::sleep_for(std::chrono::microseconds(PULSE_HIGH_US_MIN)); }
-        if (code >= 0) { code = gpio.write(PIN_STEP, 0); }
+        code = gpio.write(pan.pinStep_, 1);
+        if (code >= 0) { std::this_thread::sleep_for(std::chrono::nanoseconds(pan.pulseHigh_)); }
+        if (code >= 0) { code = gpio.write(pan.pinStep_, 0); }
         if (code < 0) {
             printf("%s ERROR: failed at pulse %llu: %d\n", ON_MOVE_PULSES,
                 static_cast<unsigned long long>(i + 1), code);

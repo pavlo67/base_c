@@ -1,13 +1,29 @@
 #include <gtest/gtest.h>
 
 #include "gpio.h"
-#include "hardware/hardware.h"
+#include "hardware/stepper_motor/config/platform_config.h"
+#include <array>
 
 namespace {
-    static_assert(GPIO_TEST_PINS.size() >= 2, "Contract tests require two configured pins");
-    constexpr unsigned PIN   = GPIO_TEST_PINS[0];
-    constexpr unsigned OTHER = GPIO_TEST_PINS[1];
+    constexpr const char* HARDWARE_CONFIG_PATH = HARDWARE_DEFAULT_CONFIG_PATH; // Or a path to machina.yaml.
+    std::array<unsigned, 3> GPIO_TEST_PINS{};
+    unsigned PIN = 0;
+    unsigned OTHER = 0;
+}
 
+int main(int argc, char** argv) {
+    testing::InitGoogleTest(&argc, argv);
+    printf("[GPIO] Load pan hardware from %s\n", HARDWARE_CONFIG_PATH);
+    std::array<StepperMotorRunConfig, 2> motors;
+    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
+    const auto& pan = motors[0];
+    GPIO_TEST_PINS = {pan.pinStep_, pan.pinDir_, pan.pinEna_};
+    PIN = pan.pinStep_;
+    OTHER = pan.pinDir_;
+    return RUN_ALL_TESTS();
+}
+
+namespace {
     class GpioTest : public testing::Test {
     protected:
         Gpio& gpio_ = Gpio::instance();

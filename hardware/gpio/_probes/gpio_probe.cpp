@@ -1,60 +1,51 @@
-#include "hardware/hardware.h"
+#include "hardware/stepper_motor/config/platform_config.h"
+#include "hardware/gpio/gpio.h"
 
+#include <chrono>
 #include <cstdio>
-#include <csignal>
-#include <cstdlib>
-#include <unistd.h>
-#include <iostream>
-#include <vector>
-#include <cxxopts.hpp>
+#include <thread>
 
-constexpr unsigned BLINK_DELAY_US = 5e5;
-constexpr int      BLINKS_CNT     = 5;
+constexpr const char* HARDWARE_CONFIG_PATH = HARDWARE_DEFAULT_CONFIG_PATH; // Or a path to machina.yaml.
+constexpr unsigned BLINK_DELAY_US = 500000;
+constexpr int BLINKS_CNT = 5;
 
-void blink(int pin) {
-    Gpio::instance().write(pin, 1);
-    usleep(BLINK_DELAY_US);
-    Gpio::instance().write(pin, 0);
-    usleep(BLINK_DELAY_US);
-}
-
-int main(int argc, char* argv[]) {
-    cxxopts::Options options("GPIO", "Блимання пінами по списку");
-
-    options.add_options()
-        ("pins", "Список цілих чисел", cxxopts::value<std::vector<int>>());
-
-    options.parse_positional({"pins"});
-
-    std::vector<int>pins;
-
-    try {
-        auto result = options.parse(argc, argv);
-        pins = result["pins"].as<std::vector<int>>();
-        std::cout << "Зчитано номерів пінів: " << pins.size() << "\n";
-    } catch (const std::exception& e) {
-        std::cerr << "Помилка аргументів: " << e.what() << "\n";
-        std::cerr << "Будь ласка, задайте список невідʼємних цілих чисел.\n";
-        return EXIT_FAILURE;
+int main() {
+    printf("[GPIO] Load pan hardware from %s\n", HARDWARE_CONFIG_PATH);
+    std::array<StepperMotorRunConfig, 2> motors;
+    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
+    const auto& pan = motors[0];
+    auto& gpio = Gpio::instance();
+    if (gpio.initialize() < 0) {
+        printf("[main()] ERROR: GPIO initialization failed\n");
+        return 1;
     }
-
-    if (Gpio::instance().initialize() < 0) {
-        std::fprintf(stdout, "ERROR: gpioInitialise() failed\n");
-        return EXIT_FAILURE;
-    }
-
-    for (uint pin : pins) {
-        printf("\ntesting pin: %d...\n", pin);
-        Gpio::instance().setMode(pin, GpioMode::output);
-        for (int i = 0; i < BLINKS_CNT; i++) {
-            printf("%d\n", i);
-            blink((int)pin);
+    int result = 0;
+    for (const unsigned pin : {pan.pinStep_, pan.pinDir_, pan.pinEna_}) {
+        printf("[GPIO] Blink BCM%u\n", pin);
+        int code = gpio.setMode(pin, GpioMode::output);
+        for (int i = 0; i < BLINKS_CNT && code >= 0; ++i) {
+            code = gpio.write(pin, 1);
+            if (code < 0) { break; }
+            std::this_thread::sleep_for(std::chrono::microseconds(BLINK_DELAY_US));
+            code = gpio.write(pin, 0);
+            if (code < 0) { break; }
+            std::this_thread::sleep_for(std::chrono::microseconds(BLINK_DELAY_US));
         }
+        if (code < 0) {
+            printf("[main()] ERROR: BCM%u blink failed: %d\n", pin, code);
+            result = 1;
+        }
+        const int cleanup = gpio.setMode(pin, GpioMode::input);
+        if (cleanup < 0) {
+            printf("[main()] ERROR: BCM%u cleanup failed: %d\n", pin, cleanup);
+            result = 1;
+        }
+        if (result != 0) { break; }
     }
-
-    Gpio::instance().terminate();
-
-    printf("\nFinished\n");
-    return EXIT_SUCCESS;
-
+    const int terminated = gpio.terminate();
+    if (terminated < 0) {
+        printf("[main()] ERROR: GPIO termination failed: %d\n", terminated);
+        result = 1;
+    }
+    return result;
 }

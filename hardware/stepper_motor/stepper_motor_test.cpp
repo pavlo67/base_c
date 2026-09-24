@@ -1,5 +1,5 @@
 #include "stepper_motor.h"
-#include "hardware/hardware.h"
+#include "hardware/stepper_motor/stepper_motor_test_config.h"
 
 #include <gtest/gtest.h>
 
@@ -12,10 +12,10 @@
 #include "lib/mathlib.h"
 
 const stepper_motor_options_t STEPPER_OPTS {
-    .freqMax         = FREQ_MAX_DEFAULT,
-    .degPulse        = DEG_PULSE_DEFAULT,
-    .speedMaxDegSec  = SPEED_MAX_DEG_SEC,
-    .accelMaxDegSec2 = ACCEL_MAX_DEG_SEC2
+    .freqMax         = 8000,
+    .degPulse        = 0.225F,
+    .speedMaxDegSec  = 180.0F,
+    .accelMaxDegSec2 = 720.0F
 };
 
 const float INITIAL_SPEED     =  0.0F;
@@ -24,6 +24,19 @@ const bool  DIRECTION_FORWARD = FINAL_SPEED - INITIAL_SPEED > 0;
 const float LIMIT1            = -2.25F;
 const float LIMIT2            =  2.25F;
 const float TARGET_CHANGE_DEG = 91.0F;
+
+
+constexpr const char* HARDWARE_CONFIG_PATH = HARDWARE_DEFAULT_CONFIG_PATH; // Or a path to machina.yaml.
+StepperMotorRunConfig testPanHardware;
+
+int main(int argc, char** argv) {
+    testing::InitGoogleTest(&argc, argv);
+    printf("[MOT] Load pan hardware from %s\n", HARDWARE_CONFIG_PATH);
+    std::array<StepperMotorRunConfig, 2> motors;
+    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
+    testPanHardware = motors[0];
+    return RUN_ALL_TESTS();
+}
 
 
 void testSeries(const StepperMotorSeries& series, float totalRotationDegExpected, float finalSpeedDegPerSecExpected, bool directionForwardExpected, stepper_motor_options_t stepperOpts, stepper_motor_algorithm_t intervalAlgorithm, const std::string& verboseLabel) {

@@ -1,8 +1,9 @@
+#include "lib/strlib.h"
+
 #include "hardware/gpio/gpio.h"
 #include "hardware/stepper_motor/config/platform_config.h"
 #include "hardware/stepper_motor/dumb/stepper_motor_dumb.h"
 #include "hardware/stepper_motor/smart/stepper_motor_smart.h"
-#include "lib/number_parse.h"
 
 #include <algorithm>
 #include <array>
@@ -16,7 +17,7 @@ constexpr const char* CONFIG_PATH = "_env/machina.yaml";
 
 int main(int argc, char** argv) {
     if (argc < 3 || (argc - 1) % 2 != 0) {
-        printf("ERROR: supply pan/tilt angle pairs, e.g. probe_platform 10 0 -5 1\n");
+        printf("ERROR: supply pan/tilt angle pairs, e.g. platform_probe 10 0 -5 1\n");
         return 1;
     }
     std::vector<std::array<float, 2>> movements;
@@ -29,6 +30,7 @@ int main(int argc, char** argv) {
         }
         movements.push_back(angles);
     }
+
     const Config config(CONFIG_PATH);
     StepperMotorProbeConfig probe;
     if (!loadStepperMotorProbeConfig(config, probe)) { return 1; }
@@ -37,6 +39,7 @@ int main(int argc, char** argv) {
         printf("ERROR: GPIO initialization failed\n");
         return 1;
     }
+
     int result = 0;
     {
         const std::lock_guard<std::mutex> execution(stepperMotorExecutionMutex());
@@ -86,6 +89,7 @@ int main(int argc, char** argv) {
             }
         }
     }
+
     if (gpio.terminate() < 0) {
         printf("ERROR: GPIO termination failed\n");
         result = 1;

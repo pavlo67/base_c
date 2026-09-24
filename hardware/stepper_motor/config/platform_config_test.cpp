@@ -1,5 +1,5 @@
 #include "platform_config.h"
-#include "lib/number_parse.h"
+#include "lib/strlib.h"
 
 #include <gtest/gtest.h>
 #include <limits>
@@ -134,5 +134,16 @@ TEST(PlatformMotor, YamlConversionAndAtomicReload) {
     for (size_t i = 0; i < motors.size(); ++i) {
         ASSERT_FLOAT_EQ(motors[i].options_.speedMaxDegSec, original[i].options_.speedMaxDegSec);
         ASSERT_FLOAT_EQ(motors[i].options_.accelMaxDegSec2, original[i].options_.accelMaxDegSec2);
+    }
+}
+
+TEST(PlatformMotor, RepositoryHardwareConfigurations) {
+    printf("[PLT] Validate both axes in the local hardware file and template\n");
+    const auto directory = std::filesystem::path(HARDWARE_DEFAULT_CONFIG_PATH).parent_path();
+    for (const auto* name : {"hardware.yaml", "hardware_example.yaml"}) {
+        std::array<StepperMotorRunConfig, 2> motors;
+        ASSERT_TRUE(loadPlatformMotorConfig(Config((directory / name).string()), motors)) << name;
+        ASSERT_GT(motors[0].pulseHigh_, 0);
+        ASSERT_GT(motors[1].pulseHigh_, 0);
     }
 }

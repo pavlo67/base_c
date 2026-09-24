@@ -1,9 +1,9 @@
 # Configs
 **/_env/*.json
 **/_env/*.yaml
+hardware/hardware.yaml
 _defines.h
 _base_defines.h
-hardware.h
 
 
 # Video artifacts

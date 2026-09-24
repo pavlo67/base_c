@@ -64,7 +64,7 @@ Following sections carry the preceding pulse interval into their acceleration st
 
 `StepperMotorSmart(config).probe(rotationDeg, withEstimates, label, real)` always builds the clocked movement plan and executes the real move. With `withEstimates=true`, it also builds and logs the ideal plan and logs the clocked plan; with `false`, it does neither. The nonvirtual `StepperMotor::probe()` validates its stored configuration and calls virtual `action()` on a steady-clock timer until completion. Its private nonvirtual `runReal()` owns that timer and reporting; the virtual `prepareSequence()` hook in `StepperMotorSmart` applies predictive braking setup. A zero interval selects 1-us polling; missed ticks are skipped. An independent deadline stops PWM and returns `TIME_LIMIT` (-10008), though it cannot interrupt a blocking backend call. Invalid limits are rejected before motion. Applications initialize GPIO once at startup and terminate it after all motor objects have stopped and been destroyed.
 
-`probe_pulses` accepts one or more signed integer pulse counts, for example `probe_pulses +800 -1600 +800`. It validates all CLI arguments before GPIO initialization, toggles STEP directly for each requested pulse without angle conversion, and waits 10 ms between series. STEP high time uses `PULSE_HIGH_US_MIN`; low time is the probe's `STEP_LOW_US` constant. It disables ENA and terminates GPIO after the list or a GPIO error. `probe_infinite` and `probe_180_360_180` have been removed.
+`pulses_probe` accepts one or more signed integer pulse counts, for example `pulses_probe +800 -1600 +800`. It validates all CLI arguments before GPIO initialization, toggles STEP directly for each requested pulse without angle conversion, and waits 10 ms between series. Before GPIO initialization it loads both complete axis configurations from `HARDWARE_CONFIG_PATH` through `loadPlatformMotorConfig()` and selects `motors[0]` (pan). STEP high time and direction setup time use `pan.pulseHighUs`; low time is the probe's `STEP_LOW_US` constant. It disables ENA and terminates GPIO after the list or a GPIO error. `probe_infinite` and `probe_180_360_180` have been removed.
 
 ## Shared complete-move execution
 
@@ -89,7 +89,7 @@ Additional GTest/CTest cases cover braking prediction against fixed-timer replay
 `config/platform_config.h` provides `PlatformMechanics`,
 `platformMotorOptions()` and `loadPlatformMotorConfig()`. The latter loads pan and
 tilt together and preserves both previous configurations on any error. Machina
-and `probe_platform` share this loader. `stepper_platform` links YAML configuration
+and `platform_probe` share this loader. `stepper_platform` links YAML configuration
 support separately from the low-level `stepper_motor` library. Its source and test live in `config`, and its CMake target is defined in `base/hardware/CMakeLists.txt`.
 
 YAML fields for each axis:
@@ -132,7 +132,7 @@ catch-up, as explicitly allowed. This is a trajectory parameter, not driver curr
 or measured torque. Gravitational torque, elastic belt dynamics and speed-dependent motor
 torque are not modeled by these parameters.
 
-`probe_platform` in `_probe/probe_platform.cpp` accepts complete signed pan/tilt angle pairs in platform degrees, for example `_bin/probe_platform 10 0 -5 1`. Each pair starts both axes together; the next pair starts only after both complete. All CLI values are parsed before GPIO initialization. The fixed configuration path is `_env/machina.yaml`, relative to the working directory. The probe loads both axes through `loadPlatformMotorConfig()` and chooses Smart or Dumb from the top-level `motorClass` field (`Smart` is the default when absent). For Dumb, each axis additionally requires `dumbSpeedDegSec`, `dumbPauseMs` and `dumbRemainingPulsesTolerance`. The probe holds exclusive motor execution ownership through both-axis cleanup and terminates GPIO after the list or on failure. Zero angles complete without starting their axis.
+`platform_probe` in `_probe/platform_probe.cpp` accepts complete signed pan/tilt angle pairs in platform degrees, for example `_bin/platform_probe 10 0 -5 1`. Each pair starts both axes together; the next pair starts only after both complete. All CLI values are parsed before GPIO initialization. The fixed configuration path is `_env/machina.yaml`, relative to the working directory. The probe loads both axes through `loadPlatformMotorConfig()` and chooses Smart or Dumb from the top-level `motorClass` field (`Smart` is the default when absent). For Dumb, each axis additionally requires `dumbSpeedDegSec`, `dumbPauseMs` and `dumbRemainingPulsesTolerance`. The probe holds exclusive motor execution ownership through both-axis cleanup and terminates GPIO after the list or on failure. Zero angles complete without starting their axis.
 
 `stepper_platform_test` in `config` (GTest/CTest) covers torque balance, both ratios and directions, invalid mechanics, signed argument parsing, YAML disk parameters, Smart/Dumb selection and atomic reload rejection. Desktop tests/probes use the GPIO stub and do not validate physical motion.
 
