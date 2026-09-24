@@ -34,6 +34,12 @@ int main(int argc, char** argv) {
     const Config config(CONFIG_PATH);
     StepperMotorProbeConfig probe;
     if (!loadStepperMotorProbeConfig(config, probe)) { return 1; }
+    for (size_t axis = 0; axis < probe.motors_.size(); ++axis) {
+        const auto& motor = probe.motors_[axis];
+        printf("[PRB] %s pins (BCM): PUL/STEP=%d DIR=%d ENA=%d\n",
+            axis == 0 ? "pan" : "tilt", motor.pinStep_, motor.pinDir_, motor.pinEna_);
+    }
+    fflush(stdout);
     auto& gpio = Gpio::instance();
     if (gpio.initialize() < 0) {
         printf("ERROR: GPIO initialization failed\n");

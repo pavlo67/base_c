@@ -62,6 +62,16 @@ Following sections carry the preceding pulse interval into their acceleration st
 
 ## Blocking run and probe configuration
 
+`pulses_probe` requests a fixed STEP low interval of 11,235 microseconds
+and prints it as 11.235 ms. With a configured 15-us high interval, the
+requested pulse period is 11.25 ms, excluding GPIO and scheduling overhead.
+
+After successfully loading configuration and before GPIO initialization,
+`pulses_probe` prints the pan PUL/STEP, DIR and ENA pins; `platform_probe`
+prints the same pins for both pan and tilt. These startup diagnostics use the
+loaded configuration, explicitly label BCM numbering and flush stdout before
+hardware access.
+
 `StepperMotorSmart(config).probe(rotationDeg, withEstimates, label, real)` always builds the clocked movement plan and executes the real move. With `withEstimates=true`, it also builds and logs the ideal plan and logs the clocked plan; with `false`, it does neither. The nonvirtual `StepperMotor::probe()` validates its stored configuration and calls virtual `action()` on a steady-clock timer until completion. Its private nonvirtual `runReal()` owns that timer and reporting; the virtual `prepareSequence()` hook in `StepperMotorSmart` applies predictive braking setup. A zero interval selects 1-us polling; missed ticks are skipped. An independent deadline stops PWM and returns `TIME_LIMIT` (-10008), though it cannot interrupt a blocking backend call. Invalid limits are rejected before motion. Applications initialize GPIO once at startup and terminate it after all motor objects have stopped and been destroyed.
 
 `pulses_probe` accepts one or more signed integer pulse counts, for example `pulses_probe +800 -1600 +800`. It validates all CLI arguments before GPIO initialization, toggles STEP directly for each requested pulse without angle conversion, and waits 10 ms between series. Before GPIO initialization it loads both complete axis configurations from `HARDWARE_CONFIG_PATH` through `loadPlatformMotorConfig()` and selects `motors[0]` (pan). STEP high time and direction setup time use `pan.pulseHighUs`; low time is the probe's `STEP_LOW_US` constant. It disables ENA and terminates GPIO after the list or a GPIO error. `probe_infinite` and `probe_180_360_180` have been removed.

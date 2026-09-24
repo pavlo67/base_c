@@ -13,13 +13,13 @@
 constexpr const char* HARDWARE_CONFIG_PATH = "_env/machina.yaml";
 
 constexpr float SPEED_DEG_S = 20;
-constexpr int   STEP_LOW_US = 1e9 / (SPEED_DEG_S / 0.225) - 15;
+constexpr int   STEP_LOW_US = 1e6 / (SPEED_DEG_S / 0.225) - 15;
 constexpr int   BETWEEN_SERIES_MS = 10;
 
 int movePulses(int64_t pulses, const StepperMotorRunConfig& pan);
 
 int main(int argc, char** argv) {
-    printf("PULSE DELAY IS %.3f ms\n", float(STEP_LOW_US) / 1e6);
+    printf("PULSE DELAY IS %.3f ms\n", float(STEP_LOW_US) / 1e3);
 
     if (argc < 2) {
         printf("[main()] ERROR: supply signed pulse counts, e.g. pulses_probe +800 -1600 +800\n");
@@ -46,6 +46,9 @@ int main(int argc, char** argv) {
     std::array<StepperMotorRunConfig, 2> motors;
     if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
     const auto& pan = motors[0];
+    printf("[PUL] pan pins (BCM): PUL/STEP=%d DIR=%d ENA=%d\n",
+        pan.pinStep_, pan.pinDir_, pan.pinEna_);
+    fflush(stdout);
     auto& gpio = Gpio::instance();
     if (gpio.initialize() < 0) {
         printf("[main()] ERROR: GPIO initialization failed\n");
