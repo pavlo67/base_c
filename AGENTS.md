@@ -20,9 +20,10 @@ Read source code only when:
 
 ## Actions
 
-Before every non-trivial action, first analyze the task and discuss likely difficulties, nuances, and specification gaps with the user. Do not start that action until the user initiates it with an explicit formal command.
-
-Запуск CMake і CTest для перевірки погоджених змін дозволений без додаткового обговорення та окремої формальної команди. Це виняток із попереднього правила.
+Перед будь-якими змінами спочатку проаналізуй запит, опиши запропоновані дії та суттєві нюанси, після чого зупинись і дочекайся підтвердження.
+Початковий запит і/або доповнення на кшталт «прошу про поправки», «дороби» тощо, не є таким підтвердженням. Дозвіл надається лише окремим
+повідомленням користувача після обговорення: «виконуй», «так, зроби» або рівнозначною явною командою конкретно у відповідь на опис змін, наданих агентом.
+Новий запит на поправки потребує нового підтвердження. Читання в межах запиту та CMake/CTest дозволені без окремого підтвердження.
 
 Prefer existing repository patterns over new conventions.
 
@@ -80,3 +81,8 @@ Write all tests with GTest and CTest
 Use only fatal assertions in tests (ASSERT_... in GTest, not EXPECT_..)
 
 Add concise test logs showing the sequence of steps. Use distinct short prefixes to identify output from different goroutines or applications.
+
+## Probes
+
+Кожен пробник (застосунок, які потрапляює в _probe) має містити весь свій істотний код у власного main() — за винятком ііціалізації
+та інших бібліотечних операцій, зокрема бібліотек, які перевіряємо (їх код, якраз, не повинен дублюватись у пробниках).
