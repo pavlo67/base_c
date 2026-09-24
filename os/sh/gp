@@ -1,11 +1,37 @@
-#!/bin/sh
+#!/usr/bin/bash
+
+set -e
 
 git pull origin "$(git branch --show-current)"
 git submodule update --init --recursive
 git submodule foreach --recursive '
+    # Keep the exact commit recorded by the parent repository.
     branch=$(git for-each-ref --format="%(refname:short)" --points-at HEAD refs/heads/ | head -1)
     if [ -n "$branch" ]; then
         git checkout "$branch"
+    else
+        # A matching branch may only exist as a remote-tracking ref.
+        for remote_ref in $(git for-each-ref --format="%(refname)" --points-at HEAD refs/remotes/); do
+            if git symbolic-ref -q "$remote_ref" >/dev/null; then
+                continue
+            fi
+            branch=${remote_ref#refs/remotes/}
+            branch=${branch#*/}
+            if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+                git checkout -b "$branch" --track "$remote_ref" || exit $?
+                break
+            fi
+        done
+
+        if ! git symbolic-ref -q HEAD >/dev/null; then
+            branch_base="$(basename "$sm_path")_$(date +%m_%d)"
+            branch=$branch_base
+            suffix=2
+            while git show-ref --verify --quiet "refs/heads/$branch"; do
+                branch="${branch_base}_$suffix"
+                suffix=$((suffix + 1))
+            done
+            git checkout -b "$branch" || exit $?
+        fi
     fi
 '
-    
