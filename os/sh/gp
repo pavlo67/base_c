@@ -1,0 +1,11 @@
+#!/bin/sh
+
+git pull origin "$(git branch --show-current)"
+git submodule update --init --recursive
+git submodule foreach --recursive '
+    branch=$(git for-each-ref --format="%(refname:short)" --points-at HEAD refs/heads/ | head -1)
+    if [ -n "$branch" ]; then
+        git checkout "$branch"
+    fi
+'
+    
