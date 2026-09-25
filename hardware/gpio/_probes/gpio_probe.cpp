@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <thread>
 
-constexpr const char* HARDWARE_CONFIG_PATH = "_env/machina.yaml";
+constexpr const char* HARDWARE_CONFIG_PATH = "machina.yaml";
 constexpr unsigned BLINK_DELAY_US = 500000;
 constexpr int BLINKS_CNT = 5;
 

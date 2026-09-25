@@ -324,3 +324,12 @@ independently of motor hardware. `monotonicNowMs()` converts this clock's epoch 
 milliseconds; `internal32Ms()` returns elapsed milliseconds since library startup,
 wrapping at 32 bits. The epoch is unspecified and is not a wall-clock timestamp.
 `now()` and `nowMs()` retain realtime semantics.
+
+## Unique capture directories
+
+`createUniqueDirectory(parent, prefix, directory)` ensures the parent exists and
+atomically reserves a new directory named from prefix, system-clock count and a
+collision suffix (up to 100 attempts). The prefix must be nonempty and contain no
+path separator. Existing directories are never reused. It returns bool, preserves
+the output path on failure and prints contextual errors to stdout. Machina vision
+uses this filesystem helper to keep each saved capture run separate.

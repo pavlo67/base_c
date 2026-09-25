@@ -5,7 +5,7 @@
 #include <cmath>
 #include <limits>
 
-#include "_base_defines.h"
+#include "defines_base.h"
 #include "lib/mathlib.h"
 
 StepperMotorSeries getFastestSeries(float initialSpeedDegPerSec, float finalSpeedDegPerSec, const stepper_motor_options_t& stepperOpts, stepper_motor_algorithm_t intervalAlgorithm) {

@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-constexpr const char* CONFIG_PATH = "_env/machina.yaml";
+constexpr const char* CONFIG_PATH = "machina.yaml";
 
 int main(int argc, char** argv) {
     if (argc < 3 || (argc - 1) % 2 != 0) {

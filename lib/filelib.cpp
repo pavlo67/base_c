@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstring>
 #include <cerrno>
 #include <fstream>
@@ -409,4 +410,29 @@ bool cleanupDirectory(const std::filesystem::path& dirPath) {
         return false;
     }
     return true;
+}
+
+constexpr const char* ON_CREATE_UNIQUE_DIRECTORY = "[createUniqueDirectory()]";
+bool createUniqueDirectory(const std::filesystem::path& parent, const std::string& prefix,
+                           std::filesystem::path& directory) {
+    if (prefix.empty() || prefix.find_first_of("/\\") != std::string::npos) {
+        printf("%s ERROR: prefix must be a nonempty path component\n", ON_CREATE_UNIQUE_DIRECTORY);
+        return false;
+    }
+    if (!ensureDirectory(parent, "capture directory")) { return false; }
+    const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+    for (unsigned attempt = 0; attempt < 100; ++attempt) {
+        const auto candidate = parent / (prefix + std::to_string(timestamp) + "_" + std::to_string(attempt));
+        std::error_code error;
+        if (std::filesystem::create_directory(candidate, error)) {
+            directory = candidate;
+            return true;
+        }
+        if (error) {
+            printf("%s ERROR: %s\n", ON_CREATE_UNIQUE_DIRECTORY, error.message().c_str());
+            return false;
+        }
+    }
+    printf("%s ERROR: cannot reserve a unique directory\n", ON_CREATE_UNIQUE_DIRECTORY);
+    return false;
 }

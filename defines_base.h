@@ -1,5 +1,5 @@
-#ifndef BASE_DEFINES_H
-#define BASE_DEFINES_H
+#ifndef DEFINES_BASE_H
+#define DEFINES_BASE_H
 
 #include <string>
 
@@ -15,11 +15,9 @@ extern std::string COMMIT;
 #define JSON_ERROR         false
 #define TIMING_LOG         true
 #define SUPPRESS_INIT_INFO true
-#define PROCESS_INFO_STEP  400
-#define SAVE_IMAGES_EXT    ".png"
 
 #define STEPPER_MOTOR_PROBE_VERBOSE false
-#define STEPPER_MOTOR_PROBE_HARDWARE_PWM true
+#define STEPPER_MOTOR_PROBE_HARDWARE_PWM false
 
-#endif // BASE_DEFINES_H
+#endif // DEFINES_BASE_H
 

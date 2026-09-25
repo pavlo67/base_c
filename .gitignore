@@ -1,10 +1,6 @@
 # Configs
-**/_env/*.json
-**/_env/*.yaml
-hardware/hardware.yaml
-_defines.h
-_base_defines.h
-
+*.json
+*.yaml
 
 # Video artifacts
 *.jpg
@@ -18,9 +14,7 @@ cmake-build-release/*
 build/*
 .idea/*
 .codex/*
-
-# Agents history
-ai.md
+.claude/*
 
 # Log files, reports, archives
 *.xls*

@@ -142,7 +142,7 @@ catch-up, as explicitly allowed. This is a trajectory parameter, not driver curr
 or measured torque. Gravitational torque, elastic belt dynamics and speed-dependent motor
 torque are not modeled by these parameters.
 
-`platform_probe` in `_probe/platform_probe.cpp` accepts complete signed pan/tilt angle pairs in platform degrees, for example `_bin/platform_probe 10 0 -5 1`. Each pair starts both axes together; the next pair starts only after both complete. All CLI values are parsed before GPIO initialization. The fixed configuration path is `_env/machina.yaml`, relative to the working directory. The probe loads both axes through `loadPlatformMotorConfig()` and chooses Smart or Dumb from the top-level `motorClass` field (`Smart` is the default when absent). For Dumb, each axis additionally requires `dumbSpeedDegSec`, `dumbPauseMs` and `dumbRemainingPulsesTolerance`. The probe holds exclusive motor execution ownership through both-axis cleanup and terminates GPIO after the list or on failure. Zero angles complete without starting their axis.
+`platform_probe` in `_probe/platform_probe.cpp` accepts complete signed pan/tilt angle pairs in platform degrees, for example `_bin/platform_probe 10 0 -5 1`. Each pair starts both axes together; the next pair starts only after both complete. All CLI values are parsed before GPIO initialization. The fixed configuration path is `machina.yaml`, relative to the working directory. The probe loads both axes through `loadPlatformMotorConfig()` and chooses Smart or Dumb from the top-level `motorClass` field (`Smart` is the default when absent). For Dumb, each axis additionally requires `dumbSpeedDegSec`, `dumbPauseMs` and `dumbRemainingPulsesTolerance`. The probe holds exclusive motor execution ownership through both-axis cleanup and terminates GPIO after the list or on failure. Zero angles complete without starting their axis.
 
 `stepper_platform_test` in `config` (GTest/CTest) covers torque balance, both ratios and directions, invalid mechanics, signed argument parsing, YAML disk parameters, Smart/Dumb selection and atomic reload rejection. Desktop tests/probes use the GPIO stub and do not validate physical motion.
 
@@ -177,3 +177,9 @@ remain at application scope.
 
 `StepperMotor` uses the shared `Clock` from `lib/timelib.h` for its timer
 and watchdog time points.
+
+The pulse probe computes STEP_LOW_US with `1e6`, passes it as microseconds and
+prints milliseconds using `1e3`. At SPEED_DEG_S=20 the low interval is 11,235 us
+(11.235 ms), giving an intended 11.25-ms period with a 15-us high interval before
+GPIO/scheduling overhead. This corrects the former approximately 11.25-second
+low interval caused by a unit mismatch.

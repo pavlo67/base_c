@@ -5,7 +5,7 @@
 #include <array>
 
 namespace {
-    constexpr const char* HARDWARE_CONFIG_PATH = "_env/machina.yaml";
+    constexpr const char* HARDWARE_CONFIG_PATH = "machina.yaml";
     std::array<unsigned, 3> GPIO_TEST_PINS{};
     unsigned PIN = 0;
     unsigned OTHER = 0;

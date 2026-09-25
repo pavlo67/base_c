@@ -36,4 +36,6 @@ bool        removeFsPath(const std::filesystem::path& path, const std::string& r
 bool        moveFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath);
 bool        cleanupDirectory(const std::filesystem::path& dirPath);
 
+bool        createUniqueDirectory(const std::filesystem::path& parent, const std::string& prefix, std::filesystem::path& directory);
+
 #endif // __FILELIB_H

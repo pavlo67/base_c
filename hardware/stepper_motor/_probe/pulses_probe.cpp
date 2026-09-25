@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-constexpr const char* HARDWARE_CONFIG_PATH = "_env/machina.yaml";
+constexpr const char* HARDWARE_CONFIG_PATH = "machina.yaml";
 
 constexpr float SPEED_DEG_S = 20;
 constexpr int   STEP_LOW_US = 1e6 / (SPEED_DEG_S / 0.225) - 15;
