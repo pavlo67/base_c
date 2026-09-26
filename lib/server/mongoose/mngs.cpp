@@ -1,6 +1,6 @@
 #include "mngs.h"
 
-#include <arpa/inet.h>
+#include <chrono>
 #include <condition_variable>
 #include <cstdio>
 #include <mutex>
@@ -74,6 +74,10 @@ namespace {
     }
 
     void eventHandler(mg_connection* connection, int event, void* eventData) {
+        if (event == MG_EV_HTTP_MSG || event == MG_EV_WS_MSG) {
+            std::lock_guard<std::mutex> lock(serverMutex);
+            if (serverStopRequested) { return; }
+        }
         if (event == MG_EV_HTTP_MSG) {
             handleHTTP(connection, static_cast<mg_http_message*>(eventData));
             return;
@@ -147,6 +151,17 @@ bool startServer(uint32_t ipV4Host, uint16_t port) {
             mg_mgr_poll(&manager, 1000);
         }
 
+        // A handler can request stop while its HTTP reply is still buffered.
+        // Stop accepting input, then allow already queued replies to drain.
+        for (mg_connection* connection = manager.conns; connection != nullptr; connection = connection->next) {
+            connection->is_full = 1;
+            if (connection->is_listening) { connection->is_closing = 1; }
+            connection->is_draining = 1;
+        }
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        while (manager.conns != nullptr && std::chrono::steady_clock::now() < deadline) {
+            mg_mgr_poll(&manager, 10);
+        }
         mg_mgr_free(&manager);
     });
 

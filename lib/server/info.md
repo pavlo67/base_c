@@ -16,6 +16,9 @@ the response string is nonempty. Blocking handlers block the event loop.
 Stop requests exit without joining; the owner must subsequently wait/join and reset
 server state. This two-phase shutdown permits another thread to request stop while
 integration waits for completion. Stopping an inactive server is harmless.
+When a handler requests stop, the event loop stops dispatching new messages and
+drains queued responses for at most one second before closing connections. This
+allows a FINISH command's acknowledgement to reach its HTTP client.
 `server_http_mngs_test` covers HTTP/WebSocket behavior and scoped cleanup.
 
 ## cpp-httplib
