@@ -13,6 +13,12 @@ else
 fi
 git push --force-with-lease origin HEAD
 '
+# Synchronize before any staging, commits or pushes, including the submodule files.
+git submodule foreach '
+    if [ -f ./s ]; then
+        sh ./s || exit $?
+    fi
+' || exit $?
 
 git submodule foreach "$ga_commands" || exit $?
 sh -c "$ga_commands"

@@ -36,3 +36,6 @@ Both scripts process initialized direct submodules through `git submodule foreac
 before the current repository. Errors from staging, index inspection, commit or
 push stop processing and propagate a nonzero exit code; an unchanged index is
 not an error. Commit messages retain Git's normal interactive editor behavior.
+
+`gp`/`gi` also synchronize parent-managed repository files through submodule-local
+`s`; ordering and scope are documented in [sh/info.md](sh/info.md).

@@ -8,24 +8,6 @@ AGENTS.md в підмодулях (mod_.../) в Linux-системі — це ha
 Не слід вносити правки в AGENTS.md — коли вои потрібні, слід пропонувати їх автору, який внесе ці правки вручну. 
 
 
-## View && Analysis
-
-Read info.md / task.md files and source code only within the scope explicitly specified by the user. Do not proactively explore the repository outside that scope.
-
-Expand the scope only when there is a clear technical dependency or when the requested change cannot be implemented safely with the information available in the specified area.
-
-When expanding the scope, inspect only the minimum additional files or directories required.
-
-For code analysis, treat info.md in its directory as the primary source of information and if it is missing, look for it higher in the hierarchy (up to first-level subtree info.md)
-
-Be careful: task.md files contain initial intentions but may not contain corresponding final decisions, it's ok and should not be fixed.  
-
-Read source code only when:
-- the answer cannot be obtained from info.md;
-- the task requires modifying the code;
-- info.md appears incomplete, inconsistent, or outdated.
-
-
 ## Actions
 
 Перед будь-якими змінами спочатку проаналізуй запит, опиши запропоновані дії та суттєві нюанси, після чого зупинись і дочекайся підтвердження.
@@ -35,13 +17,15 @@ Read source code only when:
 
 Prefer existing repository patterns over new conventions.
 
-Always look for helper functions in lib/ and hardware/ first (using corresponding `info.md`). 
+Always look for helper functions in lib/ and hardware/ first. 
 
 Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat string conversion, math, filesystem, and formatting
 helpers as reusable by default.
 
-Для кожної створеної або зміненої функціональної директорії обов’язково створити/актуалізувати локальний info.md з описом функцій (за винятком статичних) і, 
-за потреби, загальної логіки. Перед завершенням перевірити наявність документації для всіх таких директорій. Виняток — директорії з префіксом _ та їхні нащадки.
+Для функціональних директорій підтримувати стислий info.md: призначення, основні точки входу, нетривіальна логіка та обмеження 
+(зокрема, хто володіє станом процесу і в якій ниті він використовується; правила синхронізації, виконання та зупинки), причини нетривіальних 
+рішень. Оновлювати його, коли зміни роблять наявний опис неточним або додають важливу для розуміння поведінку. Не дублювати очевидні 
+декларації та інформацію з інших info.md; натомість використовувати посилання.
 
 Do not show diffs.
 

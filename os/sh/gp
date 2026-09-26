@@ -35,3 +35,10 @@ git submodule foreach --recursive '
         fi
     fi
 '
+
+# Updates/checkouts must finish before copying the parent's shared files.
+git submodule foreach --recursive '
+    if [ -f ./s ]; then
+        sh ./s || exit $?
+    fi
+'
