@@ -9,12 +9,12 @@
 *.mp4
 
 # CMake & IDE files
-cmake-build-debug/*
-cmake-build-release/*
-build/*
-.idea/*
-.codex/*
-.claude/*
+cmake-build-debug/
+cmake-build-release/
+build/
+.idea/
+.codex/
+.claude/
 
 # Log files, reports, archives
 *.xls*
@@ -26,10 +26,10 @@ build/*
 *.exe
 *.out
 *.app
-_bin/*
-bin/*
-_probe/*
-_test/*
+**/_bin/
+**/bin/
+**/_probe/
+**/_test/
 
 # Prerequisites
 *.d
