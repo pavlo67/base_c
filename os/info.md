@@ -1,41 +1,20 @@
-# Operating-system control
+# Operating-system tools
 
-`rebootOS()` and `shutdownOS()` request a Linux reboot or power-off and return an error string when the system call fails. Builds with `MACHINA_TESTING` report success without issuing either system operation, which makes command-path integration tests safe.
-
-`dumpWriteDiagnostics()` saves diagnostic command output to its report file. Failures to open a pipe or create the report print to stdout with ERROR: and function context; pipe errors are also recorded in the report.
+`rebootOS()` and `shutdownOS()` request Linux power operations and return errors
+through strings. MACHINA_TESTING suppresses the operations for integration tests.
+`dumpWriteDiagnostics()` records command output/errors in a diagnostic file.
 
 ## Linux health monitor
 
-`health_monitor` is a continuously refreshed Linux console health display built by the `os/` CMake subtree. It has no CLI parameters and refreshes once per second. `SCREEN_HEIGHT` in `health/health_monitor.cpp` controls the fixed display height.
+`health_monitor` in `health/` runs without CLI parameters and samples once per
+second. It shows CPU/load, memory/swap and uptime; Raspberry Pi builds additionally
+use vcgencmd for temperature, throttling and voltage. Missing desktop sensors are
+informational. Problem thresholds include nonzero throttling, temperature >=80 C,
+available memory <10%, and one-minute load above logical CPU count.
 
-The executable runs both on Raspberry Pi targets selected by the repository platform detection and on desktop Linux. Common checks include CPU frequency when exposed, load, available memory, swap and uptime. Desktop Linux uses the standard thermal sysfs entry when available; absence of an exposed temperature or CPU-frequency sensor is informational rather than an error.
+Kernel warnings present at startup form the baseline; only new ones are problems.
+Unavailable dmesg disables that check. Space pauses both sampling and refresh,
+then resumes immediately; q, Ctrl+C and SIGTERM exit with terminal cleanup.
+`SCREEN_HEIGHT` controls the display; launcher and monitor logic are separate.
 
-On RPI4/CM4 and RPI5/CM5 builds it additionally uses `vcgencmd` for temperature, throttling state and core voltage. A nonzero `get_throttled` value is a problem. Temperature at or above 80 C and available memory below 10% are problems; one-minute load above the logical CPU count is also a problem.
-
-Kernel warning/error output present when the monitor starts is treated as the baseline. Only additional warning/error lines appearing during the current monitor run are reported as problems. If `dmesg` is inaccessible, kernel diagnostics remain inactive instead of making desktop testing fail.
-
-The normal diagnostics remain at the top of the screen. The rest of the configured screen height is blank when there are no problems. When problems exist, only the problematic diagnostic lines are repeated at the bottom under `=== PROBLEMS ===`.
-
-Press Space to pause/resume sampling and `q` to quit. Ctrl+C and SIGTERM request a clean exit so terminal settings are restored.
-
-### Implementation and pause behavior
-
-The Linux health monitor implementation lives in `os/health/`. `health_monitor.cpp` contains the monitor implementation, while `main_monitor.cpp` is only the executable launcher.
-
-When Space pauses the monitor, the screen is redrawn once with `[PAUSED]` and then remains completely unchanged: no periodic sampling or output occurs while paused. Pressing Space again resumes immediately with a fresh sample and restarts the one-second refresh interval.
-
-## Git shell scripts
-
-`sh/gi` stages changes with `git add .`, commits only when the index differs from
-HEAD, and pushes to `origin HEAD`. `sh/ga` uses the same check before
-`git commit --amend` and pushes with `--force-with-lease`. Thus a clean index
-skips commit/amend, but still pushes any existing local commits. `ga` does not
-open the editor for a message-only amend when there are no staged changes.
-
-Both scripts process initialized direct submodules through `git submodule foreach`
-before the current repository. Errors from staging, index inspection, commit or
-push stop processing and propagate a nonzero exit code; an unchanged index is
-not an error. Commit messages retain Git's normal interactive editor behavior.
-
-`gp`/`gi` also synchronize parent-managed repository files through submodule-local
-`s`; ordering and scope are documented in [sh/info.md](sh/info.md).
+[Git shell scripts](sh/info.md) describe pull, commit/push and submodule-file sync.

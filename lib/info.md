@@ -1,335 +1,50 @@
-# lib
-
-Загальні утиліти (все, окрім роботи з зображеннями). Зокрема, робота з файлами і шляхами, рядками,
-логуванням, запуском shell-команд і простим вимірюванням часу.
-
-## Файли
-
-- `execlib.h/.cpp` - запуск зовнішньої команди через `popen`.
-- `filelib.h/.cpp` - допоміжні функції для шляхів, файлів і директорій.
-- `strlib.h/.cpp` - базові операції з рядками і printf-style логування.
-- `csvlib.h/.cpp` - CSV escaping і форматування bool-значень для CSV.
-- `mathlib.h/.cpp` - дрібні математичні helpers, зокрема 2D-вектори.
-- `timelib.h/.cpp` - timestamp helpers і накопичення статистики часу виконання.
-
-## execlib
-
-### `bool exec(const std::string& cmd, std::string* result = nullptr)`
-
-Запускає shell-команду `cmd` через `popen` і читає її stdout.
-
-- `cmd` - команда для виконання.
-- `result` - якщо не `nullptr`, stdout додається в цей рядок без додаткової обробки; якщо `nullptr`, кожен прочитаний рядок trim-иться і непорожні рядки друкуються в stdout.
-- Результат: `true`, якщо pipe відкрито і читання завершено; `false`, якщо pipe не відкрився.
-
-Обмеження: stderr окремо не читається; код завершення команди не аналізується.
-
-## filelib
-
-### `std::string nameOfFile(const std::string& filepath)`
-
-Повертає ім'я файла з Unix-style шляху.
-
-- `filepath` - шлях або ім'я файла.
-- Результат: частина після останнього `/`; якщо `/` немає, повертається весь `filepath`.
-
-### `std::string baseOfFile(const std::string& filepath)`
-
-Повертає ім'я файла без останнього розширення.
-
-- `filepath` - шлях або ім'я файла.
-- Результат: `nameOfFile(filepath)` без частини після останньої крапки; якщо крапки немає, повертається ім'я файла.
-
-### `std::string pathOfFile(const std::string& filepath)`
-
-Повертає директорію з Unix-style шляху.
-
-- `filepath` - шлях до файла.
-- Результат: частина до і включно з останнім `/`; якщо `/` немає, повертається порожній рядок.
-
-### `std::string extOfFile(const std::string& filepath)`
-
-Повертає розширення файла без крапки.
-
-- `filepath` - шлях або ім'я файла.
-- Результат: частина після останньої крапки в імені файла; якщо крапки немає, повертається порожній рядок.
-
-### `std::string extPartOfFile(const std::string& filepath)`
-
-Повертає розширення файла разом із крапкою.
-
-- `filepath` - шлях або ім'я файла.
-- Результат: частина від останньої крапки в імені файла; якщо крапки немає, повертається порожній рядок.
-
-### `bool clearFile(const std::string& filepath)`
-
-Відкриває файл у режимі `"w"` і тим самим очищає або створює його.
-
-- `filepath` - шлях до файла.
-- Результат: `true`, якщо файл відкрився, був flush-нутий і закритий; `false` при помилці відкриття.
-
-### `std::string newPath(const std::string& path)`
-
-Створює директорію з усіма батьківськими директоріями.
-
-- `path` - шлях до директорії.
-- Результат: нормалізований шлях із кінцевим `/`; порожній рядок, якщо `path` порожній або створення директорій впало з exception.
-
-### `FILE* newFile(const std::string& filepath)`
-
-Відкриває файл для запису.
-
-- `filepath` - шлях до файла.
-- Результат: `FILE*` у режимі `"w"` або `nullptr` при помилці.
-
-### `int findExtension(std::string path, const std::string* exts, int extsCnt)`
-
-Шукає у директорії перший файл, ім'я якого закінчується одним із заданих суфіксів.
-
-- `path` - директорія; якщо порожня, використовується `"./"`.
-- `exts` - масив суфіксів/розширень для перевірки.
-- `extsCnt` - кількість елементів у `exts`.
-- Результат: індекс першого збігу в `exts`; `-1`, якщо збігів немає, `extsCnt <= 0` або директорію не вдалося відкрити.
-
-### `bool hasSubdirs(std::filesystem::path path)`
-
-Перевіряє, чи має директорія піддиректорії.
-
-- `path` - шлях до директорії.
-- Результат: `true`, якщо знайдено хоча б одну піддиректорію, крім `.` і `..`; `false`, якщо шлях не є директорією, директорію не відкрито або піддиректорій не знайдено.
-
-### `std::list<std::string> listOfFiles(const std::string& path, const std::string* exts, int extsCnt, bool dirs = true, bool files = true, const std::string& prefix = "")`
-
-Повертає відсортований список імен елементів директорії.
-
-- `path` - директорія для читання.
-- `exts` - масив дозволених суфіксів/розширень; ігнорується, якщо `extsCnt <= 0`.
-- `extsCnt` - кількість елементів у `exts`.
-- `dirs` - чи включати директорії.
-- `files` - чи включати звичайні файли.
-- `prefix` - необов'язковий префікс імені.
-- Результат: відсортований список імен без `path`; порожній список при помилці відкриття або відсутності збігів.
-
-### `bool readFileByLines(const std::string& filepath, std::vector<std::string>& lines)`
-
-Читає текстовий файл рядок за рядком.
-
-- `filepath` - шлях до файла.
-- `lines` - вектор, у який додаються прочитані рядки; перед читанням не очищається.
-- Результат: `true`, якщо файл відкрито і прочитано; `false` при помилці відкриття.
-
-### `bool readFile(const std::string& filepath, std::string& text)`
-
-Читає весь текстовий файл у рядок.
-
-- `filepath` - шлях до файла.
-- `text` - вихідний рядок; очищається перед читанням, кожен рядок додається з `\n`.
-- Результат: `true`, якщо файл відкрито і прочитано; `false` при помилці відкриття.
-
-### `bool writeFile(const std::string& filepath, const char* modes, const char* content)`
-
-Відкриває файл через `fopen` і записує C-рядок.
-
-- `filepath` - шлях до файла.
-- `modes` - режим `fopen`, наприклад `"w"` або `"a"`.
-- `content` - текст для запису; якщо `nullptr`, файл відкривається, але функція повертає `true` без запису.
-- Результат: `true`, якщо файл відкрито і кількість записаних символів дорівнює `strlen(content)`; `false` при помилці відкриття або неповному записі.
-
-### `bool renamePath(const std::string& oldPath, const std::string& newPath)`
-
-Перейменовує або переміщує файл/директорію через `std::filesystem::rename`.
-
-- `oldPath` - поточний шлях.
-- `newPath` - новий шлях.
-- Результат: `true` при успішному rename; `false`, якщо `std::filesystem` кинув `filesystem_error`.
-
-## strlib
-
-### `std::vector<std::string> split(std::string s, const std::string& delimiter)`
-
-Розбиває рядок на частини за роздільником.
-
-- `s` - рядок для розбиття; передається за значенням і змінюється всередині функції.
-- `delimiter` - рядок-роздільник, який шукається через `find`.
-- Результат: вектор частин. Поточна реалізація після знайденого delimiter відкидає один символ (`pos + 1`), тому коректно поводиться як single-character delimiter.
-
-### `std::string tail(std::string const& src, size_t const length)`
-
-Повертає останні `length` символів рядка.
-
-- `src` - вихідний рядок.
-- `length` - бажана довжина хвоста.
-- Результат: весь `src`, якщо `length >= src.size()`, інакше `src.substr(src.size() - length)`.
-
-### `void trim(std::string& str)`
-
-Обрізає whitespace на початку і в кінці рядка.
-
-- `str` - рядок, який змінюється на місці.
-- Результат: немає; `str` стає очищеним від символів із `WHITESPACE`, або порожнім, якщо складався лише з whitespace.
-
-### `void logger(FILE* fLog, const char* format, ...)`
-
-Друкує printf-style повідомлення в stdout і, якщо задано, у файл.
-
-- `fLog` - файл для дублювання повідомлення; може бути `nullptr`.
-- `format` - форматний рядок як у `printf`.
-- `...` - аргументи для форматного рядка.
-- Результат: немає.
-
-## csvlib
-
-### `std::string csvEscape(const std::string& s)`
-
-Екранує рядок для CSV.
-
-- `s` - вхідний рядок.
-- Результат: `s` без змін, якщо в ньому немає коми, лапок або переносу рядка; інакше рядок у подвійних лапках із продубльованими внутрішніми лапками.
-
-### `std::string boolCsv(bool v)`
-
-Форматує bool-значення для CSV.
-
-- `v` - bool-значення.
-- Результат: `"1"` для `true`, `"0"` для `false`.
-
-## config
-
-`Config` loads a YAML document from a file and reports load failures without throwing them to callers. `get(name)` returns a yaml-cpp node handle by value; this avoids retaining a reference to the temporary node produced by YAML map lookup.
-
-## time
-
-### `std::string formatTimeCustom(time_t t)`
-
-Форматує час у локальному часовому поясі.
-
-- `t` - timestamp у форматі `time_t`.
-- Результат: рядок формату `YYYY-MM-DDTHH:MM:SS`.
-
-### `moment now()`
-
-Повертає поточний час `CLOCK_REALTIME` у наносекундах.
-
-- Параметри: немає.
-- Результат: `uint64_t` nanosecond timestamp.
-
-### `uint64_t nowMs()`
-
-Повертає поточний час `CLOCK_REALTIME` у мілісекундах.
-
-- Параметри: немає.
-- Результат: `uint64_t` millisecond timestamp.
-
-### `Timing::Timing(uint afterCnt = 0, uint resetEachCnt = 0)`
-
-Створює накопичувач статистики часу.
-
-- `afterCnt` - якщо лічильник досягає цього значення, статистика скидається.
-- `resetEachCnt` - збережений параметр для періодичного reset, але поточна реалізація його не обробляє.
-- Результат: об'єкт `Timing` із нульовою статистикою.
-
-### `void Timing::add(moment started_at)`
-
-Додає один вимір часу.
-
-- `started_at` - timestamp початку, зазвичай отриманий через `now()`.
-- Результат: немає; оновлює `cnt`, `sum`, `min`, `max`, або скидає статистику при досягненні `afterCnt`.
-
-### `timing_stat Timing::get()`
-
-Повертає поточну статистику.
-
-- Параметри: немає.
-- Результат: `timing_stat { cnt, avg, min, max }`, де значення часу в наносекундах; `avg` дорівнює `0`, якщо `cnt == 0`.
-
-### `void Timing::show(const std::string& label, bool showFPS = false, FILE* fLog = nullptr)`
-
-Друкує статистику часу у stdout і за потреби у файл.
-
-- `label` - назва вимірюваної операції.
-- `showFPS` - якщо `true`, додає розрахунок FPS як `SECOND / avg`.
-- `fLog` - файл для дублювання виводу; може бути `nullptr`.
-- Результат: немає.
-
-### `timing_stat`
-
-Структура статистики часу.
-
-- `cnt` - кількість накопичених вимірів.
-- `avg` - середня тривалість у наносекундах.
-- `min` - мінімальна тривалість у наносекундах.
-- `max` - максимальна тривалість у наносекундах.
-
-### `bool ensureDirectory(const std::filesystem::path& path, const std::string& label, bool createIfMissing = true)`
-
-Перевіряє, що `path` існує як директорія; якщо `createIfMissing == true`, створює її разом із батьківськими директоріями.
-Помилки друкуються у stdout з префіксом `[ensureDirectory()] ERROR:`.
-
-### `bool ensureNotRegularFile(const std::filesystem::path& path, const std::string& label)`
-
-Перевіряє, що за шляхом `path` не лежить regular file, який заважатиме використати цей шлях як директорію.
-Помилки друкуються у stdout з префіксом `[ensureNotRegularFile()] ERROR:`.
-
-### `std::string safePathPart(std::string s)`
-
-Замінює всі символи, крім літер, цифр, `.`, `_`, `-`, на `_`; якщо рядок порожній, повертає `"file"`.
-
-### `bool sameFileSize(const std::filesystem::path& a, const std::filesystem::path& b, bool& same)`
-
-Порівнює розмір двох файлів і записує результат у `same`.
-Помилки друкуються у stdout з префіксом `[sameFileSize()] ERROR:`.
-
-### `bool removeFsPath(const std::filesystem::path& path, const std::string& reason)`
-
-Видаляє файл/шлях через `std::filesystem::remove`.
-Помилки друкуються у stdout з префіксом `[removeFsPath()] ERROR:`.
-
-### `bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath)`
-
-Переносить файл: спершу пробує `rename`, а якщо це не вдалося, виконує `copy_file(overwrite_existing)` і видаляє source.
-Помилки друкуються у stdout з префіксом `[moveFileReplacing()] ERROR:`.
-
-### `bool cleanupDirectory(const std::filesystem::path& dirPath)`
-
-Видаляє директорію з усім вмістом через `std::filesystem::remove_all`.
-Помилки друкуються у stdout з префіксом `[cleanupDirectory()] ERROR:`.
-
-## mathlib
-
-### `Vec2D` / `dot()` / `len()` / `normalized()` / `angleToHorizontalRad()`
-
-Базові helpers для 2D-векторів і кутів. `normalized()` стабілізує напрямок вектора так, щоб він не дивився в ліву півплощину; `angleToHorizontalRad()` повертає гострий кут між вектором і горизонталлю.
-
-## Error output
-
-Project-owned filesystem, process-launch, configuration and JSON diagnostics print to stdout with the bracketed function context followed by ` ERROR:`. Error codes, return values and caller-provided data streams keep their existing meaning. Multi-part filesystem messages carry one ERROR: prefix per diagnostic. Directory-open diagnostics retain the errno description. Informational messages are not marked as errors.
-
-## Diagnostics
-
-Filesystem, configuration, JSON, process-launch and server diagnostics now place the context first: `[function()] ERROR: details`. Context constants omit trailing whitespace; callers supply separation in both printed messages and error strings. Return values and cleanup behavior are unchanged.
-
-## Number parsing
-
-`strlib.h` provides `parseFiniteFloat(text, value)` for strict signed decimal/scientific
-notation. It accepts a leading plus or minus, requires full consumption, rejects nonfinite
-and out-of-range values, and preserves the output on failure. Errors go to stdout with
-`[parseFiniteFloat()] ERROR:`.
-
-`platform_probe` uses `parseFiniteFloat()` to validate the complete CLI angle list before starting any movement.
-
-## Shared monotonic clock
-
-`timelib.h` defines `Clock = std::chrono::steady_clock` for application scheduling,
-independently of motor hardware. `monotonicNowMs()` converts this clock's epoch to
-milliseconds; `internal32Ms()` returns elapsed milliseconds since library startup,
-wrapping at 32 bits. The epoch is unspecified and is not a wall-clock timestamp.
-`now()` and `nowMs()` retain realtime semantics.
-
-## Unique capture directories
-
-`createUniqueDirectory(parent, prefix, directory)` ensures the parent exists and
-atomically reserves a new directory named from prefix, system-clock count and a
-collision suffix (up to 100 attempts). The prefix must be nonempty and contain no
-path separator. Existing directories are never reused. It returns bool, preserves
-the output path on failure and prints contextual errors to stdout. Machina vision
-uses this filesystem helper to keep each saved capture run separate.
+# Shared utilities
+
+General-purpose utilities independent of image processing. Main entry headers:
+[filelib.h](filelib.h), [strlib.h](strlib.h), [csvlib.h](csvlib.h),
+[mathlib.h](mathlib.h), [timelib.h](timelib.h), [execlib.h](execlib.h) and
+[config/config.h](config/config.h). Network ownership is described in
+[server](server/info.md).
+
+## Files and process execution
+
+Path splitting uses Unix `/` conventions. `listOfFiles()` returns sorted names,
+not full paths; an empty result can mean either no matches or an open failure.
+`readFileByLines()` appends without clearing its vector; `readFile()` clears its
+string and appends a newline per line. `writeFile()` can open/truncate a file even
+when content is null. `newPath()` creates parents and returns a trailing slash,
+or an empty string on failure. `newFile()` returns a caller-owned `FILE*`.
+
+Directory checks/creation, file-size comparison, removal and safe filename parts
+are shared here. `moveFileReplacing()` tries rename, then overwrite-copy and source
+removal; it is not an atomic cross-filesystem move. `cleanupDirectory()` removes
+contents recursively. `createUniqueDirectory()` atomically reserves a fresh run
+directory using a timestamp/suffix (up to 100 attempts); prefix must be nonempty
+without separators, and failure preserves the caller's output path.
+
+`exec()` reads stdout through popen, appending to a supplied string or printing
+trimmed nonempty lines. It does not separately capture stderr or validate the
+command's exit status; true is not proof that the command succeeded.
+
+## Strings, configuration and math
+
+`split()` currently advances one character after a match, so only single-character
+delimiters behave correctly. `parseFiniteFloat()` accepts complete signed decimal/
+scientific input, rejects nonfinite/out-of-range values and preserves output on
+failure. `logger()` duplicates printf-style output to an optional file.
+CSV escaping quotes special characters; `boolCsv()` produces 1/0.
+
+`Config` contains a YAML document. Load errors are reported rather than propagated;
+`get()` returns a node handle by value to avoid a dangling map-lookup reference.
+`Vec2D` helpers include normalization toward the right half-plane and an acute
+angle to horizontal; these conventions matter to image orientation consumers.
+
+## Time
+
+`Clock` is steady/monotonic, shared by schedulers. `monotonicNowMs()` uses its
+unspecified epoch; `internal32Ms()` measures time since library startup and wraps
+at 32 bits. `now()`/`nowMs()` instead use CLOCK_REALTIME; formatted time is local.
+Do not mix clock domains for scheduling.
+
+`Timing` accumulates nanosecond count/average/min/max measurements. Reaching
+`afterCnt` resets statistics; `resetEachCnt` is stored but not implemented.

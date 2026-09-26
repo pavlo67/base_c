@@ -15,17 +15,19 @@ AGENTS.md в підмодулях (mod_.../) в Linux-системі — це ha
 повідомленням користувача після обговорення: «виконуй», «так, зроби» або рівнозначною явною командою конкретно у відповідь на опис змін, наданих агентом.
 Новий запит на поправки потребує нового підтвердження. Читання в межах запиту та CMake/CTest для вже погоджених змін дозволені без окремого підтвердження.
 
-Prefer existing repository patterns over new conventions.
+При аналізі кожного каталогу починай з прочитання відповідного info.md.
+
+Prefer existing repository patterns over new conventions.  
 
 Always look for helper functions in lib/ and hardware/ first. 
 
 Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat string conversion, math, filesystem, and formatting
 helpers as reusable by default.
 
-Для функціональних директорій підтримувати стислий info.md: призначення, основні точки входу, нетривіальна логіка та обмеження 
-(зокрема, хто володіє станом процесу; правила синхронізації, виконання та зупинки), причини нетривіальних рішень. Оновлювати 
-його, коли зміни роблять наявний опис неточним або додають важливу для розуміння поведінку. Не дублювати очевидні 
-декларації та інформацію з інших info.md; натомість використовувати посилання.
+Для функціональних директорій підтримуй стислий info.md: призначення, основні точки входу, нетривіальна логіка та обмеження 
+(зокрема, хто володіє станом процесу; правила синхронізації, виконання та зупинки), причини нетривіальних рішень. Оновлюй 
+його, коли зміни роблять наявний опис неточним або додають важливу для розуміння поведінку. Не дублюй очевидні 
+декларації та інформацію з інших info.md; натомість використовуй посилання.
 
 Do not show diffs.
 
@@ -40,14 +42,9 @@ different signatures, give them different, descriptive names.
 
 Guard platform-specific code, including its headers, with platform preprocessor macros so that it is active only on its target platform.
 
-For any function except `main()` that reports an error (via output, an out-parameter, or an exception), define an error-context 
-constant immediately before the function and prefix all error messages with it. Use `[<function>()]` if the function name 
-is unambiguous; otherwise use `[<context>.<function>()]` (e.g. `[requiredDirectory()]`, but `[on <context>.move()]`, 
-where `<context>` is an unambiguous object, class, directory, package, or file name).
-
-Example error message:
-
-    printf("%s ERROR: <details template>\n", ON_CONTEXT, <details values>);
+Кожне повідомлення про помилку повинно містити однозначний контекст у форматі `[function()] ERROR: ...` або
+`[Class.function()] ERROR: ...`. Якщо контекст повторюється в кількох повідомленнях функції, визначати спільну
+константу перед нею; для одного повідомлення дозволено записувати контекст безпосередньо в літералі.
 
 Wherever possible, use error codes/messages instead of throwing exceptions.
 

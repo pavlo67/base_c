@@ -1,19 +1,24 @@
 # Git shell scripts
 
-`gp` pulls the current repository, initializes/updates submodules recursively to
-the recorded commits, and attaches their HEADs to suitable branches. Only after
-all updates finish does it invoke each initialized submodule's root
-`s`, if present, in parent-before-child traversal order.
-Synchronization leaves ordinary working-tree changes; it does not commit them.
+`gp` pulls the current branch and recursively updates submodules to recorded
+commits, attaching HEADs to matching or newly created branches. After all updates,
+it invokes each initialized module's root `s`, if present, parent before child.
+Copied files remain working-tree changes; gp does not commit them.
 
-`gi` first invokes `s` in initialized direct submodules, if
-present. It then stages, conditionally commits, and pushes each direct submodule,
-followed by the current repository. Thus copied files enter submodule commits
-before the parent records their new commit IDs. Synchronization failure aborts
-before any commits/pushes; later Git failures also stop processing.
+`gi` invokes `s` in initialized direct submodules before any staging or commits,
+then processes those modules before the current repository. It stages changes,
+commits only a changed index and pushes origin HEAD even when no commit is needed.
+Synchronization or Git failures stop the sequence. Commit messages use Git's editor.
+`ga` uses the same direct-module order and conditional commit check, but amends and
+pushes with force-with-lease; it does not synchronize files.
 
-`ga` retains its existing amend/force-with-lease behavior and does not synchronize.
-These scripts do not install Git hooks: plain Git commands bypass synchronization.
-The sync script uses Git's superproject relationship, never arbitrary parent
-folder files, so standalone clones retain their own AGENTS.md and .gitignore.
-See [module synchronization](../../info.md#parent-managed-repository-files).
+## Shared files
+
+Each module-root `s` finds its superproject through Git and copies existing
+AGENTS.md/.gitignore into its own root, independent of the caller's directory.
+Standalone clones do nothing; missing sources preserve module files. Copying
+replaces the whole file, overwriting module-specific edits. Temporary-file rename
+breaks hard/symbolic links; equal independent files are not rewritten. An error
+stops the caller but does not roll back earlier replacements.
+
+These are script integrations, not Git hooks: plain Git commands bypass them.

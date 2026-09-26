@@ -1,52 +1,26 @@
-# lib/server
+# Server adapters
 
-`server.h` contains implementation-independent request, response, method, and callback types. `server/mongoose/mngs.h/.cpp` is a thin C++ wrapper over Mongoose 7.22 for an HTTP + WebSocket server on one listener and one internal event-loop thread.
+`server.h` defines shared request/response/callback types.
 
-## lib/server/mongoose
+## Mongoose
 
-### `std::thread startServer(uint32_t ipV4Host, uint16_t port)`
+`mongoose/mngs.h` exposes `startServer()` (bool), HTTP/WebSocket registration,
+`stopServer()` and `waitForServerStopped()`. One internal event-loop thread owns
+the listener and executes handlers. IPv4 input is in host byte order; start waits
+for listener success/failure. Register handlers before starting.
 
-Starts the Mongoose manager and HTTP listener in an internal thread. `ipV4Host` is IPv4 in host byte order. The function returns after the listener has either started or failed. The network thread uses blocking `mg_mgr_poll()` and does not busy-poll.
+HTTP routing is exact-path, unknown routes return 404, and handlers fill a response
+from a copied request. WebSocket handlers receive text and send a reply only when
+the response string is nonempty. Blocking handlers block the event loop.
 
-### `void stopServer()`
+Stop requests exit without joining; the owner must subsequently wait/join and reset
+server state. This two-phase shutdown permits another thread to request stop while
+integration waits for completion. Stopping an inactive server is harmless.
+`server_http_mngs_test` covers HTTP/WebSocket behavior and scoped cleanup.
 
-Requests the event-loop thread to stop without joining it. The thread owner then calls `waitForServerStopped()` to join and reset server state. This two-phase shutdown lets `stopMachina()` signal a `runMachina()` thread that is already waiting for server completion. If the server is not running, the operations do nothing.
+## cpp-httplib
 
-## HTTP
-
-### `void addServerHTTPHandler(HTTP_METHOD method, const std::string& route, ServerHTTPHandler callback)`
-
-Registers an exact-path HTTP handler. Handlers must be registered before `startServer()`. The callback receives a copied `ServerRequest` (`method`, `uri`, `body`) and fills `ServerResponse` (`status`, `contentType`, `body`). Unknown routes return 404.
-
-## WebSocket
-
-### `void addServerWebSocketHandler(const std::string& route, ServerWebSocketHandler callback)`
-
-Registers an exact-path WebSocket endpoint before server start. Each text message is passed to the callback. If the callback writes a non-empty response string, it is sent back as a text WebSocket frame.
-
-`server/mongoose/_example/hello.cpp` demonstrates both a GET endpoint and `/ws` WebSocket echo-style handling on the same port. `mongoose/mngs_test.cpp` uses GTest and a Mongoose client manager to verify both HTTP and WebSocket paths.
-
-`server_http_mngs_test` uses scoped cleanup that requests shutdown and waits for completion even when a fatal assertion unwinds the test case.
-
-Mongoose is pinned to tag `7.22` by top-level CMake FetchContent and is compiled as C++ because the top-level project enables only the CXX language.
-
-
-## lib/server/cpp-httplib
-
-`server/cpp-httplib/http.h/.cpp` — тонка обгортка над cpp-httplib для простого HTTP-сервера.
-
-### `void startServerHTTP(uint32_t ipV4Host, uint16_t port)`
-
-Прив'язує сервер до IPv4-адреси у host byte order і запускає `listen_after_bind()` у внутрішньому потоці. Функція повертається після успішного bind. Помилки друкуються у stdout з префіксом `ERROR: on startServerHTTP():`.
-
-### `void stopServerHTTP()`
-
-Зупиняє сервер і очікує завершення внутрішнього потоку. Якщо сервер не запущено, нічого не робить.
-
-### `void addHandler(HTTP_METHOD method, const std::string& route, HTTPHandler callback)`
-
-Реєструє callback для маршруту. `HTTP_METHOD` підтримує `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`, `HEAD`. Callback має сигнатуру `void(const httplib::Request&, httplib::Response&)`. Для `HEAD` використовується GET-route cpp-httplib, який автоматично формує HEAD-відповідь без body.
-
-`server/cpp-httplib/_example/hello.cpp` містить мінімальний text/plain GET-приклад. `server/cpp-httplib/http_test.cpp` стартує loopback-сервер і клієнт, виконує GET та перевіряє status і ключовий рядок у body через GTest.
-
-Server wrapper diagnostics use stdout with ERROR: and function context for failures. Successful listener startup messages use stdout without ERROR:.
+`cpp-httplib/http.h` offers the simpler HTTP-only `startServerHTTP()`, `addHandler()`
+and `stopServerHTTP()`. Start waits for bind and launches an internal listener;
+stop joins it. IPv4 is host-order. GET handlers also serve HEAD without a body.
+Examples live in each adapter's `_example/`; `http_test` exercises loopback HTTP.

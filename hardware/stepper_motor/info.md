@@ -1,185 +1,158 @@
-# Stepper motor planning, execution and probes
+# Stepper motors
 
-## Units and metrics
+Entry points: `stepper_motor_series.h` for planning/simulation, `stepper_motor.h`
+for lifecycle/scheduling/probe, `smart/stepper_motor_smart.h` for accelerated GPIO
+execution, and [Dumb](dumb/info.md) for fixed frequency. Configuration belongs to
+`config/platform_config.h`. Motor objects own configuration and execution state,
+are non-copyable and create no threads. The application owns shared
+[GPIO lifecycle](../info.md) and must keep it alive through motor destruction.
 
-The planning API is in `stepper_motor_series.h`; the base motor API is in `stepper_motor.h`, and `smart/stepper_motor_smart.h` declares the GPIO executor. `moment` and `duration` are uint64_t nanoseconds from `lib/timelib.h`; angles are degrees. Simulations use a synthetic clock starting at zero. External execution callers provide monotonically increasing timestamps from one clock. `probe()` uses `std::chrono::steady_clock`, not the realtime clock in `now()`.
+## Units and observations
 
-`expectedPulsesCount_` is the undelayed section plan, or the fitted pulse budget for a frozen braking profile; `intervalIndex_` tracks interval-law progress (elapsed pulses for frozen braking). `pulsesCount_` counts elapsed PWM periods in the execution model. `firstPulseAt_`, `lastPulseAt_`, `startedAt_` and `observedAt_` describe that execution. `totalSec()` includes the initial pulse interval and the final observation delay. Live sections also include their enable/direction setup delay. It excludes unobserved time inside the final GPIO calls. Before execution actual metrics are zero.
+Angles are degrees; moment/duration are uint64 nanoseconds. External ticks must
+increase monotonically in one clock domain; internal scheduling uses steady `Clock`.
+Simulation starts at zero. `real` metrics count modeled PWM periods from commands
+and observed call times, not encoder readings or measured edges. Frequency quantization,
+startup edges, backend gaps and scheduler overshoot can differ physically; desktop
+has no waveform. Free-running PWM is not an exact N-pulse counter.
 
-`finalSpeed()` is signed degrees divided by the last pulse interval. It stays nonzero after PWM is disabled: no mechanical settling speed or inertia is estimated. `idealFinalSpeed()` retains the analytical kinematic endpoint definition, which differs from the last interval-average speed. `idealIntervalSec()`, `idealTotalSec()` and `expectedRotationDeg()` describe the plan; the reserved terminal interval is included in ideal time. `scheduledIntervalSec()` additionally applies live PWM frequency quantization and its interval-law hold state.
+`expectedPulsesCount_` is the plan/fitted braking budget; `pulsesCount_` is observed
+model progress. Total time includes the first interval, setup guards and final
+observation delay, but not unobserved final GPIO-call time. `finalSpeed()` is signed
+angle per last interval, not mechanical settling speed; the analytical ideal endpoint
+is different. `reset()` clears observations and frequency progress but retains
+planned budgets, terminal intervals and frozen braking profiles. `limitWithDeg()`
+also clears the minimum completion count before changing the planned count.
 
-`reset()` clears observations, callbacks, live setup delay and frequency-limit progress. Planned minimum counts, pulse budgets, terminal interval, live mode and frozen braking profiles survive reset. `limitWithDeg()` resets execution before changing the planned count and clearing the minimum count.
+## Planning and simulation
 
-## Simulated scheduling
+`getFastestSeries()` creates an unevaluated plan; `getSeriesSequence()` and
+`addAcceleratedSeries()` return evaluated sections. `evaluateSeries()` runs a reset
+copy without GPIO/sleep. Timer zero visits pulse boundaries; nonzero timers use a
+fixed grid shared across sections. Duplicate/older observations do not advance state.
+A selected period takes effect at the current interval's end; a subsequent law
+update requires a complete period. Every elapsed repeated pulse contributes to angle.
+Threshold stopping is checked only on timer ticks and can overshoot; its final
+period can repeat after the law ends. Minimum-count completion tails end on a pulse
+boundary in simulation. Periods round to nanoseconds, minimum one nanosecond.
 
-`intervalSec(at, options)` mutates execution state. Its first call starts the first interval at `at`; the first modeled pulse occurs when that interval completes. Duplicate or older observations do not advance execution. A zero return means completion or an unrepresentable interval.
+Zero-base-speed accelerated moves reserve one requested pulse for a finite slow
+rest-to-rest terminal interval, respecting kinematic limits. There is no extra
+pulse or fixed minimum duration; terminal slowing belongs to Deceleration in logs.
+With nonzero timer, acceleration reaches the first tick at/beyond half the preceding
+quantized displacement; braking starts from the last interval-average speed.
+Optional cruise fills surplus; a last-period minimum count corrects shortfalls,
+but timer overshoots remain. Nonzero-base-speed endpoints retain their behavior.
+CONSTANT_ACCELERATION tolerates small cancellation in squared speeds;
+LINEAR_INTERVAL_ACCELERATION retains limitations with infinite endpoint intervals.
 
-In simulation, new periods selected during an active interval remain pending until its end. An exact-boundary selection applies to the following interval immediately. Recalculation becomes eligible after one complete interval at the selected period. Each eligible call advances the interval law once, but all repeated pulses contribute to displacement. Final timer calls count every elapsed pulse before stopping; normal completion does not retroactively stop at a nominal pulse boundary.
+## Incremental execution and ownership
 
-`evaluateSeries(series, expecterInterval, options, startedAt, stopAfterPulses, onPulse)` evaluates a reset copy without sleeping or accessing GPIO. Timer zero visits pulse boundaries; nonzero timers visit a grid anchored at zero across adjacent sections. An optional pulse threshold is checked at timer ticks and can overshoot. With a threshold, the final period can continue repeating after the interval law ends. The callback receives modeled pulse timestamps. Integer-angle completion tails using `minimumPulsesCount_` stop at their last pulse boundary in simulation.
+`prepare(angle, usedPins)` validates and plans without GPIO; prepare every axis
+before any `update()`. `update()` calls virtual `action(at)` when due, skips missed
+ticks and enforces a per-motor watchdog; `nextWake()` supplies its next wake/deadline.
+Zero angles complete without GPIO. Status is RUNNING (0), COMPLETE (1), or negative.
+Completed/error states are sticky; old/duplicate action timestamps are ignored.
 
-CONSTANT_ACCELERATION uses per-step kinematics. Near-zero squared speeds tolerate floating-point cancellation relative to the initial speed squared. LINEAR_INTERVAL_ACCELERATION retains its historical limitations for infinite endpoint intervals. Simulation periods round to nanoseconds, with a minimum of one nanosecond.
+Initialization configures the three distinct pins, PWM OFF, DIR and active-low ENA,
+then waits 500 us plus `pulseHigh`; direction changes wait `pulseHigh`.
+STEP is 50% PWM at range 40000. `pulseHigh` is a minimum HIGH/LOW duration, not
+manual pulse generation. Live frequencies are rounded down to integer 1..10000 Hz
+within driver/speed/pulse-width limits. Unsupported channels or unrepresentable
+period/frequency transitions fail rather than silently stalling.
 
-## Accelerated sequences and finite final speed
+Unchanged PWM commands retain model phase; changes start a new modeled period.
+During acceleration, frequency changes respect interval-average acceleration;
+a desired law index is retried until its frequency is reached. `stop()` attempts
+PWM OFF, ENA HIGH and DIR LOW, preserving the first error and retry flags. Hardware
+STEP remains in PWM mode at zero duty; software STEP goes LOW. Destruction retries
+cleanup. Backend calls may block and cannot be interrupted by the watchdog.
 
-`addAcceleratedSeries()` and `getSeriesSequence()` take `duration expecterInterval` before motor options and return evaluated sections. `getFastestSeries()` returns an unevaluated plan.
+`stepperMotorExecutionMutex()` serializes full probes with multi-axis actors.
+Hold it through motor destruction; idle actors release it. Direct low-level callers
+must also coordinate shared GPIO. The actor handoff itself is documented by its
+consumer, [Machina move](../../../machina/move/info.md).
 
-For an accelerated move with zero base speed, one pulse is reserved from the quantized requested displacement for a slow terminal interval. The preceding displacement uses the existing acceleration/deceleration construction. The terminal period is the natural single-pulse rest-to-rest period respecting speed/acceleration limits, rounded to nanoseconds. There is no fixed 100-ms minimum. No extra pulse is added to the requested angle, no infinite interval is requested, and no post-stop zero speed is reported. The terminal section is grouped with Deceleration in logs. Nonzero-base-speed sequences retain their endpoint behavior.
+## Predictive braking
 
-With timer zero, the preceding motion contains acceleration, optional cruise and deceleration. With a nonzero timer it accelerates until the first tick at or beyond half of the preceding quantized displacement, rounded upward to a pulse; the speed-limit period can repeat inside that section. A deceleration section is then built from its last interval-average speed. Optional cruise uses surplus displacement before braking. `stopAfterPulses_` records the simulated halfway threshold. `pairedTargetPulses_` retains the full acceleration/cruise/braking target before timer overshoot, excluding the reserved terminal pulse; REAL uses this full target rather than reconstructing it from the simulated halfway remainder.
+REAL retains the full pre-terminal target, rather than a simulated halfway remainder.
+At each newer acceleration call it estimates mean scheduling interval from elapsed
+acceleration time/count, excluding setup and duplicate calls. It simulates one next
+tick including the proposed frequency, then calls `canBrake()` on the resulting
+speed and remaining displacement. If braking no longer fits, it rejects that update
+and brakes from the currently active PWM command. Later delays may still overshoot.
 
-Timed deceleration uses `minimumPulsesCount_` to fill any remaining integer angle at its last period. `getSeriesSequence()` also corrects overall shortfalls. Coarse-timer overshoots are retained. Reserving the terminal pulse does not guarantee exactly N physical edges from a free-running PWM generator.
+Braking freezes a model whose pulse thresholds are fitted to the integer remaining
+budget; the reserved terminal pulse stays separate. There is no slow completion
+remainder. Actual elapsed pulses select the frozen command, potentially skipping
+commands and exceeding the acceleration bound to catch up; speed/frequency/pulse-width
+limits still apply. Exhausted pre-terminal budgets skip the braking tail.
 
-For default 90-degree / 5-ms settings, clocked simulation has 200 acceleration pulses, 199 pulses distributed across cruise/main braking and one reserved terminal pulse: 400 pulses / 90 degrees. The terminal period and last-interval speed now depend on the configured kinematic limits; live PWM additionally quantizes frequency. REAL phase counts and timing come from predictive execution and actual call spacing.
+`getBrakingModel()` builds this GPIO-free fixed-positive-timer profile; empty means
+unrepresentable. Braking preserves direction without increasing speed. `canBrake()`
+compares its full pulse count to a budget excluding the terminal pulse.
+`getCruiseAndBraking()` is instead the simulation helper: reduce cruise for overshoot,
+then fill remaining simulation shortfalls. REAL uses frozen profiles, not that tail.
 
-## Incremental GPIO execution
+## Blocking probes and statistics
 
-`StepperMotor(config)` owns motor configuration, the execution sequence, GPIO state, incremental scheduling and the watchdog. `StepperMotorSmart(config, sequence)` prepares the smart execution copy for direct `action()` callers, while `StepperMotorSmart(config)` accepts an angle through inherited `probe()`. Callers initialize the shared GPIO backend before constructing/executing motors, serialize shared access and terminate it after motor objects have been stopped/destroyed. The classes are non-copyable and do not create threads.
+`probe(angle, withEstimates, label, real)` validates and runs the clocked plan on a
+steady timer, reports runtime/partial statistics and returns zero or negative error.
+Optional `real` is reset on entry. Estimates additionally build/log the ideal plan
+and log the clocked plan. Zero configured interval means 1-us live polling; missed
+ticks are skipped. The watchdog returns TIME_LIMIT (-10008) after cleanup.
 
-`StepperMotor::action(moment at)` is virtual, with the GPIO state machine implemented by `StepperMotorSmart::action()`. Each call makes one state-machine update and does not sleep or replay future pulses. Return values are `RUNNING` (0), `COMPLETE` (1), or a negative error. Repeated/older timestamps are ignored; completed/error states are sticky. The nonvirtual `StepperMotor::initialize(at)` called by the smart action configures only the three supplied distinct BCM pins, starts with PWM disabled, sets DIR and active-low ENA, then schedules a 500-us enable guard plus `pulseHigh`. Subsequent calls start/update PWM when the guard expires. Direction changes receive a `pulseHigh` guard; all waiting belongs to the external scheduler.
-
-STEP uses the existing GPIO PWM setters, with range 40000 and 50% duty. `pulseHigh` is the minimum HIGH and LOW duration, not a manually generated pulse width. Hardware mode uses `GpioMode::hardwarePwm`; OFF uses `GpioMode::output` with the backend's software/DMA PWM. No manual per-pulse sleeps or writes are used. Invalid pins/options, unsupported hardware channels, periods below the GPIO API's 1-Hz minimum and pulse-width/frequency conflicts return errors.
-
-Live periods use integer frequencies within 1..10000 Hz and motor speed/frequency limits, rounded down. The execution model uses these commanded periods and actual `action()` timestamps. Unchanged commands preserve the modeled pulse phase; changed commands start a new modeled period at that update. Outside frozen REAL braking profiles, the interval law waits for a full commanded period and frequency steps are reduced when necessary to respect the pulse-interval-average acceleration bound; the same law index is retried until its desired frequency is reached. A required step that cannot be represented even by a 1-Hz change returns an error rather than silently stalling.
-
-For paired acceleration/braking moves, REAL replaces the simulated halfway rule with predictive control. This also applies when its input is a zero-timer ideal plan. Acceleration can continue to the speed limit and hold that speed inside the same section. At each strictly newer call after acceleration starts, the model interval is elapsed acceleration time divided by the number of observed call intervals. Enable/direction setup time and duplicate/older calls are excluded. The first observation after acceleration starts provides the first mean; no maximum-interval estimate is used.
-
-The executor advances a copy through the next model tick, including the current proposed command, next speed update, frequency limits and intervening pulses. It calls `canBrake()` for that next speed and the remaining pulse budget after the lookahead. When the check fails, it starts braking at the current call using the PWM command actually active before the proposed acceleration update. Thus the rejected command is never sent to GPIO. Future delays can still consume more displacement than predicted.
-
-At that transition, the planned optional cruise and braking are replaced by a frozen braking profile. Its pulse thresholds are proportionally fitted to the integer remaining displacement; there is no slow last-period completion remainder. The separately reserved terminal pulse stays separate. If acceleration has already exhausted the pre-terminal budget, the executor skips the exhausted braking tail. During braking, each actual call counts every elapsed modeled PWM pulse and selects the frozen command for that count. It may skip intermediate commands and exceed the acceleration limit to catch up. Speed/frequency and minimum pulse-width limits remain enforced. The model interval and profile do not change after braking starts.
-
-Following sections carry the preceding pulse interval into their acceleration statistics. Live completion counts all periods elapsed up to the stopping call, including overshoot. A speed-limit hold remains grouped with Acceleration in REAL output; it is not a separate runtime Cruise section.
-
-`stop()` attempts PWM OFF, ENA HIGH and DIR LOW, preserving the first error; the destructor also attempts cleanup. Hardware STEP remains in PWM mode with zero duty, avoiding unsupported digital writes or pinmux changes. Ordinary software PWM OFF drives STEP LOW. Cleanup failures retain the corresponding cleanup flags for a later retry. GPIO lifecycle remains the caller's responsibility.
-
-## Braking and cruise helpers
-
-`getBrakingModel(speedDegPerSec, finalSpeedDegPerSec, modelInterval, options, algorithm=CONSTANT_ACCELERATION)` runs a fresh live-PWM braking calculation on fixed model intervals. Speeds are signed degrees/s, timing is nanoseconds, and options use the normal motor units. It records each commanded pulse interval with its cumulative braking pulse threshold in `brakingModel_`. `expectedPulsesCount_` becomes the model's full braking displacement, `modelInterval_` stores its timer, and `brakingFinalSpeed_` preserves the requested kinematic endpoint. An empty profile means the requested model cannot be represented; the timer must be positive and braking must preserve direction without increasing speed. `reset()` clears execution observations while retaining this profile.
-
-`canBrake(speedDegPerSec, finalSpeedDegPerSec, modelInterval, remainingPulses, options, algorithm=CONSTANT_ACCELERATION)` performs that model calculation and returns true only when it is representable and its full pulse count fits the remaining budget. `remainingPulses` excludes any separately reserved terminal pulse. Both helpers are independent of GPIO and do not sleep. They model commanded PWM periods and scheduling, not measured edges.
-
-`getCruiseAndBraking(speedDegPerSec, finalSpeedDegPerSec, remainingPulses, timer, options, algorithm, startedAt=0, livePwm=false)` remains the simulation helper for evaluated optional cruise and braking. It evaluates braking without a completion minimum, assigns surplus displacement to cruise, then reduces cruise when timer overshoot and the shifted braking start exceed the remaining budget. Residual simulation shortfalls use `minimumPulsesCount_`. Cruise uses `stopAfterPulses_` for displacement and `pairedTargetPulses_` for the remaining combined budget; `cruiseFrequency_` preserves a reached integer-Hz live command across reset. REAL predictive execution uses the frozen profile instead of this cruise-tail helper.
-
-## Blocking run and probe configuration
-
-`pulses_probe` requests a fixed STEP low interval of 11,235 microseconds
-and prints it as 11.235 ms. With a configured 15-us high interval, the
-requested pulse period is 11.25 ms, excluding GPIO and scheduling overhead.
-
-After successfully loading configuration and before GPIO initialization,
-`pulses_probe` prints the pan PUL/STEP, DIR and ENA pins; `platform_probe`
-prints the same pins for both pan and tilt. These startup diagnostics use the
-loaded configuration, explicitly label BCM numbering and flush stdout before
-hardware access.
-
-`StepperMotorSmart(config).probe(rotationDeg, withEstimates, label, real)` always builds the clocked movement plan and executes the real move. With `withEstimates=true`, it also builds and logs the ideal plan and logs the clocked plan; with `false`, it does neither. The nonvirtual `StepperMotor::probe()` validates its stored configuration and calls virtual `action()` on a steady-clock timer until completion. Its private nonvirtual `runReal()` owns that timer and reporting; the virtual `prepareSequence()` hook in `StepperMotorSmart` applies predictive braking setup. A zero interval selects 1-us polling; missed ticks are skipped. An independent deadline stops PWM and returns `TIME_LIMIT` (-10008), though it cannot interrupt a blocking backend call. Invalid limits are rejected before motion. Applications initialize GPIO once at startup and terminate it after all motor objects have stopped and been destroyed.
-
-`pulses_probe` accepts one or more signed integer pulse counts, for example `pulses_probe +800 -1600 +800`. It validates all CLI arguments before GPIO initialization, toggles STEP directly for each requested pulse without angle conversion, and waits 10 ms between series. Before GPIO initialization it loads both complete axis configurations from `HARDWARE_CONFIG_PATH` through `loadPlatformMotorConfig()` and selects `motors[0]` (pan). STEP high time and direction setup time use `pan.pulseHighUs`; low time is the probe's `STEP_LOW_US` constant. It disables ENA and terminates GPIO after the list or a GPIO error. `probe_infinite` and `probe_180_360_180` have been removed.
-
-## Shared complete-move execution
-
-`StepperMotor::probe(float rotationDeg, bool withEstimates, const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr)` in `stepper_motor.cpp` validates options/angle/pins/timing, builds the clocked movement plan, and optionally builds/logs the ideal plan and logs the clocked plan. It prepares the smart motor's execution sequence, runs its timer loop, and logs runtime statistics even on failure. GPIO initialization and termination belong to the application. The return value is zero on success or a negative error code. Optional `real` is reset on entry and receives runtime/partial results and failure diagnostics. Zero angles return without touching GPIO. Invalid inputs are rejected before planning and GPIO access.
-
-`StepperMotorRunConfig` contains `pinStep_`, `pinDir_`, `pinEna_` (BCM), `options_`, `expecterInterval_`, `pulseHigh_`, `timeLimit_` (nanoseconds), `hardwarePwm_` and `verbose_`. Rotation is signed degrees; application wire units must be decoded by the caller. The application owns the shared GPIO lifecycle; probe calls preserve other GPIO consumers. Serialize GPIO access and use distinct motor pins. Logging is outside the timed execution loop. Runtime values are PWM estimates, not encoder observations; pulse quantization and timer overshoot still apply.
-
-Machina's HTTP action dispatcher passes the selected motor and signed angle to `StepperMotorSmart(config).probe(angle, false)`; its separate real motor worker uses the incremental two-axis actor and does not publish commands yet. Low-level callers with an existing sequence construct `StepperMotorSmart` and drive virtual `action()` through `StepperMotor` with their own monotonic scheduler. Cleanup happens before GPIO termination. Diagnostics use `[function()] ERROR: details`, with qualified context names where needed.
-
-## Statistics, limitations and tests
-
-`StepperMotorSeriesSequence::log(options, label, verbose=false)` groups contiguous sections of the same phase. Each Acceleration/Cruise/Deceleration block ends with the same time, rotation, actual pulse counts, last-interval speed, maximum speed and maximum absolute acceleration fields as TOTAL. Cross-section acceleration uses interval midpoint separation and belongs to the following block. The terminal interval belongs to Deceleration. Summary rows omit the `expected=` field. Verbose mode adds per-section details, including the explicitly named `expectedPulsesCount` planning field, without removing summaries.
-
-`real` means runtime observations and commanded PWM estimates, not encoder readings or measured GPIO edges. The GPIO API does not expose waveform phase, native frequency quantization or edge counts. Startup edges, backend reconfiguration gaps and physical timing can differ from the model; desktop has no physical waveform at all. PWM is not a hardware N-pulse counter, and scheduler delays can overshoot the target. Mechanical inertia/settling is not estimated.
-
-The `stepper_motor_test` GTest/CTest target compiles `stepper_motor_test.cpp` for series planning/simulation and `smart/stepper_motor_smart_test.cpp` for smart motor braking and GPIO execution. Together they cover both directions, pulse quantization/replay, finite terminal slowing, grouped/verbose output, external ticks, repeated/older timestamps, runtime PWM settings, independent pins, hardware mode through the desktop contract, errors, timeout and cleanup. Natural terminal-period tests also cover one/two-pulse moves, signed 0.25/1/2-degree platform moves, slow single-pulse motion, timer rounding and live braking after delayed calls. Raspberry Pi waveform behavior requires on-device validation. `dumb/stepper_motor_dumb_test.cpp` covers fixed-frequency planning, near-target completion and the post-series pause.
-
-Additional GTest/CTest cases cover braking prediction against fixed-timer replay (including nonzero final speed), the exact fits/does-not-fit pulse boundary, skipping commands after delayed observations, signed 33/90/180/720-degree moves, full target retention after simulated halfway overshoot, startup exclusion and mean timing, duplicate/older timestamps, frozen profiles during later delays, zero-timer input plans, speed/acceleration limits during acceleration, and permitted stronger braking. Runtime timing comparisons are deterministic desktop PWM-model results; Raspberry Pi waveforms and mechanical behavior require on-device validation.
+`StepperMotorSeriesSequence::log()` groups contiguous phases with time, rotation,
+pulse count, last/max speed and max absolute acceleration. Cross-section acceleration
+belongs to the following phase; verbose adds section details. `expecterInterval`
+in reports is requested scheduler cadence, not measured call spacing or pulse period;
+configured zero means 0 in ideal simulation but 0.001 ms for live polling.
 
 ## Platform configuration
 
-`config/platform_config.h` provides `PlatformMechanics`,
-`platformMotorOptions()` and `loadPlatformMotorConfig()`. The latter loads pan and
-tilt together and preserves both previous configurations on any error. Machina
-and `platform_probe` share this loader. `stepper_platform` links YAML configuration
-support separately from the low-level `stepper_motor` library. Its source and test live in `config`, and its CMake target is defined in `base/hardware/CMakeLists.txt`.
+`loadPlatformMotorConfig()` validates pan and tilt together, preserving the previous
+pair on any failure. Required per-axis fields:
 
-YAML fields for each axis:
+| Fields | Meaning and limits |
+| --- | --- |
+| pinStep, pinDir, pinEna | BCM0..27; all six pins distinct |
+| freqMax, degPulse | Driver pulses/s; motor degrees/pulse before transmission |
+| speedMaxDegSec | Platform degrees/s |
+| gearRatio | Motor pulley / platform pulley tooth ratio |
+| momentOfInertia, rotorInertia | Load and motor rotor inertia, kg m²; rotor may be zero |
+| transmissionEfficiency | Forward-drive efficiency in (0,1] |
+| torqueMaxNm | Positive motor torque for planning |
+| expecterIntervalUs | Scheduler microseconds; zero uses 1-us polling |
+| pulseHighUs | Minimum HIGH/LOW microseconds, 1..500000 |
+| hardwarePwm | Dedicated hardware PWM selection |
+| timeLimitMs | Positive movement watchdog |
 
-- `gearRatio`: positive double, motor pulley teeth / platform pulley teeth.
-  YAML stores a decimal number, not an expression: pan 0.5555555555555556 (20/36), tilt 0.5 (18/36).
-- `momentOfInertia`: positive platform/load inertia in kg*m^2, excluding the rotor.
-  Uniform disks about their central axis perpendicular to the disk plane use J=m*R^2/2:
-  pan 1.5 kg / 0.15 m diameter gives 0.00421875; tilt 1 kg / 0.075 m gives 0.000703125.
-  Rotation about a diameter or an offset axis requires different values.
-- `rotorInertia`: nonnegative motor rotor inertia in kg*m^2.
-  1 g*cm^2 = 1e-7 kg*m^2: pan 200 gives 0.00002; tilt 54 gives 0.0000054.
-- `transmissionEfficiency`: double in (0,1], initially 0.95 for both axes (5% loss).
-  This is a provisional estimate for pan HTD-3M 225 x 14 mm and tilt HTD-3M 195 x 15 mm,
-  not a measured efficiency or a calculation from belt dimensions. Tension, bearings,
-  pulley geometry, speed and loading affect actual losses. Gates reports up to 98%
-  for another synchronous belt family, not a specification of these assemblies:
-  https://www.gates.com/content/dam/documents-library/catalogs/poly-chain-gt-carbon-drive-design-manual-en.pdf
-- `torqueMaxNm`: positive motor torque for planning, initially 0.5 Nm.
-  Replaces the YAML `accelMaxDegSec2` field; legacy acceleration alone is insufficient.
-- `degPulse`: motor degrees/pulse before the transmission.
-- `speedMaxDegSec`: platform degrees/s. `freqMax` remains motor pulses/s.
+Mechanics are double, finite and positive except allowed zero rotor inertia.
+Timing must fit probe duration limits. Unsupported PWM STEP pins are rejected
+before execution, but backend/routing errors can still occur at startup.
+For r=gearRatio, eta=efficiency, Jr=rotor inertia, Jl=load inertia and T=torque:
 
-All mechanics are parsed as double. With r=gearRatio, eta=efficiency, Jr=rotor inertia,
-Jl=load inertia and T=motor torque, acceleration in platform radians/s^2 is:
+    alpha_platform = T / (Jr/r + Jl*r/eta)  # radians/s²
 
-    alpha = T / (Jr/r + Jl*r/eta)
+Rotor inertia is upstream of losses; multiply by 180/pi for degrees/s².
+`platformMotorOptions()` multiplies motor degPulse by r and derives acceleration,
+preserving platform speed and driver frequency limits. This replaces YAML
+accelMaxDegSec2; low-level APIs still accept acceleration-based options.
 
-This follows T=Jr*alpha_motor + Jl*alpha_platform*r/eta and alpha_platform=r*alpha_motor.
-The rotor is upstream of transmission losses. Conversion to degrees/s^2 uses 180/pi.
-`platformMotorOptions()` replaces degPulse by motor degPulse*r and fills the internal
-acceleration limit. It preserves the platform speed and driver frequency limits.
-Invalid/nonfinite/unrepresentable derived options are rejected without changing output.
-Low-level APIs retain their existing acceleration-based options; configured callers use
-platform units consistently for angles, speed, acceleration and printed statistics.
+For a uniform disk about its central perpendicular axis, J=mR²/2; another axis
+needs a different inertia. 1 g cm² = 1e-7 kg m². Example efficiency 0.95 is provisional,
+not measured from belt dimensions. The model omits gravity, belt elasticity,
+speed-dependent torque and mechanical settling; it is trajectory planning, not
+current control or measured torque. Catch-up braking may exceed its acceleration.
 
-The model uses constant forward-drive efficiency for the planned acceleration/deceleration
-magnitude. Existing predictive braking can exceed that magnitude when timer delays require
-catch-up, as explicitly allowed. This is a trajectory parameter, not driver current control
-or measured torque. Gravitational torque, elastic belt dynamics and speed-dependent motor
-torque are not modeled by these parameters.
+`platform_probe` takes signed pan/tilt degree pairs, validates all inputs before GPIO,
+starts each pair together and waits for both before the next. It loads relative
+`machina.yaml`; `motorClass` selects Smart (default) or Dumb. Dumb additionally needs
+dumbSpeedDegSec, dumbPauseMs and dumbRemainingPulsesTolerance per axis.
+`pulses_probe` takes signed pulse counts on pan, using configured pulseHighUs for
+HIGH/setup and STEP_LOW_US for LOW (11235 us at the recorded 20-degree/s setting),
+with 10 ms between series. The platform probe holds motor execution ownership
+through both-axis cleanup; both probes terminate GPIO after completion/failure.
 
-`platform_probe` in `_probe/platform_probe.cpp` accepts complete signed pan/tilt angle pairs in platform degrees, for example `_bin/platform_probe 10 0 -5 1`. Each pair starts both axes together; the next pair starts only after both complete. All CLI values are parsed before GPIO initialization. The fixed configuration path is `machina.yaml`, relative to the working directory. The probe loads both axes through `loadPlatformMotorConfig()` and chooses Smart or Dumb from the top-level `motorClass` field (`Smart` is the default when absent). For Dumb, each axis additionally requires `dumbSpeedDegSec`, `dumbPauseMs` and `dumbRemainingPulsesTolerance`. The probe holds exclusive motor execution ownership through both-axis cleanup and terminates GPIO after the list or on failure. Zero angles complete without starting their axis.
-
-`stepper_platform_test` in `config` (GTest/CTest) covers torque balance, both ratios and directions, invalid mechanics, signed argument parsing, YAML disk parameters, Smart/Dumb selection and atomic reload rejection. Desktop tests/probes use the GPIO stub and do not validate physical motion.
-
-## Scheduler interval in statistics
-
-`StepperMotorSeriesSequence::log()` accepts an optional fourth argument,
-`expecterInterval` (nanoseconds). When supplied, every phase block total and TOTAL
-row includes `expecterInterval=… ms` with six decimal places. `StepperMotorSmart(config).probe(angle, true)`
-supplies the configured simulation interval for `clocked` and the requested polling
-cadence for `real`. With estimates disabled, only the real cadence is logged.
-With configured zero, these are respectively 0 ms (ideal simulation) and
-0.001 ms (the 1-us polling fallback). This is the requested
-scheduler cadence, not the measured spacing between calls or the STEP pulse period.
-
-## Real motor scheduling and execution ownership
-
-`stepperMotorExecutionMutex()` returns the process-wide mutex shared by complete
-probes and Machina's real actor. A probe owns it for its full call; the actor owns
-it from command preparation through destruction of both motors. Idle polling does
-not own it. Low-level direct callers still need to coordinate GPIO access.
-
-`StepperMotor` handles one real motor without sleeping or probe statistics. `prepare(angle, usedPins)` validates options,
-timing and pins against a shared pin-use array and prepares the plan without accessing GPIO. Machina creates concrete smart motors before preparation. Prepare every axis before starting any update.
-`update()` uses current steady-clock time, directly calls `action(at)` when due,
-skips missed ticks and stops PWM on its independent watchdog. `nextWake()` gives
-the next timer/deadline wake time after the first update. Zero-angle preparation is
-already complete. The return status is RUNNING, COMPLETE or a negative error.
-
-Keep execution ownership through motor destruction; the motor stops
-before the owning actor releases the shared mutex. GPIO initialization/termination
-remain at application scope.
-
-`StepperMotor` uses the shared `Clock` from `lib/timelib.h` for its timer
-and watchdog time points.
-
-The pulse probe computes STEP_LOW_US with `1e6`, passes it as microseconds and
-prints milliseconds using `1e3`. At SPEED_DEG_S=20 the low interval is 11,235 us
-(11.235 ms), giving an intended 11.25-ms period with a 15-us high interval before
-GPIO/scheduling overhead. This corrects the former approximately 11.25-second
-low interval caused by a unit mismatch.
+`stepper_motor_test` covers planning/execution, `stepper_platform_test` configuration.
+Desktop results establish the PWM model only; physical timing requires device checks.
