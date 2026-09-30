@@ -19,20 +19,22 @@ AGENTS.md в підмодулях (mod_.../) в Linux-системі — це ha
 
 Prefer existing repository patterns over new conventions.  
 
-Always look for helper functions in lib/ and hardware/ first. 
-
-Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat string conversion, math, filesystem, and formatting
-helpers as reusable by default.
-
-Для функціональних директорій підтримуй стислий info.md: призначення, основні точки входу, нетривіальна логіка та обмеження 
-(зокрема, хто володіє станом процесу; правила синхронізації, виконання та зупинки), причини нетривіальних рішень. Оновлюй 
-його, коли зміни роблять наявний опис неточним або додають важливу для розуміння поведінку. Не дублюй очевидні 
+Для функціональних директорій підтримуй стислий info.md: призначення, основні точки входу, нетривіальна логіка та обмеження
+(зокрема, хто володіє станом процесу; правила синхронізації, виконання та зупинки), причини нетривіальних рішень. Оновлюй
+його, коли зміни роблять наявний опис неточним або додають важливу для розуміння поведінку. Не дублюй очевидні
 декларації та інформацію з інших info.md; натомість використовуй посилання.
 
 Do not show diffs.
 
+Всі наступні правила стосується виключно роботи з програмним кодом цього репозиторію і не чинні при роботі з CAD, кресленнями, зображеннями та іншими 
+некодовими артефактами та тимчасовими скриптами автоматизації таких задач.
 
 ## Coding style
+
+Перед написанням або зміною програмного коду спочатку шукай відповідні готові helper-функції в `lib/` і `hardware/`.
+
+Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat string conversion, math, filesystem, and formatting
+helpers as reusable by default. 
 
 All class member field names must end with an underscore, e.g. `original_`.
 
