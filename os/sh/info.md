@@ -4,6 +4,13 @@
 commits, attaching HEADs to matching or newly created branches. After all updates,
 it invokes each initialized module's root `s`, if present, parent before child.
 Copied files remain working-tree changes; gp does not commit them.
+Before and after pulling, gp validates indexed gitlinks against `.gitmodules`
+(paths, nonempty URLs, duplicate settings/paths), including initialized descendants.
+Pull disables recursive fetching so the updated index is checked before submodule
+updates. A final validation includes newly initialized descendants. Invalid metadata
+stops execution with the repository/path context; gp never repairs it automatically.
+A failure after pulling does not roll back the parent or earlier module updates.
+The script runs from the repository root even when invoked in a subdirectory.
 
 `gi` invokes `s` in initialized direct submodules before any staging or commits,
 then processes those modules before the current repository. It stages changes,

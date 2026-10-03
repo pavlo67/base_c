@@ -1,9 +1,82 @@
 #!/usr/bin/bash
 
 set -e
+exec 2>&1
 
-git pull origin "$(git branch --show-current)"
-git submodule update --init --recursive
+# This check belongs to gp: it validates the index that submodule update uses.
+gp_validate_modules() (
+    local context='[gp_validate_modules()]'
+    local record key value entry metadata path name url
+    local -A settings=() module_paths=()
+    cd "$1" || return 1
+    printf '[gp] Checking submodules in %s\n' "$PWD"
+
+    if [ -f .gitmodules ]; then
+        if ! git config --file .gitmodules --list >/dev/null; then
+            printf '%s ERROR: Invalid .gitmodules in %s\n' "$context" "$PWD"
+            return 1
+        fi
+        while IFS= read -r -d '' record; do
+            key=${record%%$'\n'*}
+            value=${record#*$'\n'}
+            if [[ -v settings["$key"] ]]; then
+                printf '%s ERROR: Duplicate setting %s in %s/.gitmodules\n' "$context" "$key" "$PWD"
+                return 1
+            fi
+            settings["$key"]=$value
+        done < <(git config --null --file .gitmodules --get-regexp '^submodule\..*\.(path|url)$')
+
+        for key in "${!settings[@]}"; do
+            if [[ $key != *.path ]]; then
+                continue
+            fi
+            path=${settings["$key"]}
+            name=${key%.path}
+            url=${settings["$name.url"]-}
+            if [ -z "$path" ] || [ -z "$url" ]; then
+                printf '%s ERROR: Empty path or missing URL for %s in %s/.gitmodules\n' "$context" "$name" "$PWD"
+                return 1
+            fi
+            if [[ -v module_paths["$path"] ]]; then
+                printf '%s ERROR: Duplicate submodule path %s in %s/.gitmodules\n' "$context" "$path" "$PWD"
+                return 1
+            fi
+            module_paths["$path"]=$name
+        done
+    fi
+
+    while IFS= read -r -d '' entry; do
+        metadata=${entry%%$'\t'*}
+        path=${entry#*$'\t'}
+        if [[ $metadata != '160000 '* ]]; then
+            continue
+        fi
+        if [[ $metadata != *' 0' ]]; then
+            printf '%s ERROR: Unmerged submodule %s in %s; resolve the index conflict first.\n' "$context" "$path" "$PWD"
+            return 1
+        fi
+        if [[ ! -v module_paths["$path"] ]]; then
+            printf '%s ERROR: Submodule %s in %s has no path/URL mapping in .gitmodules; fix the mapping or remove the obsolete gitlink from the index.\n' "$context" "$path" "$PWD"
+            return 1
+        fi
+        # An uninitialized directory may resolve to its parent's repository.
+        if [ -e "$path/.git" ]; then
+            gp_validate_modules "$path" || return 1
+        fi
+    done < <(git ls-files --stage -z)
+)
+
+repository=$(git rev-parse --show-toplevel)
+cd "$repository"
+gp_validate_modules "$repository"
+# Validate the pulled index before Git attempts any recursive submodule fetch.
+git -c fetch.recurseSubmodules=false pull --no-recurse-submodules origin "$(git branch --show-current)"
+gp_validate_modules "$repository"
+if ! git submodule update --init --recursive; then
+    printf '[gp()] ERROR: Recursive submodule update failed in %s; inspect the Git error above.\n' "$repository"
+    exit 1
+fi
+gp_validate_modules "$repository"
 git submodule foreach --recursive '
     # Keep the exact commit recorded by the parent repository.
     branch=$(git for-each-ref --format="%(refname:short)" --points-at HEAD refs/heads/ | head -1)
