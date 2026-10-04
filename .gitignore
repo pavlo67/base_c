@@ -16,11 +16,13 @@ build/
 .codex/
 .claude/
 
-# Log files, reports, archives
+# Log files, reports, archives, backups
 *.xls*
 *.tab*
 *.log*
 *.zip
+*.bak
+*.Bak
 
 # Executables
 *.exe
