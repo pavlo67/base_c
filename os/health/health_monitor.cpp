@@ -3,11 +3,13 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <ctime>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -31,6 +33,14 @@ struct Check {
     bool problem = false;
 };
 
+struct HistoryEntry {
+    unsigned long long count = 0;
+    std::string lastTime;
+    std::vector<Check> lastSnapshot;
+};
+
+using History = std::map<std::string, HistoryEntry>;
+
 std::atomic<bool> stopRequested = false;
 
 std::string runCommand(const char* command);
@@ -39,7 +49,8 @@ std::string trimCopy(std::string value);
 std::string platformName();
 std::vector<std::string> readKernelWarnings();
 std::vector<Check> collectChecks(const std::vector<std::string>& kernelBaseline);
-void draw(const std::vector<Check>& checks, bool paused);
+void updateHistory(const std::vector<Check>& checks, History& history);
+void draw(const std::vector<Check>& checks, const History& history, bool paused);
 void onSignal(int signal);
 
 #if defined(__linux__)
@@ -69,8 +80,10 @@ int runHealthMonitor() {
     const std::vector<std::string> kernelBaseline = readKernelWarnings();
     std::vector<Check> checks = collectChecks(kernelBaseline);
     bool paused = false;
+    History history;
+    updateHistory(checks, history);
 
-    draw(checks, paused);
+    draw(checks, history, paused);
     auto nextUpdate = std::chrono::steady_clock::now() + UPDATE_INTERVAL;
 
     while (!stopRequested.load()) {
@@ -79,10 +92,11 @@ int runHealthMonitor() {
             if (value == ' ') {
                 paused = !paused;
                 if (paused) {
-                    draw(checks, true);
+                    draw(checks, history, true);
                 } else {
                     checks = collectChecks(kernelBaseline);
-                    draw(checks, false);
+                    updateHistory(checks, history);
+                    draw(checks, history, false);
                     nextUpdate = std::chrono::steady_clock::now() + UPDATE_INTERVAL;
                 }
             } else if (value == 'q' || value == 'Q') {
@@ -92,7 +106,8 @@ int runHealthMonitor() {
 
         if (!paused && !stopRequested.load() && std::chrono::steady_clock::now() >= nextUpdate) {
             checks = collectChecks(kernelBaseline);
-            draw(checks, false);
+            updateHistory(checks, history);
+            draw(checks, history, false);
             nextUpdate = std::chrono::steady_clock::now() + UPDATE_INTERVAL;
         }
 
@@ -190,8 +205,23 @@ std::vector<Check> collectChecks(const std::vector<std::string>& kernelBaseline)
     checks.push_back({"Temp:        " + (temperature.empty() ? "<unavailable>" : temperature), temperatureProblem});
 
     const std::string throttled = runCommand("vcgencmd get_throttled 2>/dev/null");
-    checks.push_back({"Throttled:   " + (throttled.empty() ? "<unavailable>" : throttled),
-                      throttled.empty() || throttled != "throttled=0x0"});
+    bool throttledProblem = throttled.empty();
+    if (!throttled.empty()) {
+        const auto marker = throttled.find("0x");
+        if (marker == std::string::npos) {
+            throttledProblem = true;
+        } else {
+            try {
+                const unsigned long value = std::stoul(throttled.substr(marker + 2), nullptr, 16);
+                // Bits 0..3 describe the current state. Bits 16..19 are sticky
+                // "has occurred since boot" flags and are history, not a current problem.
+                throttledProblem = (value & 0x0fUL) != 0;
+            } catch (...) {
+                throttledProblem = true;
+            }
+        }
+    }
+    checks.push_back({"Throttled:   " + (throttled.empty() ? "<unavailable>" : throttled), throttledProblem});
 
     const std::string volts = runCommand("vcgencmd measure_volts core 2>/dev/null");
     checks.push_back({"Core volts:  " + (volts.empty() ? "<unavailable>" : volts), volts.empty()});
@@ -281,7 +311,41 @@ std::vector<Check> collectChecks(const std::vector<std::string>& kernelBaseline)
     return checks;
 }
 
-void draw(const std::vector<Check>& checks, bool paused) {
+std::string historyKey(const Check& check) {
+    const auto colon = check.text.find(':');
+    if (colon == std::string::npos) {
+        return check.text;
+    }
+    const std::string prefix = check.text.substr(0, colon);
+    // Every kernel warning is a separate error; the other checks are grouped by type.
+    if (prefix == "Kernel") {
+        return check.text;
+    }
+    return prefix;
+}
+
+std::string currentLocalTime() {
+    const std::time_t now = std::time(nullptr);
+    std::tm local{};
+    localtime_r(&now, &local);
+    std::ostringstream text;
+    text << std::put_time(&local, "%Y-%m-%d %H:%M:%S");
+    return text.str();
+}
+
+void updateHistory(const std::vector<Check>& checks, History& history) {
+    for (const Check& check : checks) {
+        if (!check.problem) {
+            continue;
+        }
+        HistoryEntry& entry = history[historyKey(check)];
+        ++entry.count;
+        entry.lastTime = currentLocalTime();
+        entry.lastSnapshot = checks;
+    }
+}
+
+void draw(const std::vector<Check>& checks, const History& history, bool paused) {
     printf("\033[2J\033[H");
 
     std::vector<std::string> problems;
@@ -291,25 +355,35 @@ void draw(const std::vector<Check>& checks, bool paused) {
     }
     std::cout << "\n\n";
 
-    int lines = 2;
     for (const Check& check : checks) {
         std::cout << check.text << '\n';
-        ++lines;
         if (check.problem) {
             problems.push_back(check.text);
         }
     }
 
-    const int footerLines = problems.empty() ? 0 : static_cast<int>(problems.size()) + 1;
-    while (lines < SCREEN_HEIGHT - footerLines) {
-        std::cout << '\n';
-        ++lines;
-    }
-
     if (!problems.empty()) {
-        std::cout << "=== PROBLEMS ===\n";
+        std::cout << "\n=== PROBLEMS ===\n";
         for (const std::string& problem : problems) {
             std::cout << problem << '\n';
+        }
+    }
+
+    if (!history.empty()) {
+        std::cout << "\n\n=== HISTORY SINCE MONITOR START ===\n\n";
+        bool first = true;
+        for (const auto& [name, entry] : history) {
+            if (!first) {
+                std::cout << "\n\n";
+            }
+            first = false;
+            std::cout << "--- " << name << " ---\n";
+            std::cout << "Count:       " << entry.count << '\n';
+            std::cout << "Last repeat: " << entry.lastTime << '\n';
+            std::cout << "Last output:\n";
+            for (const Check& snapshotCheck : entry.lastSnapshot) {
+                std::cout << snapshotCheck.text << '\n';
+            }
         }
     }
     std::cout.flush();
