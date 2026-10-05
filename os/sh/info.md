@@ -22,10 +22,14 @@ pushes with force-with-lease; it does not synchronize files.
 ## Shared files
 
 Each module-root `s` finds its superproject through Git and copies existing
-AGENTS.md/.gitignore into its own root, independent of the caller's directory.
+AGENTS.md/.gitignore/platform.cmake into its own root, independent of the caller's directory.
 Standalone clones do nothing; missing sources preserve module files. Copying
 replaces the whole file, overwriting module-specific edits. Temporary-file rename
 breaks hard/symbolic links; equal independent files are not rewritten. An error
 stops the caller but does not roll back earlier replacements.
 
 These are script integrations, not Git hooks: plain Git commands bypass them.
+
+Each project includes its root `platform.cmake`. Keep the parent copy authoritative;
+module copies are committed with the modules so standalone clones retain platform
+and executable output selection without the parent checkout.

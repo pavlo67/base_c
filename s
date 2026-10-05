@@ -14,7 +14,7 @@ if [ -z "$parent_directory" ]; then
     exit 0
 fi
 
-for name in AGENTS.md .gitignore; do
+for name in AGENTS.md .gitignore platform.cmake; do
     source_file="$parent_directory/$name"
     target_file="$script_directory/$name"
     if [ ! -f "$source_file" ]; then

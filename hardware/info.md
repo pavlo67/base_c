@@ -29,6 +29,11 @@ does not guarantee LOW. Actual frequency/duty can be quantized.
 
 ## Backend selection
 
+[platform.cmake](../platform.cmake) owns platform detection and `BIN_BASE_DIR`
+selection without loading GPIO libraries. Each project includes its own root
+copy; [Git scripts](../os/sh/info.md) synchronize copies from the parent.
+`BIN_BASE_DIR` is `/` for Pi/CM4/5 and `${CMAKE_SOURCE_DIR}` for desktop.
+
 `BASE_GPIO_PLATFORM` accepts AUTO, RPI4, RPI5, "RPI CM4", "RPI CM5", DESKTOP.
 AUTO detects Pi/CM on native ARM, otherwise desktop. Unrecognized ARM/cross-builds
 need explicit selection. CM4 maps to RPI4, CM5 to RPI5. Missing native libraries
