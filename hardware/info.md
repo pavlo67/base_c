@@ -49,7 +49,7 @@ installing that library does not require running its daemon.
 
 ## Configuration and checks
 
-Hardware probes/tests use `loadPlatformMotorConfig()` through `stepper_platform`:
+Motor probes/tests and `gpio_test` use `loadPlatformMotorConfig()` through `stepper_platform`:
 [complete two-axis schema](stepper_motor/info.md#platform-configuration).
 Even pan-only probes validate both axes before GPIO. `HARDWARE_CONFIG_PATH` in
 the relevant main selects the file; relative paths use the launch directory.
@@ -59,5 +59,12 @@ Configure actual wiring rather than relying on example pin assignments.
 INPUT during cleanup; it does not restore pre-test modes/levels. PWM conflict cases
 also use fixed pins (12/18 on RPI4/desktop, 14/18 on RPI5, plus 13 and 17).
 Thus Raspberry Pi runs exercise real hardware and require routing/access permissions.
-`pwm_sysfs_test` uses temporary files. `gpio_probe` blinks configured pan STEP/DIR/ENA
-and cleans up. Desktop assertions establish API behavior, not waveform correctness.
+`pwm_sysfs_test` uses temporary files. `gpio_probe` takes one or more BCM pin numbers
+from CLI via cxxopts, e.g. `sudo ./gpio_probe 3 5 11`, without reading configuration.
+`--help` prints usage without initializing GPIO. The previous manual parser is
+preserved in `gpio/_probes/gpio_probe0.cpp` for comparison and is not a build target.
+The probe validates all pins as integers in 0..27 before initializing GPIO, then visits
+pins in argument order (including duplicates): five pulses each, 500 ms HIGH / 500 ms
+LOW, followed by INPUT cleanup. It terminates the shared backend before exiting;
+previous pin modes/levels are not restored. Missing/invalid arguments fail before GPIO
+access. Desktop assertions establish API behavior, not waveform correctness.
