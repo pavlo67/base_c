@@ -24,6 +24,7 @@ if(SYSTEM STREQUAL "AUTO")
     endif()
 endif()
 
+
 # Compute Modules use the GPIO implementation of the corresponding Pi generation.
 set(GPIO_BOARD_PLATFORM "${SYSTEM}")
 if(SYSTEM STREQUAL "RPI CM4")
