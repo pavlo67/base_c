@@ -49,7 +49,7 @@ protected:
     void TearDown() override { ASSERT_EQ(Gpio::instance().terminate(), Gpio::SUCCESS); }
 };
 
-TEST_F(StepperMotorDumbTest, StopsWithinToleranceThenWaitsBeforeDisablingMotor) {
+TEST_F(StepperMotorDumbTest, StopsWithinToleranceThenWaitsBeforeCompletion) {
     printf("[DMB] Start fixed PWM, stop near target, then finish pause\n");
     StepperMotorDumb motor(dumbConfig(), 500, 15 * MILLISECOND, 3);
     std::array<bool, Gpio::PIN_COUNT> usedPins{};
@@ -71,10 +71,10 @@ TEST_F(StepperMotorDumbTest, StopsWithinToleranceThenWaitsBeforeDisablingMotor) 
     ASSERT_FALSE(pwm.enabled);
     ASSERT_GE(motor.result().seq.front().pulsesCount_, 397U);
     ASSERT_LE(motor.result().seq.front().pulsesCount_, 400U);
-    ASSERT_EQ(Gpio::instance().read(3), 0);
+    ASSERT_EQ(Gpio::instance().read(3), Gpio::WRONG_MODE);
     ASSERT_EQ(motor.action(last + 10 * MILLISECOND), StepperMotor::RUNNING);
     ASSERT_EQ(motor.action(last + 15 * MILLISECOND), StepperMotor::COMPLETE);
-    ASSERT_EQ(Gpio::instance().read(3), 1);
+    ASSERT_EQ(Gpio::instance().read(3), Gpio::WRONG_MODE);
 }
 
 TEST_F(StepperMotorDumbTest, ProbeUsesFixedSpeedPlanner) {

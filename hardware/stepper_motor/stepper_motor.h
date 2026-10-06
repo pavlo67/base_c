@@ -42,7 +42,6 @@ protected:
     int initialize(moment at);
     StepperMotorRunConfig config_;
     StepperMotorSeriesSequence sequence_;
-    bool enableConfigured_ = false;
     bool stepConfigured_ = false;
     bool directionConfigured_ = false;
     bool initialized_ = false;

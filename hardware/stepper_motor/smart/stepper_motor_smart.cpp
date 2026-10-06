@@ -56,10 +56,11 @@ const std::string ON_STEPPER_ACTION = "[StepperMotorSmart.action()]";
 
 int StepperMotorSmart::action(moment at) {
     if (status_ != RUNNING) { return status_; }
-    const auto fail = [&](int code) {
+    const auto fail = [&](int code, const char* reason) {
         status_ = code;
-        sequence_.error = "execution failed: " + std::to_string(code);
-        printf("%s ERROR: GPIO operation or motor configuration failed: %d\n", ON_STEPPER_ACTION.c_str(), code);
+        sequence_.error = std::string(reason) + " (code " + std::to_string(code) + ")";
+        printf("%s ERROR: STEP=%u series=%zu: %s (code %d)\n",
+            ON_STEPPER_ACTION.c_str(), config_.pinStep_, index_, reason, code);
         (void)stop();
         return status_;
     };
@@ -107,11 +108,11 @@ int StepperMotorSmart::action(moment at) {
         }
         if (interval == 0 || threshold) {
             if (interval == 0 && series.intervalIndex_ < series.expectedPulsesCount_) {
-                return fail(Gpio::INVALID_ARGUMENT); // Unrepresentable period, not normal completion.
+                return fail(Gpio::INVALID_ARGUMENT, "unrepresentable PWM period before series completion");
             }
             series.finished_ = true;
             int code = gpio.setEnabled(config_.pinStep_, false);
-            if (code < 0) { return fail(code); }
+            if (code < 0) { return fail(code, "cannot stop STEP PWM"); }
             frequency_ = 0;
             ++index_;
             if (index_ == sequence_.seq.size()) {
@@ -128,7 +129,7 @@ int StepperMotorSmart::action(moment at) {
                 auto model = getBrakingModel((completed.directionForward_ ? 1.0F : -1.0F) *
                     config_.options_.degPulse * SECOND / completed.activeInterval_, targetSpeed,
                     modelInterval, config_.options_, braking.intervalAlgorithm_);
-                if (remaining && model.brakingModel_.empty()) { return fail(Gpio::INVALID_ARGUMENT); }
+                if (remaining && model.brakingModel_.empty()) { return fail(Gpio::INVALID_ARGUMENT, "cannot construct braking model"); }
                 if (remaining) {
                     // Fit the frozen pulse profile to the remaining integer distance.
                     // No slow final-period completion tail is needed.
@@ -146,7 +147,7 @@ int StepperMotorSmart::action(moment at) {
             next.initialPulseInterval_ = completed.lastInterval_;
             phaseStartedAt_ = at;
             code = gpio.write(config_.pinDir_, next.directionForward_ ? 1 : 0);
-            if (code < 0) { return fail(code); }
+            if (code < 0) { return fail(code, "cannot set DIR"); }
             if (completed.directionForward_ != next.directionForward_) {
                 readyAt_ = at + config_.pulseHigh_;
                 return RUNNING;
@@ -157,13 +158,13 @@ int StepperMotorSmart::action(moment at) {
         // 50% duty keeps both HIGH and LOW at least pulseHigh long.
         if (frequency == 0 || frequency > 10000 ||
                 static_cast<double>(frequency) * config_.pulseHigh_ > static_cast<double>(SECOND) / 2) {
-            return fail(Gpio::INVALID_ARGUMENT);
+            return fail(Gpio::INVALID_ARGUMENT, "PWM frequency or pulse width is out of range");
         }
         if (frequency != frequency_) {
             int code = gpio.setFrequency(config_.pinStep_, frequency);
             if (code >= 0 && frequency_ == 0) { code = gpio.setDuty(config_.pinStep_, 20000); }
             if (code >= 0 && frequency_ == 0) { code = gpio.setEnabled(config_.pinStep_, true); }
-            if (code < 0) { return fail(code); }
+            if (code < 0) { return fail(code, "cannot apply STEP PWM"); }
             frequency_ = frequency;
         }
         return RUNNING;

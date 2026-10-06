@@ -23,7 +23,8 @@ StepperMotorSeries::StepperMotorSeries(
     }
 
     const float distanceDeg = static_cast<float>(pulsesCount) * stepperOpts.degPulse;
-    accelerationDegPerSec2_ = distanceDeg > 0.0F
+    // Equal endpoints are cruise, even if fused arithmetic would leave a rounding residual.
+    accelerationDegPerSec2_ = distanceDeg > 0.0F && lastSpeedDegPerSec != firstSpeedDegPerSec
                             ? (lastSpeedDegPerSec * lastSpeedDegPerSec - initialSpeedDegPerSec_ * initialSpeedDegPerSec_) / (2.0F * distanceDeg)
                             : 0.0F;
 

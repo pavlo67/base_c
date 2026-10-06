@@ -6,7 +6,7 @@
 
 namespace {
     constexpr const char* HARDWARE_CONFIG_PATH = "machina.yaml";
-    std::array<unsigned, 3> GPIO_TEST_PINS{};
+    std::array<unsigned, 2> GPIO_TEST_PINS{};
     unsigned PIN = 0;
     unsigned OTHER = 0;
 }
@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
     std::array<StepperMotorRunConfig, 2> motors;
     if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
     const auto& pan = motors[0];
-    GPIO_TEST_PINS = {pan.pinStep_, pan.pinDir_, pan.pinEna_};
+    GPIO_TEST_PINS = {pan.pinStep_, pan.pinDir_};
     PIN = pan.pinStep_;
     OTHER = pan.pinDir_;
     return RUN_ALL_TESTS();

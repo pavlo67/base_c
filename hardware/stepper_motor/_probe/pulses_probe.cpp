@@ -58,8 +58,6 @@ int main(int argc, char** argv) {
     int result = 0;
     int code = gpio.setMode(pan.pinStep_, GpioMode::output);
     if (code >= 0) { code = gpio.setMode(pan.pinDir_, GpioMode::output); }
-    if (code >= 0) { code = gpio.setMode(pan.pinEna_, GpioMode::output); }
-    if (code >= 0) { code = gpio.write(pan.pinEna_, 0); }
     if (code < 0) {
         printf("[main()] ERROR: GPIO setup failed: %d\n", code);
         result = 1;
@@ -75,7 +73,6 @@ int main(int argc, char** argv) {
         }
     }
     if (gpio.write(pan.pinStep_, 0) < 0) { result = 1; }
-    if (gpio.write(pan.pinEna_, 1) < 0) { result = 1; }
     if (gpio.write(pan.pinDir_, 0) < 0) { result = 1; }
     if (gpio.terminate() < 0) { result = 1; }
     return result;

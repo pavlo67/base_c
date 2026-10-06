@@ -20,11 +20,6 @@ int StepperMotor::stop() {
         result = gpio.setEnabled(config_.pinStep_, false);
         if (result >= 0) { stepConfigured_ = false; }
     }
-    if (enableConfigured_) {
-        const int cleanup = gpio.write(config_.pinEna_, 1);
-        if (cleanup >= 0) { enableConfigured_ = false; }
-        if (result >= 0) { result = cleanup; }
-    }
     if (directionConfigured_) {
         const int cleanup = gpio.write(config_.pinDir_, 0);
         if (cleanup >= 0) { directionConfigured_ = false; }
@@ -84,13 +79,8 @@ int StepperMotor::initialize(moment at) {
         const int channel = gpio.hardwarePwmChannel(config_.pinStep_);
         if (channel < 0) { return fail(channel); }
     }
-    int code = gpio.setMode(config_.pinEna_, GpioMode::output);
-    enableConfigured_ = code >= 0;
-    if (code >= 0) { code = gpio.write(config_.pinEna_, 1); }
-    if (code >= 0) {
-        code = gpio.setMode(config_.pinStep_, config_.hardwarePwm_ ? GpioMode::hardwarePwm : GpioMode::output);
-        stepConfigured_ = code >= 0;
-    }
+    int code = gpio.setMode(config_.pinStep_, config_.hardwarePwm_ ? GpioMode::hardwarePwm : GpioMode::output);
+    stepConfigured_ = code >= 0;
     if (code >= 0) { code = gpio.setEnabled(config_.pinStep_, false); }
     if (code >= 0) { code = gpio.setDuty(config_.pinStep_, 0); }
     if (code >= 0) { code = gpio.setRange(config_.pinStep_, 40000); }
@@ -99,7 +89,6 @@ int StepperMotor::initialize(moment at) {
         directionConfigured_ = code >= 0;
     }
     if (code >= 0) { code = gpio.write(config_.pinDir_, sequence_.seq.front().directionForward_ ? 1 : 0); }
-    if (code >= 0) { code = gpio.write(config_.pinEna_, 0); }
     if (code < 0) { return fail(code); }
     initialized_ = true;
     phaseStartedAt_ = at;

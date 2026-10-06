@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <thread>
 
 #include "lib/mathlib.h"
 
@@ -68,7 +69,7 @@ protected:
 TEST_F(StepperMotorTest, separateMotorPinsAndCleanup) {
     auto& gpio = Gpio::instance();
     const stepper_motor_options_t options{10000, 0.1F, 100, 1000};
-    for (const unsigned pin : otherPins_) {
+    for (const unsigned pin : {otherPins_[0], otherPins_[1]}) {
         ASSERT_EQ(gpio.setMode(pin, GpioMode::output), Gpio::SUCCESS);
         ASSERT_EQ(gpio.write(pin, 1), Gpio::SUCCESS);
     }
@@ -78,15 +79,15 @@ TEST_F(StepperMotorTest, separateMotorPinsAndCleanup) {
     ASSERT_EQ(StepperMotorSmart(config).probe(0.1F, false), Gpio::SUCCESS);
     ASSERT_EQ(gpio.read(pinStep_), 0);
     ASSERT_EQ(gpio.read(pinDir_), 0);
-    ASSERT_EQ(gpio.read(pinEna_), 1);
-    for (const unsigned pin : otherPins_) { ASSERT_EQ(gpio.read(pin), 1); }
+    ASSERT_EQ(gpio.read(pinEna_), Gpio::WRONG_MODE);
+    for (const unsigned pin : {otherPins_[0], otherPins_[1]}) { ASSERT_EQ(gpio.read(pin), 1); }
     printf("[motor-test] Run second motor\n");
     config.pinStep_ = otherPins_[0]; config.pinDir_ = otherPins_[1]; config.pinEna_ = otherPins_[2];
     ASSERT_EQ(StepperMotorSmart(config).probe(0.1F, false), Gpio::SUCCESS);
     ASSERT_EQ(gpio.read(otherPins_[0]), 0);
     ASSERT_EQ(gpio.read(otherPins_[1]), 0);
-    ASSERT_EQ(gpio.read(otherPins_[2]), 1);
-    ASSERT_EQ(gpio.read(pinEna_), 1);
+    ASSERT_EQ(gpio.read(otherPins_[2]), Gpio::WRONG_MODE);
+    ASSERT_EQ(gpio.read(pinEna_), Gpio::WRONG_MODE);
 }
 
 TEST_F(StepperMotorTest, rejectsInvalidPinsAndReportsUninitializedBackend) {
@@ -130,7 +131,7 @@ TEST_F(StepperMotorTest, externalTicksDrivePwmAndCompletionWithoutReplay) {
     ASSERT_NEAR(motor.result().seq[0].totalSec(), 0.301, 1e-6);
     ASSERT_EQ(Gpio::instance().getPwmSettings(pinStep_, pwm), Gpio::SUCCESS);
     ASSERT_FALSE(pwm.enabled);
-    ASSERT_EQ(Gpio::instance().read(pinEna_), 1);
+    ASSERT_EQ(Gpio::instance().read(pinEna_), Gpio::WRONG_MODE);
 }
 
 TEST_F(StepperMotorTest, delayedUpdatesCountElapsedPwmPeriods) {
@@ -164,7 +165,7 @@ TEST_F(StepperMotorTest, hardwarePwmModeAndDestructorCleanup) {
     PwmSettings pwm;
     ASSERT_EQ(Gpio::instance().getPwmSettings(18, pwm), Gpio::SUCCESS);
     ASSERT_FALSE(pwm.enabled);
-    ASSERT_EQ(Gpio::instance().read(3), 1);
+    ASSERT_EQ(Gpio::instance().read(3), Gpio::WRONG_MODE);
     StepperMotorSmart invalid(plan, 17, 2, 3, options, MICROSECOND, true);
     ASSERT_EQ(invalid.action(0), Gpio::NOT_SUPPORTED);
 }
@@ -178,7 +179,7 @@ TEST_F(StepperMotorTest, watchdogStopsPwmBeforeNextLongTick) {
     PwmSettings pwm;
     ASSERT_EQ(Gpio::instance().getPwmSettings(pinStep_, pwm), Gpio::SUCCESS);
     ASSERT_FALSE(pwm.enabled);
-    ASSERT_EQ(Gpio::instance().read(pinEna_), 1);
+    ASSERT_EQ(Gpio::instance().read(pinEna_), Gpio::WRONG_MODE);
     config.expecterInterval_ = SECOND;
     config.timeLimit_ = MILLISECOND;
     ASSERT_EQ(StepperMotorSmart(config).probe(100, false), StepperMotor::TIME_LIMIT);
@@ -191,13 +192,13 @@ TEST_F(StepperMotorTest, invalidPeriodAndPulseWidthAreErrorsWithCleanup) {
     StepperMotorSmart slow(plan, pinStep_, pinDir_, pinEna_, options, MICROSECOND);
     ASSERT_EQ(slow.action(0), StepperMotor::RUNNING);
     ASSERT_EQ(slow.action(MILLISECOND), Gpio::INVALID_ARGUMENT);
-    ASSERT_EQ(Gpio::instance().read(pinEna_), 1);
+    ASSERT_EQ(Gpio::instance().read(pinEna_), Gpio::WRONG_MODE);
     plan.seq.clear();
     plan.seq.emplace_back(1, 100, 100, true, options);
     StepperMotorSmart wide(plan, pinStep_, pinDir_, pinEna_, options, 10 * MILLISECOND);
     ASSERT_EQ(wide.action(0), StepperMotor::RUNNING);
     ASSERT_EQ(wide.action(20 * MILLISECOND), Gpio::INVALID_ARGUMENT);
-    ASSERT_EQ(Gpio::instance().read(pinEna_), 1);
+    ASSERT_EQ(Gpio::instance().read(pinEna_), Gpio::WRONG_MODE);
 }
 
 TEST_F(StepperMotorTest, runReturnsRuntimeStatisticsAndQuantizedFrequency) {
@@ -283,7 +284,7 @@ TEST_F(StepperMotorTest, probeWithEstimatesPreservesSharedGpioAndRunsSignedReque
         ASSERT_NE(output.find("[test] ideal TOTAL:"), std::string::npos);
         ASSERT_NE(output.find("[test] clocked TOTAL:"), std::string::npos);
         ASSERT_NE(output.find("[test] real TOTAL:"), std::string::npos);
-        ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), 1);
+        ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::WRONG_MODE);
         ASSERT_EQ(Gpio::instance().read(otherPins_[0]), 1);
     }
 }
@@ -295,21 +296,19 @@ TEST_F(StepperMotorTest, probeWithEstimatesValidatesBeforePlanningAndCleansUpTim
         .options_ = STEPPER_OPTS, .expecterInterval_ = 5 * MILLISECOND,
         .pulseHigh_ = 15 * MICROSECOND, .timeLimit_ = MILLISECOND
     };
-    ASSERT_EQ(Gpio::instance().setMode(cfg.pinEna_, GpioMode::output), Gpio::SUCCESS);
-    ASSERT_EQ(Gpio::instance().write(cfg.pinEna_, 1), Gpio::SUCCESS);
     StepperMotorSeriesSequence real;
     ASSERT_EQ(StepperMotorSmart(cfg).probe(0, true, "zero", &real), Gpio::SUCCESS);
     ASSERT_TRUE(real.seq.empty());
-    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), 1);
+    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::WRONG_MODE);
     cfg.options_.degPulse = 0;
     ASSERT_EQ(StepperMotorSmart(cfg).probe(0.5F, true, "invalid", &real), Gpio::INVALID_ARGUMENT);
     ASSERT_FALSE(real.error.empty());
-    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), 1);
+    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::WRONG_MODE);
     cfg.options_ = STEPPER_OPTS;
     ASSERT_EQ(StepperMotorSmart(cfg).probe(0.5F, true, "timeout", &real), StepperMotor::TIME_LIMIT);
     ASSERT_FALSE(real.error.empty());
     ASSERT_FALSE(real.seq.empty());
-    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), 1);
+    ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::WRONG_MODE);
 }
 
 TEST_F(StepperMotorTest, probeWithoutEstimatesReportsOnlyTheExecutedMove) {
@@ -494,5 +493,44 @@ TEST_F(StepperMotorTest, exhaustedBrakingBudgetSkipsTailAfterLargeDelay) {
     ASSERT_TRUE(motor.result().error.empty());
     // The 100-ms observation gap spans two natural terminal PWM periods.
     ASSERT_EQ(motor.result().seq.back().pulsesCount_, 2U);
+}
+
+TEST_F(StepperMotorTest, configuredPlatformPairCompletesWithoutClaimingEnablePins) {
+    printf("[PAIR] Load configured mechanics and execute 10/5 degrees through prepare/update\n");
+    StepperMotorProbeConfig probe;
+    ASSERT_TRUE(loadStepperMotorProbeConfig(Config("machina.yaml"), probe));
+    for (const float direction : {1.0F, -1.0F}) {
+        std::array<StepperMotorSmart, 2> motors{
+            StepperMotorSmart(probe.motors_[0]), StepperMotorSmart(probe.motors_[1])};
+        std::array<bool, Gpio::PIN_COUNT> usedPins{};
+        std::array<int, 2> statuses{};
+        for (size_t axis = 0; axis < motors.size(); ++axis) {
+            statuses[axis] = motors[axis].prepare(direction * (axis == 0 ? 10.0F : 5.0F), usedPins);
+            ASSERT_EQ(statuses[axis], StepperMotor::RUNNING);
+        }
+        for (;;) {
+            bool active = false;
+            auto wake = Clock::time_point::max();
+            for (size_t axis = 0; axis < motors.size(); ++axis) {
+                if (statuses[axis] == StepperMotor::RUNNING) {
+                    statuses[axis] = motors[axis].update();
+                    ASSERT_GE(statuses[axis], 0) << "axis=" << axis << " " << motors[axis].result().error;
+                }
+                PwmSettings untouched;
+                ASSERT_EQ(Gpio::instance().getPwmSettings(probe.motors_[axis].pinEna_, untouched), Gpio::WRONG_MODE);
+                if (statuses[axis] == StepperMotor::RUNNING) {
+                    active = true;
+                    wake = std::min(wake, motors[axis].nextWake());
+                }
+            }
+            if (!active) { break; }
+            std::this_thread::sleep_until(wake);
+        }
+        for (size_t axis = 0; axis < motors.size(); ++axis) {
+            ASSERT_EQ(statuses[axis], StepperMotor::COMPLETE);
+            ASSERT_TRUE(motors[axis].result().error.empty());
+            ASSERT_EQ(motors[axis].stop(), Gpio::SUCCESS);
+        }
+    }
 }
 #endif
