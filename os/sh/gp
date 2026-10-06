@@ -69,6 +69,17 @@ gp_validate_modules() (
 repository=$(git rev-parse --show-toplevel)
 cd "$repository"
 gp_validate_modules "$repository"
+# Remember active branches before pull/update detaches submodule HEADs.
+gp_branch_state=$(mktemp -d)
+export gp_branch_state
+trap 'rm -rf -- "$gp_branch_state"' EXIT
+git submodule foreach --quiet --recursive '
+    key=$(git rev-parse --absolute-git-dir | git hash-object --stdin) || exit $?
+    git symbolic-ref --quiet --short HEAD > "$gp_branch_state/$key" || {
+        status=$?
+        [ "$status" -eq 1 ] || exit "$status"
+    }
+'
 # Validate the pulled index before Git attempts any recursive submodule fetch.
 git -c fetch.recurseSubmodules=false pull --no-recurse-submodules origin "$(git branch --show-current)"
 gp_validate_modules "$repository"
@@ -78,6 +89,24 @@ if ! git submodule update --init --recursive; then
 fi
 gp_validate_modules "$repository"
 git submodule foreach --recursive '
+    # Restore the previous branch only when it can reach the recorded commit
+    # by fast-forward; never discard local commits or merge beyond that commit.
+    key=$(git rev-parse --absolute-git-dir | git hash-object --stdin) || exit $?
+    previous_branch=
+    if [ -s "$gp_branch_state/$key" ]; then
+        IFS= read -r previous_branch < "$gp_branch_state/$key" || exit $?
+    fi
+    if [ -n "$previous_branch" ]; then
+        target=$(git rev-parse HEAD) || exit $?
+        if ! git merge-base --is-ancestor "refs/heads/$previous_branch" "$target"; then
+            printf "[gp()] ERROR: Cannot fast-forward %s branch %s to recorded commit %s; branch preserved, resolve the history difference manually.\n" "$displaypath" "$previous_branch" "$target"
+            exit 1
+        fi
+        git checkout "$previous_branch" || exit $?
+        git merge --ff-only "$target" || exit $?
+        exit 0
+    fi
+
     # Keep the exact commit recorded by the parent repository.
     branch=$(git for-each-ref --format="%(refname:short)" --points-at HEAD refs/heads/ | head -1)
     if [ -n "$branch" ]; then
