@@ -7,9 +7,9 @@
 
 ### Один
 
-    $ cmake --build cmake-build-release --target machina_control_test
+    $ cmake --build _build --target machina_control_test
     $ ./_bin/machina_control_test
 
 ### Один в CTest-режимі
 
-    $ ctest --test-dir cmake-build-release -R '^machina_control_test$' --output-on-failure
+    $ ctest --test-dir _build -R '^machina_control_test$' --output-on-failure

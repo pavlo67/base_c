@@ -1,3 +1,5 @@
+# lib_server_http --------------------------------------------------------------------
+
 add_library(lib_server_http
         server/cpp-httplib/http.cpp
         server/server.cpp
@@ -5,11 +7,15 @@ add_library(lib_server_http
 target_link_libraries(lib_server_http PUBLIC httplib::httplib Threads::Threads)
 target_include_directories(lib_server_http PUBLIC ${CMAKE_SOURCE_DIR})
 
+# server_http_hello ------------------------------------------------------------------
+
 add_executable(server_http_hello
         server/cpp-httplib/_example/hello.cpp
         server/server.cpp
 )
 target_link_libraries(server_http_hello PRIVATE lib_server_http)
+
+# server_http_test -------------------------------------------------------------------
 
 add_executable(server_http_test
         server/cpp-httplib/http_test.cpp
@@ -19,6 +25,8 @@ set_target_properties(server_http_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:
 target_link_libraries(server_http_test PRIVATE lib_server_http GTest::gtest_main)
 add_test(NAME http_test COMMAND server_http_test)
 
+# lib_server_http_mngs ---------------------------------------------------------------
+
 add_library(lib_server_http_mngs
         server/mongoose/mngs.cpp
         server/server.cpp
@@ -26,11 +34,15 @@ add_library(lib_server_http_mngs
 target_link_libraries(lib_server_http_mngs PUBLIC mongoose Threads::Threads)
 target_include_directories(lib_server_http_mngs PUBLIC ${CMAKE_SOURCE_DIR})
 
+# server_http_mngs_hello -------------------------------------------------------------
+
 add_executable(server_http_mngs_hello
         server/mongoose/_example/hello.cpp
         server/server.cpp
 )
 target_link_libraries(server_http_mngs_hello PRIVATE lib_server_http_mngs)
+
+# server_http_mngs_test --------------------------------------------------------------
 
 add_executable(server_http_mngs_test
         server/mongoose/mngs_test.cpp
@@ -39,3 +51,15 @@ add_executable(server_http_mngs_test
 set_target_properties(server_http_mngs_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_test>")
 target_link_libraries(server_http_mngs_test PRIVATE lib_server_http_mngs GTest::gtest_main)
 add_test(NAME server_http_mngs_test COMMAND server_http_mngs_test)
+
+# joiner_test ------------------------------------------------------------------------
+
+add_executable(joiner_test
+        joiner/joiner_test.cpp
+)
+
+target_link_libraries(joiner_test PRIVATE GTest::gtest_main)
+add_test(NAME joiner_test COMMAND joiner_test)
+
+#include(GoogleTest)
+#gtest_discover_tests(joiner_test)

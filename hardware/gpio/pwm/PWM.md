@@ -200,8 +200,8 @@ ls -l /sys/class/pwm/
 - Існуючий `gpio_test` залишається перевіркою цифрового OUTPUT на pan-пінax, заданих у YAML-конфігурації. На Raspberry Pi він використовує реальні піни; нові тести вище — ні.
 
 ```sh
-cmake --build base/cmake-build-release --target gpio_contract_test pwm_sysfs_test
-ctest --test-dir base/cmake-build-release -R '^(gpio_contract_test|pwm_sysfs_test)$' --output-on-failure
+cmake --build base/_build --target gpio_contract_test pwm_sysfs_test
+ctest --test-dir base/_build -R '^(gpio_contract_test|pwm_sysfs_test)$' --output-on-failure
 ```
 
 Заглушка не симулює PWM-фронтів і не є підтвердженням фізичної частоти чи duty. Перевірка заголовків компілятором також не замінює запуск на RPI4/RPI5. Оригінальний `gpio/_probes/gpio_probe.cpp` залишено цифровим пробником із блиманням; цей документ не змінює його сценарій.
