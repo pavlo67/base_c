@@ -96,7 +96,7 @@ Wrap all single-statement `if`/`for`/`while` bodies in curly braces, for example
 
 Там же лежать аналогічні файли-приклади: machina.yaml_example (приклади зберігаються в репо, конфіги — ні).
 
-Зчитування секцій конфігу робиться відповідними хелперами, як то: mod_base/hardware/stepper_motor_config::loadPlatformMotorConfig()
+Зчитування секцій конфігу робиться відповідними хелперами, як то: base/hardware/stepper_motor_config::loadPlatformMotorConfig()
 
 В застосунках, пробниках і тестах шлях до конфігу вказується відносний: "machina.yaml" (конфіг з каталогу запуску), самі 
 конфіги не слід при цьому копіювати в каталог, де знаходяться відповідні програмні коди.
