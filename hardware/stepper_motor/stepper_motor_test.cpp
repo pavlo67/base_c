@@ -8,14 +8,16 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <numbers>
 
 #include "lib/mathlib.h"
 
-const stepper_motor_options_t STEPPER_OPTS {
+stepper_motor_options_t STEPPER_OPTS {
     .freqMax         = 8000,
     .degPulse        = 0.225F,
     .speedMaxDegSec  = 180.0F,
-    .accelMaxDegSec2 = 720.0F
+    .accelMaxDegSec2 = 720.0F,
+    .mechanics_ = {1, 1, 0, 1, 720 * std::numbers::pi / 180}
 };
 
 const float INITIAL_SPEED     =  0.0F;
@@ -32,8 +34,13 @@ int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
     printf("[MOT] Load pan hardware from %s\n", HARDWARE_CONFIG_PATH);
     std::array<StepperMotorRunConfig, 2> motors;
-    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
+    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return EXIT_FAILURE; }
     testPanHardware = motors[0];
+    std::string optionsError;
+    if (!stepperMotorOptionsOk(STEPPER_OPTS, optionsError)) {
+        printf("[main()] ERROR: %s\n", optionsError.c_str());
+        return EXIT_FAILURE;
+    }
     return RUN_ALL_TESTS();
 }
 
@@ -50,7 +57,7 @@ void testSeries(const StepperMotorSeries& series, float totalRotationDegExpected
         ASSERT_NEAR(series.idealFinalSpeed(stepperOpts), finalSpeedDegPerSecExpected, std::max(SPEED_EPS, std::abs(finalSpeedDegPerSecExpected) * RESULT_EPS_RATIO));
     }
     if (!isnanf(totalRotationDegExpected)) {
-        ASSERT_NEAR(series.expectedRotationDeg(stepperOpts), totalRotationDegExpected, std::max(stepperOpts.degPulse, totalRotationDegExpected * RESULT_EPS_RATIO));
+        ASSERT_NEAR(series.expectedRotationDeg(stepperOpts), totalRotationDegExpected, std::max(stepperOpts.degPulseGeared, totalRotationDegExpected * RESULT_EPS_RATIO));
     }
 
     if (series.expectedPulsesCount_ > 1) {
@@ -73,7 +80,7 @@ void testSeries(const StepperMotorSeries& series, float totalRotationDegExpected
 
     float speed         = series.initialSpeedDegPerSec_;
     float accelErrorMax = 0;
-    float intervalPrev  = series.initialSpeedDegPerSec_ < EPS ? 0 :  STEPPER_OPTS.degPulse / series.initialSpeedDegPerSec_;
+    float intervalPrev  = series.initialSpeedDegPerSec_ < EPS ? 0 :  STEPPER_OPTS.degPulseGeared / series.initialSpeedDegPerSec_;
 
     StepperMotorSeries executing = series;
     executing.reset();
@@ -81,9 +88,9 @@ void testSeries(const StepperMotorSeries& series, float totalRotationDegExpected
     for (uint64_t pulseIndex = 0; pulseIndex < series.expectedPulsesCount_; ++pulseIndex) {
         const float intervalSec = executing.intervalSec(at, STEPPER_OPTS);
         at = executing.nextPulseAt_;
-        const float nextSpeed   = 2.0F * STEPPER_OPTS.degPulse / intervalSec - speed;
+        const float nextSpeed   = 2.0F * STEPPER_OPTS.degPulseGeared / intervalSec - speed;
         const float accel       = std::abs(intervalSec - intervalPrev) <= EPS ? 0
-                                : (nextSpeed * nextSpeed - speed * speed) / (2.0F * STEPPER_OPTS.degPulse);
+                                : (nextSpeed * nextSpeed - speed * speed) / (2.0F * STEPPER_OPTS.degPulseGeared);
 
         // printf("intervalSec: %f, speed: %f, nextSpeed: %f, accel: %f, accelerationDegPerSec2_: %f, accelErrorMax: %f\n", interval, speed, nextSpeed, accel, series.accelerationDegPerSec2_, accelErrorMax);
 
@@ -102,8 +109,8 @@ void testSeries(const StepperMotorSeries& series, float totalRotationDegExpected
 }
 
 void testResult(float calculatedTotalRotationDeg) {
-    ASSERT_NEAR(calculatedTotalRotationDeg, TARGET_CHANGE_DEG, std::max(STEPPER_OPTS.degPulse, TARGET_CHANGE_DEG * RESULT_EPS_RATIO));
-    printf("\nRESULT!!! calculatedTotalRotationDeg: %f, TARGET_CHANGE_DEG: %f, STEPPER_OPTS.degreesPerPulse: %f\n\n", calculatedTotalRotationDeg, TARGET_CHANGE_DEG, STEPPER_OPTS.degPulse);
+    ASSERT_NEAR(calculatedTotalRotationDeg, TARGET_CHANGE_DEG, std::max(STEPPER_OPTS.degPulseGeared, TARGET_CHANGE_DEG * RESULT_EPS_RATIO));
+    printf("\nRESULT!!! calculatedTotalRotationDeg: %f, TARGET_CHANGE_DEG: %f, STEPPER_OPTS.degreesPerPulse: %f\n\n", calculatedTotalRotationDeg, TARGET_CHANGE_DEG, STEPPER_OPTS.degPulseGeared);
 }
 
 TEST(stepper_motor_test, stepper_motor_test) {
@@ -141,7 +148,10 @@ TEST(stepper_motor_test, stepper_motor_test) {
 }
 
 TEST(stepper_motor_timing, pwmUpdateWaitsForCurrentBoundary) {
-    const stepper_motor_options_t opts{1000, 1, 100, 100};
+    stepper_motor_options_t opts{1000, 1, 100, 100};
+    opts.mechanics_ = {1, 1, 0, 1, opts.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(opts, optionsError)) << optionsError;
     StepperMotorSeries series(10, 10, 20, true, opts);
     const moment start = 123 * SECOND;
     ASSERT_GT(series.intervalSec(start, opts), 0);
@@ -168,7 +178,10 @@ TEST(stepper_motor_timing, pwmUpdateWaitsForCurrentBoundary) {
 }
 
 TEST(stepper_motor_timing, lateTimerCountsEveryRepeatedPulse) {
-    const stepper_motor_options_t opts{1000, 1, 100, 100};
+    stepper_motor_options_t opts{1000, 1, 100, 100};
+    opts.mechanics_ = {1, 1, 0, 1, opts.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(opts, optionsError)) << optionsError;
     StepperMotorSeries series(4, 10, 10, true, opts);
     ASSERT_GT(series.intervalSec(0, opts), 0);
     const duration period = series.activeInterval_;
@@ -190,7 +203,7 @@ TEST(stepper_motor_timing, zeroTimerPreservesIdealIntervals) {
         const auto actual = evaluateSeries(plan, 0, STEPPER_OPTS);
         ASSERT_EQ(actual.pulsesCount_, plan.expectedPulsesCount_);
         ASSERT_NEAR(actual.totalSec(), plan.idealTotalSec(STEPPER_OPTS), 1e-6);
-        ASSERT_NEAR(actual.finalSpeed(STEPPER_OPTS), direction * STEPPER_OPTS.degPulse /
+        ASSERT_NEAR(actual.finalSpeed(STEPPER_OPTS), direction * STEPPER_OPTS.degPulseGeared /
             plan.idealIntervalSec(99, STEPPER_OPTS), 1e-3);
         ASSERT_EQ(actual.observedAt_, actual.lastPulseAt_);
         ASSERT_TRUE(actual.finished_);
@@ -283,7 +296,10 @@ TEST(stepper_motor_timing, replayMatchesEvaluatedSequence) {
 }
 
 TEST(stepper_motor_timing, delayedConstantSpeedSeriesKeepsPwmRunning) {
-    const stepper_motor_options_t opts{1000, 1, 100, 100};
+    stepper_motor_options_t opts{1000, 1, 100, 100};
+    opts.mechanics_ = {1, 1, 0, 1, opts.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(opts, optionsError)) << optionsError;
     const StepperMotorSeries plan(4, 10, 10, true, opts);
     const auto ideal = evaluateSeries(plan, 0, opts);
     const auto clocked = evaluateSeries(plan, SECOND, opts);
@@ -310,7 +326,10 @@ TEST(stepper_motor_timing, completesNinetyDegreesWithTwoHundredPulsesPerPhase) {
 }
 
 TEST(stepper_motor_timing, roundsHalfPulseUpInBothDirections) {
-    const stepper_motor_options_t opts{1000, 1, 100, 100};
+    stepper_motor_options_t opts{1000, 1, 100, 100};
+    opts.mechanics_ = {1, 1, 0, 1, opts.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(opts, optionsError)) << optionsError;
     for (const float direction : {1.0F, -1.0F}) {
         for (const duration timer : {duration(0), 5 * MILLISECOND}) {
             for (const float angle : {0.49F, 0.5F, 0.51F}) {
@@ -327,7 +346,7 @@ TEST(stepper_motor_timing, roundsHalfPulseUpInBothDirections) {
 TEST(stepper_motor_timing, completesRemainingRoundedAngleAndReplaysCorrection) {
     for (const float direction : {1.0F, -1.0F}) {
         for (const float fraction : {0.49F, 0.5F, 0.51F}) {
-            const float angle = direction * ((400.0F + fraction) * STEPPER_OPTS.degPulse);
+            const float angle = direction * ((400.0F + fraction) * STEPPER_OPTS.degPulseGeared);
             StepperMotorSeriesSequence sequence;
             ASSERT_TRUE(addAcceleratedSeries(sequence, 0, angle, 5 * MILLISECOND, STEPPER_OPTS));
             uint64_t count = 0;
@@ -356,9 +375,9 @@ TEST(stepper_motor_timing, terminalIntervalUsesKinematicsWithoutAddingDisplaceme
             ASSERT_TRUE(sequence.error.empty());
             ASSERT_GE(sequence.seq.size(), 3);
             const auto& terminal = sequence.seq.back();
-            const double naturalPeriod = 2 * std::sqrt(STEPPER_OPTS.degPulse / STEPPER_OPTS.accelMaxDegSec2);
+            const double naturalPeriod = 2 * std::sqrt(STEPPER_OPTS.degPulseGeared / STEPPER_OPTS.accelMaxDegSec2);
             ASSERT_EQ(terminal.pulsesCount_, 1);
-            ASSERT_NEAR(terminal.finalSpeed(STEPPER_OPTS), direction * STEPPER_OPTS.degPulse / naturalPeriod, 1e-5);
+            ASSERT_NEAR(terminal.finalSpeed(STEPPER_OPTS), direction * STEPPER_OPTS.degPulseGeared / naturalPeriod, 1e-5);
             ASSERT_GE(terminal.totalSec() + 1e-7, naturalPeriod);
             ASSERT_LE(terminal.totalSec(), naturalPeriod + static_cast<double>(timer) / SECOND + 1e-7);
             uint64_t pulses = 0;
@@ -372,7 +391,10 @@ TEST(stepper_motor_timing, terminalIntervalUsesKinematicsWithoutAddingDisplaceme
 }
 
 TEST(stepper_motor_timing, slowSinglePulseIsNotShortenedAndNonzeroBaseIsPreserved) {
-    const stepper_motor_options_t slow{100, 1, 1, 1};
+    stepper_motor_options_t slow{100, 1, 1, 1};
+    slow.mechanics_ = {1, 1, 0, 1, slow.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(slow, optionsError)) << optionsError;
     const auto single = getSeriesSequence(0, 1, 0, 0, slow);
     ASSERT_TRUE(single.error.empty());
     ASSERT_EQ(single.seq.size(), 1);
@@ -407,7 +429,10 @@ TEST(stepper_motor_timing, quietLoggingGroupsBrakingAndKeepsAllTotals) {
 
 TEST(stepper_motor_timing, frozenBrakingSkipsCommandsByElapsedPulses) {
     printf("[MODEL] Delay updates and catch up by pulses, allowing stronger braking\n");
-    const stepper_motor_options_t options{10000, 0.1F, 100, 1000};
+    stepper_motor_options_t options{10000, 0.1F, 100, 1000};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     StepperMotorSeries braking(7, 100, 0, true, options);
     braking.livePwm_ = true;
     braking.brakingModel_ = {{0, MILLISECOND}, {3, 2 * MILLISECOND}, {5, 4 * MILLISECOND}};
@@ -430,7 +455,10 @@ TEST(stepper_motor_timing, frozenBrakingSkipsCommandsByElapsedPulses) {
 
 TEST(stepper_motor_timing, shortPlatformMovesHaveNoFixedTerminalDelay) {
     printf("[TERM] Check one/two pulses and quarter/one/two-degree moves\n");
-    const stepper_motor_options_t options{8000, 0.125F, 180, 11444.94F};
+    stepper_motor_options_t options{8000, 0.125F, 180, 11444.94F};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     for (const float angle : {0.125F, 0.25F, 1.F, 2.F, -0.125F, -0.25F, -1.F, -2.F}) {
         const auto sequence = getSeriesSequence(0, angle, 0, 0, options);
         ASSERT_TRUE(sequence.error.empty());
@@ -443,6 +471,6 @@ TEST(stepper_motor_timing, shortPlatformMovesHaveNoFixedTerminalDelay) {
         ASSERT_NEAR(rotation, angle, 1e-6);
         ASSERT_GT(elapsed, 0);
         ASSERT_LT(elapsed, 0.05);
-        ASSERT_NEAR(sequence.seq.back().totalSec(), 2 * std::sqrt(options.degPulse / options.accelMaxDegSec2), 1e-7);
+        ASSERT_NEAR(sequence.seq.back().totalSec(), 2 * std::sqrt(options.degPulseGeared / options.accelMaxDegSec2), 1e-7);
     }
 }

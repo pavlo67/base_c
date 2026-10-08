@@ -23,8 +23,6 @@ StepperMotorSmart::StepperMotorSmart(const StepperMotorSeriesSequence& sequence,
           .hardwarePwm_ = hardwarePwm}, sequence) {}
 
 void StepperMotorSmart::prepareSequence() {
-    std::string error;
-    if (!optionsIsOk(config_.options_, error)) { return; }
     for (size_t i = 0; i < sequence_.seq.size(); ++i) {
         auto& acceleration = sequence_.seq[i];
         if (acceleration.accelerationDegPerSec2_ <= 0) { continue; }
@@ -38,7 +36,7 @@ void StepperMotorSmart::prepareSequence() {
             for (size_t j = i; j <= braking; ++j) { target += sequence_.seq[j].expectedPulsesCount_; }
         }
         const float speedMax = std::min(config_.options_.speedMaxDegSec,
-            config_.options_.freqMax * config_.options_.degPulse);
+            config_.options_.freqMax * config_.options_.degPulseGeared);
         acceleration = getFastestSeries(acceleration.initialSpeedDegPerSec_,
             acceleration.directionForward_ ? speedMax : -speedMax,
             config_.options_, acceleration.intervalAlgorithm_);
@@ -95,7 +93,7 @@ int StepperMotorSmart::action(moment at) {
             const uint64_t remaining = series.pairedTargetPulses_ > nextTick.pulsesCount_
                 ? series.pairedTargetPulses_ - nextTick.pulsesCount_ : 0;
             const float nextSpeed = nextInterval > 0 ? (series.directionForward_ ? 1.0F : -1.0F) *
-                config_.options_.degPulse / nextInterval : 0;
+                config_.options_.degPulseGeared / nextInterval : 0;
             if (nextInterval <= 0 || !canBrake(nextSpeed, sequence_.seq[brakingIndex].idealFinalSpeed(config_.options_),
                     modelInterval, remaining, config_.options_, series.intervalAlgorithm_)) {
                 // Count this observation at the actual old PWM command; the proposed
@@ -127,7 +125,7 @@ int StepperMotorSmart::action(moment at) {
                 const uint64_t target = completed.pairedTargetPulses_;
                 const uint64_t remaining = target > completed.pulsesCount_ ? target - completed.pulsesCount_ : 0;
                 auto model = getBrakingModel((completed.directionForward_ ? 1.0F : -1.0F) *
-                    config_.options_.degPulse * SECOND / completed.activeInterval_, targetSpeed,
+                    config_.options_.degPulseGeared * SECOND / completed.activeInterval_, targetSpeed,
                     modelInterval, config_.options_, braking.intervalAlgorithm_);
                 if (remaining && model.brakingModel_.empty()) { return fail(Gpio::INVALID_ARGUMENT, "cannot construct braking model"); }
                 if (remaining) {
@@ -183,8 +181,7 @@ bool StepperMotorSmart::canBrake(float speedDegPerSec, float finalSpeedDegPerSec
 StepperMotorSeries StepperMotorSmart::getBrakingModel(float speedDegPerSec, float finalSpeedDegPerSec,
         duration modelInterval, const stepper_motor_options_t& options, stepper_motor_algorithm_t algorithm) {
     StepperMotorSeries empty(0, 0, 0, speedDegPerSec >= 0, options, algorithm);
-    std::string error;
-    if (!optionsIsOk(options, error) || !std::isfinite(speedDegPerSec) ||
+    if (!std::isfinite(speedDegPerSec) ||
             !std::isfinite(finalSpeedDegPerSec) || modelInterval == 0 ||
             std::abs(speedDegPerSec) < std::abs(finalSpeedDegPerSec) ||
             speedDegPerSec * finalSpeedDegPerSec < 0) { return empty; }

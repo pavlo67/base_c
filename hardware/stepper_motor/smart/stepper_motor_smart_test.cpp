@@ -8,16 +8,12 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <numbers>
 #include <thread>
 
 #include "lib/mathlib.h"
 
-const stepper_motor_options_t STEPPER_OPTS {
-    .freqMax         = 8000,
-    .degPulse        = 0.225F,
-    .speedMaxDegSec  = 180.0F,
-    .accelMaxDegSec2 = 720.0F
-};
+
 
 TEST(stepper_motor_timing, brakingControlUsesModeledTimerAndRemainingPulses) {
     printf("[MODEL] Check exact braking budget, timer sensitivity and both directions\n");
@@ -68,7 +64,10 @@ protected:
 
 TEST_F(StepperMotorTest, separateMotorPinsAndCleanup) {
     auto& gpio = Gpio::instance();
-    const stepper_motor_options_t options{10000, 0.1F, 100, 1000};
+    stepper_motor_options_t options{10000, 0.1F, 100, 1000};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     for (const unsigned pin : {otherPins_[0], otherPins_[1]}) {
         ASSERT_EQ(gpio.setMode(pin, GpioMode::output), Gpio::SUCCESS);
         ASSERT_EQ(gpio.write(pin, 1), Gpio::SUCCESS);
@@ -106,7 +105,10 @@ TEST_F(StepperMotorTest, rejectsInvalidPinsAndReportsUninitializedBackend) {
 }
 
 TEST_F(StepperMotorTest, externalTicksDrivePwmAndCompletionWithoutReplay) {
-    const stepper_motor_options_t options{1000, 1, 100, 100};
+    stepper_motor_options_t options{1000, 1, 100, 100};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     StepperMotorSeriesSequence plan;
     plan.seq.emplace_back(3, 10, 10, true, options);
     StepperMotorSmart motor(plan, pinStep_, pinDir_, pinEna_, options, MICROSECOND);
@@ -135,7 +137,10 @@ TEST_F(StepperMotorTest, externalTicksDrivePwmAndCompletionWithoutReplay) {
 }
 
 TEST_F(StepperMotorTest, delayedUpdatesCountElapsedPwmPeriods) {
-    const stepper_motor_options_t options{1000, 1, 100, 100};
+    stepper_motor_options_t options{1000, 1, 100, 100};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     StepperMotorSeriesSequence plan;
     plan.seq.emplace_back(2, -10, -10, false, options);
     StepperMotorSmart motor(plan, pinStep_, pinDir_, pinEna_, options, MICROSECOND);
@@ -150,7 +155,10 @@ TEST_F(StepperMotorTest, delayedUpdatesCountElapsedPwmPeriods) {
 }
 
 TEST_F(StepperMotorTest, hardwarePwmModeAndDestructorCleanup) {
-    const stepper_motor_options_t options{1000, 1, 100, 100};
+    stepper_motor_options_t options{1000, 1, 100, 100};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     StepperMotorSeriesSequence plan;
     plan.seq.emplace_back(20, 10, 10, true, options);
     {
@@ -171,7 +179,10 @@ TEST_F(StepperMotorTest, hardwarePwmModeAndDestructorCleanup) {
 }
 
 TEST_F(StepperMotorTest, watchdogStopsPwmBeforeNextLongTick) {
-    const stepper_motor_options_t options{1000, 1, 100, 100};
+    stepper_motor_options_t options{1000, 1, 100, 100};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     StepperMotorRunConfig config{.pinStep_ = pinStep_, .pinDir_ = pinDir_, .pinEna_ = pinEna_,
         .options_ = options, .expecterInterval_ = 100 * MICROSECOND,
         .pulseHigh_ = MICROSECOND, .timeLimit_ = 2 * MILLISECOND};
@@ -186,7 +197,10 @@ TEST_F(StepperMotorTest, watchdogStopsPwmBeforeNextLongTick) {
 }
 
 TEST_F(StepperMotorTest, invalidPeriodAndPulseWidthAreErrorsWithCleanup) {
-    const stepper_motor_options_t options{1000, 1, 100, 100};
+    stepper_motor_options_t options{1000, 1, 100, 100};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     StepperMotorSeriesSequence plan;
     plan.seq.emplace_back(1, 0.5F, 0.5F, true, options);
     StepperMotorSmart slow(plan, pinStep_, pinDir_, pinEna_, options, MICROSECOND);
@@ -202,7 +216,10 @@ TEST_F(StepperMotorTest, invalidPeriodAndPulseWidthAreErrorsWithCleanup) {
 }
 
 TEST_F(StepperMotorTest, runReturnsRuntimeStatisticsAndQuantizedFrequency) {
-    const stepper_motor_options_t options{10000, 0.1F, 100, 1000};
+    stepper_motor_options_t options{10000, 0.1F, 100, 1000};
+    options.mechanics_ = {1, 1, 0, 1, options.accelMaxDegSec2 * std::numbers::pi / 180};
+    std::string optionsError;
+    ASSERT_TRUE(stepperMotorOptionsOk(options, optionsError)) << optionsError;
     StepperMotorSeriesSequence plan;
     plan.seq.emplace_back(2, 10.35F, 10.35F, true, options);
     printf("[motor-test] Run and inspect runtime statistics\n");
@@ -249,7 +266,7 @@ TEST_F(StepperMotorTest, liveSequenceUsesRuntimeBrakingAndFiniteTerminalSpeed) {
     ASSERT_EQ(real.seq[1].minimumPulsesCount_, 0U);
     ASSERT_NEAR(real.seq[1].initialSpeedDegPerSec_, real.seq[0].finalSpeed(STEPPER_OPTS), 1e-5);
     ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS),
-        STEPPER_OPTS.degPulse * std::floor(1.0 / (2 * std::sqrt(STEPPER_OPTS.degPulse / STEPPER_OPTS.accelMaxDegSec2))), 1e-5);
+        STEPPER_OPTS.degPulseGeared * std::floor(1.0 / (2 * std::sqrt(STEPPER_OPTS.degPulseGeared / STEPPER_OPTS.accelMaxDegSec2))), 1e-5);
     for (const auto& series : real.seq) {
         ASSERT_TRUE(series.finished_);
         ASSERT_LE(series.maxSpeedDegSec_, STEPPER_OPTS.speedMaxDegSec + SPEED_EPS);
@@ -301,8 +318,9 @@ TEST_F(StepperMotorTest, probeWithEstimatesValidatesBeforePlanningAndCleansUpTim
     ASSERT_TRUE(real.seq.empty());
     ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::WRONG_MODE);
     cfg.options_.degPulse = 0;
-    ASSERT_EQ(StepperMotorSmart(cfg).probe(0.5F, true, "invalid", &real), Gpio::INVALID_ARGUMENT);
-    ASSERT_FALSE(real.error.empty());
+    std::string optionsError;
+    ASSERT_FALSE(stepperMotorOptionsOk(cfg.options_, optionsError));
+    ASSERT_FALSE(optionsError.empty());
     ASSERT_EQ(Gpio::instance().read(cfg.pinEna_), Gpio::WRONG_MODE);
     cfg.options_ = STEPPER_OPTS;
     ASSERT_EQ(StepperMotorSmart(cfg).probe(0.5F, true, "timeout", &real), StepperMotor::TIME_LIMIT);
@@ -448,8 +466,8 @@ TEST_F(StepperMotorTest, brakingFreezesMeanSinceAccelerationAndHandlesLaterDelay
             ASSERT_LE(real.seq[0].maxAccelerationDegSec2_, STEPPER_OPTS.accelMaxDegSec2 * 1.01F);
             ASSERT_GE(pulses, STEPPER_OPTS.pulsesForDeg(angle, angle > 0));
             ASSERT_LE(pulses, STEPPER_OPTS.pulsesForDeg(angle, angle > 0) + 5);
-            ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS), (angle > 0 ? 1.F : -1.F) * STEPPER_OPTS.degPulse *
-                std::floor(1.0 / (2 * std::sqrt(STEPPER_OPTS.degPulse / STEPPER_OPTS.accelMaxDegSec2))), SPEED_EPS);
+            ASSERT_NEAR(real.seq.back().finalSpeed(STEPPER_OPTS), (angle > 0 ? 1.F : -1.F) * STEPPER_OPTS.degPulseGeared *
+                std::floor(1.0 / (2 * std::sqrt(STEPPER_OPTS.degPulseGeared / STEPPER_OPTS.accelMaxDegSec2))), SPEED_EPS);
         }
     }
 }
@@ -472,8 +490,8 @@ TEST_F(StepperMotorTest, predictiveBrakingPreservesNonzeroFinalSpeed) {
         ASSERT_NEAR(real.seq.back().idealFinalSpeed(STEPPER_OPTS), direction * 20, SPEED_EPS);
         // finalSpeed is the last pulse's average, not the kinematic endpoint.
         const float lastPulseMaximum = (20 + std::sqrt(400 + 2 * STEPPER_OPTS.accelMaxDegSec2 *
-            STEPPER_OPTS.degPulse)) / 2;
-        ASSERT_GE(std::abs(real.seq.back().finalSpeed(STEPPER_OPTS)), 20 - STEPPER_OPTS.degPulse);
+            STEPPER_OPTS.degPulseGeared)) / 2;
+        ASSERT_GE(std::abs(real.seq.back().finalSpeed(STEPPER_OPTS)), 20 - STEPPER_OPTS.degPulseGeared);
         ASSERT_LE(std::abs(real.seq.back().finalSpeed(STEPPER_OPTS)), lastPulseMaximum + SPEED_EPS);
         ASSERT_GE(real.seq[0].pulsesCount_ + real.seq[1].pulsesCount_, 800U);
     }
@@ -497,11 +515,11 @@ TEST_F(StepperMotorTest, exhaustedBrakingBudgetSkipsTailAfterLargeDelay) {
 
 TEST_F(StepperMotorTest, configuredPlatformPairCompletesWithoutClaimingEnablePins) {
     printf("[PAIR] Load configured mechanics and execute 10/5 degrees through prepare/update\n");
-    StepperMotorProbeConfig probe;
-    ASSERT_TRUE(loadStepperMotorProbeConfig(Config("machina.yaml"), probe));
+    std::array<StepperMotorRunConfig, 2> configs{};
+    ASSERT_TRUE(loadPlatformMotorConfig(Config("machina.yaml"), configs));
     for (const float direction : {1.0F, -1.0F}) {
         std::array<StepperMotorSmart, 2> motors{
-            StepperMotorSmart(probe.motors_[0]), StepperMotorSmart(probe.motors_[1])};
+            StepperMotorSmart(configs[0]), StepperMotorSmart(configs[1])};
         std::array<bool, Gpio::PIN_COUNT> usedPins{};
         std::array<int, 2> statuses{};
         for (size_t axis = 0; axis < motors.size(); ++axis) {
@@ -517,7 +535,7 @@ TEST_F(StepperMotorTest, configuredPlatformPairCompletesWithoutClaimingEnablePin
                     ASSERT_GE(statuses[axis], 0) << "axis=" << axis << " " << motors[axis].result().error;
                 }
                 PwmSettings untouched;
-                ASSERT_EQ(Gpio::instance().getPwmSettings(probe.motors_[axis].pinEna_, untouched), Gpio::WRONG_MODE);
+                ASSERT_EQ(Gpio::instance().getPwmSettings(configs[axis].pinEna_, untouched), Gpio::WRONG_MODE);
                 if (statuses[axis] == StepperMotor::RUNNING) {
                     active = true;
                     wake = std::min(wake, motors[axis].nextWake());

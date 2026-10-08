@@ -16,21 +16,32 @@ const float SPEED_EPS        = 0.01;
 const float ACCELERATION_EPS = 0.01;
 
 struct stepper_motor_options_t {
+    struct PlatformMechanics {
+        double gearRatio_ = 1;
+        double momentOfInertia_ = 0;
+        double rotorInertia_ = 0;
+        double transmissionEfficiency_ = 1;
+        double torqueMaxNm_ = 0;
+    };
+
     float freqMax         = 0;      // pulses/s, motor/driver specification
     float degPulse        = 0;      // deg/pulse for the configured motor mode
     float speedMaxDegSec  = 0;      // deg/s,    video software limit
     float accelMaxDegSec2 = 0;      // deg/s^2,  construction/motor limit
 
+    PlatformMechanics mechanics_{};
+    float degPulseGeared = 0;      // platform deg/pulse, derived from degPulse and gearRatio_
+
     [[nodiscard]] uint64_t pulsesForDeg(float changeDeg, bool directionForward) const {
-        return changeDeg * (directionForward ? 1.F : -1.F) >= 0 ? std::llround(std::abs(changeDeg) / degPulse) : 0;
+        return changeDeg * (directionForward ? 1.F : -1.F) >= 0 ? std::llround(std::abs(changeDeg) / degPulseGeared) : 0;
     }
 
     [[nodiscard]] float pulseInterval(float speedDegPerSec) const {
-        return degPulse / std::abs(speedDegPerSec);
+        return degPulseGeared / std::abs(speedDegPerSec);
     }
 
     [[nodiscard]] float speedAfterOnePulse() const {
-        return std::sqrt(2.0F * accelMaxDegSec2 * degPulse);
+        return std::sqrt(2.0F * accelMaxDegSec2 * degPulseGeared);
     }
 
 };
@@ -134,8 +145,6 @@ struct StepperMotorSeriesSequence {
         std::optional<duration> expecterInterval = std::nullopt) const;
 };
 
-bool optionsIsOk(const stepper_motor_options_t& stepperOpts, std::string& error);
-
 StepperMotorSeries getFastestSeries(
         float initialSpeedDegPerSec,
         float finalSpeedDegPerSec,
@@ -164,6 +173,8 @@ StepperMotorSeriesSequence getSeriesSequence(
         const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
 
+enum class StepperMotorKind { smart, dumb };
+
 // Configuration for a rest-to-rest move; the application owns GPIO lifecycle.
 struct StepperMotorRunConfig {
     unsigned pinStep_ = 0;
@@ -175,6 +186,10 @@ struct StepperMotorRunConfig {
     duration timeLimit_ = 60 * SECOND;
     bool hardwarePwm_ = false;
     bool verbose_ = false;
+    StepperMotorKind kind_ = StepperMotorKind::smart;
+    float dumbSpeedDegSec_ = 0;
+    duration dumbPause_ = 0;
+    uint64_t dumbRemainingPulsesTolerance_ = 0;
 };
 
 // Evaluate a fresh copy on a timer grid anchored at zero. A zero timer visits pulse boundaries.

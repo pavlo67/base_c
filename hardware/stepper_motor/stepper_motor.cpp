@@ -68,10 +68,9 @@ int StepperMotor::initialize(moment at) {
         return status_;
     };
     auto& gpio = Gpio::instance();
-    std::string error;
     if (config_.pinStep_ >= Gpio::PIN_COUNT || config_.pinDir_ >= Gpio::PIN_COUNT || config_.pinEna_ >= Gpio::PIN_COUNT ||
             config_.pinStep_ == config_.pinDir_ || config_.pinStep_ == config_.pinEna_ || config_.pinDir_ == config_.pinEna_ || config_.pulseHigh_ == 0 ||
-            config_.pulseHigh_ > SECOND / 2 || !sequence_.error.empty() || !optionsIsOk(config_.options_, error)) {
+            config_.pulseHigh_ > SECOND / 2 || !sequence_.error.empty()) {
         return fail(Gpio::INVALID_ARGUMENT);
     }
     if (sequence_.seq.empty()) { status_ = COMPLETE; return COMPLETE; }
@@ -100,11 +99,10 @@ constexpr const char* ON_STEPPER_PREPARE = "[StepperMotor.prepare()]";
 
 int StepperMotor::prepare(float angle, std::array<bool, Gpio::PIN_COUNT>& usedPins) {
     const duration maximum = std::numeric_limits<int64_t>::max() / 2;
-    std::string error;
-    if (!optionsIsOk(config_.options_, error) || !std::isfinite(angle) ||
+    if (!std::isfinite(angle) ||
             config_.timeLimit_ == 0 || config_.timeLimit_ > maximum ||
             config_.expecterInterval_ > maximum || config_.pulseHigh_ == 0 || config_.pulseHigh_ > SECOND / 2) {
-        printf("%s ERROR: invalid motor options, angle or timing: %s\n", ON_STEPPER_PREPARE, error.c_str());
+        printf("%s ERROR: invalid angle or timing\n", ON_STEPPER_PREPARE);
         return Gpio::INVALID_ARGUMENT;
     }
     for (const auto pin : {config_.pinStep_, config_.pinDir_}) {
@@ -202,8 +200,6 @@ int StepperMotor::probe(float rotationDeg, bool withEstimates, const std::string
         fflush(stdout);
         return code;
     };
-    std::string error;
-    if (!optionsIsOk(cfg.options_, error)) { return fail(Gpio::INVALID_ARGUMENT, error); }
     const duration maximum = std::numeric_limits<int64_t>::max() / 2;
     if (!std::isfinite(rotationDeg) || cfg.timeLimit_ == 0 || cfg.timeLimit_ > maximum ||
             cfg.expecterInterval_ > maximum || cfg.pulseHigh_ == 0 || cfg.pulseHigh_ > SECOND / 2 ||

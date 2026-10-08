@@ -19,11 +19,10 @@ StepperMotorSeriesSequence StepperMotorDumb::planSequence(float angle, duration 
         return result;
     };
     if (!std::isfinite(angle) || !std::isfinite(speedDegPerSec_) || speedDegPerSec_ <= 0 ||
-            !std::isfinite(config_.options_.degPulse) || config_.options_.degPulse <= 0 ||
             config_.pulseHigh_ == 0 || pauseAfterSeries_ >= config_.timeLimit_) {
         return fail("invalid angle, speed, pulse width or pause");
     }
-    const double rawPulses = std::abs(static_cast<double>(angle)) / config_.options_.degPulse;
+    const double rawPulses = std::abs(static_cast<double>(angle)) / config_.options_.degPulseGeared;
     if (rawPulses >= static_cast<double>(std::numeric_limits<int64_t>::max())) {
         return fail("requested pulse count is out of range");
     }
@@ -35,8 +34,8 @@ StepperMotorSeriesSequence StepperMotorDumb::planSequence(float angle, duration 
     // before the next expected timer observation.
     const double timerLimit = static_cast<double>(tolerance + 1) * SECOND / tick;
     const double maxFrequency = std::min({10000.0, static_cast<double>(config_.options_.freqMax),
-        static_cast<double>(config_.options_.speedMaxDegSec) / config_.options_.degPulse,
-        static_cast<double>(speedDegPerSec_) / config_.options_.degPulse,
+        static_cast<double>(config_.options_.speedMaxDegSec) / config_.options_.degPulseGeared,
+        static_cast<double>(speedDegPerSec_) / config_.options_.degPulseGeared,
         static_cast<double>(SECOND) / (2.0 * config_.pulseHigh_), timerLimit});
     if (!std::isfinite(maxFrequency) || maxFrequency < 1) {
         return fail("no valid integer PWM frequency satisfies the limits and timer tolerance");
@@ -48,7 +47,7 @@ StepperMotorSeriesSequence StepperMotorDumb::planSequence(float angle, duration 
         --frequency;
     }
     if (frequency == 0) { return fail("no PWM period fits the timer tolerance"); }
-    const float speed = static_cast<float>(frequency * config_.options_.degPulse) * (angle >= 0 ? 1.0F : -1.0F);
+    const float speed = static_cast<float>(frequency * config_.options_.degPulseGeared) * (angle >= 0 ? 1.0F : -1.0F);
     StepperMotorSeries series(targetPulses, speed, speed, angle >= 0, config_.options_,
         LINEAR_INTERVAL_ACCELERATION);
     series.livePwm_ = true;

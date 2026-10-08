@@ -3,13 +3,12 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <limits>
 
 #include "defines_base.h"
 #include "lib/mathlib.h"
 
 StepperMotorSeries getFastestSeries(float initialSpeedDegPerSec, float finalSpeedDegPerSec, const stepper_motor_options_t& stepperOpts, stepper_motor_algorithm_t intervalAlgorithm) {
-    const float speedMax = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulse);
+    const float speedMax = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulseGeared);
     if (std::abs(finalSpeedDegPerSec) > speedMax) {
         finalSpeedDegPerSec = finalSpeedDegPerSec >= 0 ? speedMax : -speedMax;
     }
@@ -18,7 +17,7 @@ StepperMotorSeries getFastestSeries(float initialSpeedDegPerSec, float finalSpee
     const bool directionForward = directionSpeed >= 0.0F;
 
     const float distanceDeg = std::abs(finalSpeedDegPerSec * finalSpeedDegPerSec - initialSpeedDegPerSec * initialSpeedDegPerSec) / (2.0F * stepperOpts.accelMaxDegSec2);
-    const uint64_t pulseCount = std::max<uint64_t>(1, static_cast<uint64_t>(std::ceil(distanceDeg / stepperOpts.degPulse)));
+    const uint64_t pulseCount = std::max<uint64_t>(1, static_cast<uint64_t>(std::ceil(distanceDeg / stepperOpts.degPulseGeared)));
 
     StepperMotorSeries s(pulseCount, initialSpeedDegPerSec,finalSpeedDegPerSec, directionForward, stepperOpts, intervalAlgorithm);
 
@@ -40,7 +39,7 @@ std::vector<StepperMotorSeries> getCruiseAndBraking(float speedDegPerSec, float 
         StepperMotorSeries cruise(cruisePulses, speedDegPerSec, speedDegPerSec,
             speedDegPerSec >= 0, options, algorithm);
         cruise.livePwm_ = livePwm;
-        if (livePwm) { cruise.cruiseFrequency_ = static_cast<unsigned>(std::llround(std::abs(speedDegPerSec) / options.degPulse)); }
+        if (livePwm) { cruise.cruiseFrequency_ = static_cast<unsigned>(std::llround(std::abs(speedDegPerSec) / options.degPulseGeared)); }
         cruise.stopAfterPulses_ = cruisePulses;
         cruise.pairedTargetPulses_ = remainingPulses;
         cruise = evaluateSeries(cruise, timer, options, startedAt, cruisePulses);
@@ -62,7 +61,7 @@ std::vector<StepperMotorSeries> getCruiseAndBraking(float speedDegPerSec, float 
 
 static bool calculateAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float baseSpeedDegPerSec, float targetRotationDeg, duration expecterInterval, const stepper_motor_options_t& stepperOpts, stepper_motor_algorithm_t intervalAlgorithm) {
     const float    baseSpeed        = std::abs(baseSpeedDegPerSec);
-    const float    speedMax         = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulse);
+    const float    speedMax         = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulseGeared);
     const bool     directionForward = targetRotationDeg > 0.0F;
     const uint64_t totalPulses      = stepperOpts.pulsesForDeg(targetRotationDeg, directionForward);
 
@@ -102,14 +101,14 @@ static bool calculateAcceleratedSeries(StepperMotorSeriesSequence& seriesSequenc
         return true;
     }
 
-    const float absRotationDeg   = static_cast<float>(totalPulses) * stepperOpts.degPulse;
+    const float absRotationDeg   = static_cast<float>(totalPulses) * stepperOpts.degPulseGeared;
     const float peakSpeed        = std::sqrt(baseSpeed * baseSpeed + stepperOpts.accelMaxDegSec2 * absRotationDeg); // кінематичне рівняння для totalRotationDeg/2
     const float peakSpeedAllowed = std::min(speedMax, peakSpeed);
     const float accelerationDeg  = std::max(0.0F,(peakSpeedAllowed * peakSpeedAllowed - baseSpeed * baseSpeed) / (2.0F * stepperOpts.accelMaxDegSec2));
 
-    const uint64_t accelerationPulses    = std::min(static_cast<uint64_t>(std::floor(accelerationDeg / stepperOpts.degPulse)), totalPulses / 2);
+    const uint64_t accelerationPulses    = std::min(static_cast<uint64_t>(std::floor(accelerationDeg / stepperOpts.degPulseGeared)), totalPulses / 2);
     const uint64_t cruisePulses          = totalPulses - 2 * accelerationPulses;
-    const float    actualPeakSpeed       = std::sqrt(baseSpeed * baseSpeed + 2.0F * stepperOpts.accelMaxDegSec2  * static_cast<float>(accelerationPulses) * stepperOpts.degPulse);
+    const float    actualPeakSpeed       = std::sqrt(baseSpeed * baseSpeed + 2.0F * stepperOpts.accelMaxDegSec2  * static_cast<float>(accelerationPulses) * stepperOpts.degPulseGeared);
     const float    cruiseSpeedDegPerSec  = (targetRotationDeg >= 0) ? actualPeakSpeed : -actualPeakSpeed;
 
     const size_t firstNewSeries = seriesSequence.seq.size();
@@ -142,7 +141,7 @@ bool addAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float base
     }
     // Reserve the last requested pulse for a finite slow interval. Braking over
     // the preceding distance keeps its original acceleration limit.
-    const float precedingDeg = (forward ? 1.0F : -1.0F) * static_cast<float>(pulses - 1) * stepperOpts.degPulse;
+    const float precedingDeg = (forward ? 1.0F : -1.0F) * static_cast<float>(pulses - 1) * stepperOpts.degPulseGeared;
     if (!calculateAcceleratedSeries(seriesSequence, baseSpeedDegPerSec, precedingDeg,
             expecterInterval, stepperOpts, intervalAlgorithm)) { return false; }
     StepperMotorSeries terminal(1, 0, 0, forward, stepperOpts, CONSTANT_ACCELERATION);
@@ -150,28 +149,6 @@ bool addAcceleratedSeries(StepperMotorSeriesSequence& seriesSequence, float base
         std::llround(static_cast<double>(terminal.idealIntervalSec(0, stepperOpts)) * SECOND));
     const moment at = seriesSequence.seq.empty() ? 0 : seriesSequence.seq.back().observedAt_;
     seriesSequence.seq.push_back(evaluateSeries(terminal, expecterInterval, stepperOpts, at));
-    return true;
-}
-
-const std::string ON_OPTIONS_IS_OK = "[optionsIsOk()]";
-bool optionsIsOk(const stepper_motor_options_t& stepperOpts, std::string& error) {
-    if (!isFinitePositive(stepperOpts.freqMax)) {
-        error = ON_OPTIONS_IS_OK + " freqMax must be finite and greater than zero";
-        return false;
-    }
-    if (!isFinitePositive(stepperOpts.speedMaxDegSec)) {
-        error = ON_OPTIONS_IS_OK + " freqAllowed must be finite positive";
-        return false;
-    }
-    if (!isFinitePositive(stepperOpts.accelMaxDegSec2)) {
-        error = ON_OPTIONS_IS_OK + " accelMax must be finite and greater than zero";
-        return false;
-    }
-    if (!isFinitePositive(stepperOpts.degPulse)) {
-        error = ON_OPTIONS_IS_OK + " degreesPerPulse must be finite and greater than zero";
-        return false;
-    }
-
     return true;
 }
 
@@ -183,14 +160,13 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
     StepperMotorSeriesSequence result;
 
     // it should be checked at system initialization
-    // if (!optionsIsOk(stepperOpts, result.error)) { return result; }
 
     if (!std::isfinite(currentSpeedDegPerSec) || !std::isfinite(totalRotationDeg) || !std::isfinite(targetSpeedDegPerSec)) {
         result.error = ON_GET_SERIES_SEQUENCE + " speed and position values must be finite";
         return result;
     }
 
-    const float speedMax = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulse);
+    const float speedMax = std::min(stepperOpts.speedMaxDegSec,stepperOpts.freqMax * stepperOpts.degPulseGeared);
     if (std::abs(targetSpeedDegPerSec) > speedMax) {
         result.error = ON_GET_SERIES_SEQUENCE + " targetSpeed must not exceed freqAllowed * degreesPerPulse";
         return result;
@@ -230,7 +206,7 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
 
     fastestSeries = evaluateSeries(fastestSeries, expecterInterval, stepperOpts);
     float changeDegMin = fastestSeries.totalRotationDeg(stepperOpts);
-    if (std::abs(changeDegMin - totalRotationDeg) < stepperOpts.degPulse) {
+    if (std::abs(changeDegMin - totalRotationDeg) < stepperOpts.degPulseGeared) {
 
         POINT(3,1)
 
@@ -248,7 +224,7 @@ static StepperMotorSeriesSequence calculateSeriesSequence(
             fastestSeries = evaluateSeries(fastestSeries, 0, stepperOpts);
         }
         float changeDeg = fastestSeries.totalRotationDeg(stepperOpts);
-        result.error = ON_GET_SERIES_SEQUENCE + " " + ((std::abs(changeDeg - totalRotationDeg) < stepperOpts.degPulse)
+        result.error = ON_GET_SERIES_SEQUENCE + " " + ((std::abs(changeDeg - totalRotationDeg) < stepperOpts.degPulseGeared)
                      ? "fastest series is cutted to targetChangeDeg" : "fastest series isn't cutted to targetChangeDeg correctly");
         result.seq.push_back(fastestSeries);
         return result;
@@ -345,7 +321,7 @@ void StepperMotorSeriesSequence::log(const stepper_motor_options_t& stepperOpts,
         float acceleration = series.maxAccelerationDegSec2_;
         if (previousInterval && series.pulsesCount_) {
             const duration firstInterval = series.firstPulseAt_ - series.startedAt_;
-            const float firstSpeed = (series.directionForward_ ? 1.0F : -1.0F) * stepperOpts.degPulse * SECOND / firstInterval;
+            const float firstSpeed = (series.directionForward_ ? 1.0F : -1.0F) * stepperOpts.degPulseGeared * SECOND / firstInterval;
             const double dt = (static_cast<double>(previousInterval) + firstInterval) / (2.0 * SECOND);
             acceleration = std::max(acceleration, static_cast<float>(std::abs(firstSpeed - previousSpeed) / dt));
         }

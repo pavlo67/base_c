@@ -32,10 +32,10 @@ int main(int argc, char** argv) {
     }
 
     const Config config(CONFIG_PATH);
-    StepperMotorProbeConfig probe;
-    if (!loadStepperMotorProbeConfig(config, probe)) { return 1; }
-    for (size_t axis = 0; axis < probe.motors_.size(); ++axis) {
-        const auto& motor = probe.motors_[axis];
+    std::array<StepperMotorRunConfig, 2> configs{};
+    if (!loadPlatformMotorConfig(config, configs)) { return 1; }
+    for (size_t axis = 0; axis < configs.size(); ++axis) {
+        const auto& motor = configs[axis];
         printf("[PRB] %s pins (BCM): PUL/STEP=%d DIR=%d ENA=%d\n",
             axis == 0 ? "pan" : "tilt", motor.pinStep_, motor.pinDir_, motor.pinEna_);
     }
@@ -52,18 +52,18 @@ int main(int argc, char** argv) {
         for (size_t pair = 0; pair < movements.size(); ++pair) {
             printf("[PRB] Pair %zu/%zu: pan=%g deg, tilt=%g deg, class=%s\n", pair + 1,
                 movements.size(), movements[pair][0], movements[pair][1],
-                probe.kind_ == StepperMotorKind::smart ? "Smart" : "Dumb");
+                configs[0].kind_ == StepperMotorKind::smart ? "Smart" : "Dumb");
             std::array<std::unique_ptr<StepperMotor>, 2> motors;
             std::array<bool, Gpio::PIN_COUNT> usedPins{};
             std::array<int, 2> statuses{};
             bool failed = false;
             for (size_t axis = 0; axis < motors.size(); ++axis) {
-                if (probe.kind_ == StepperMotorKind::smart) {
-                    motors[axis] = std::make_unique<StepperMotorSmart>(probe.motors_[axis]);
+                if (configs[axis].kind_ == StepperMotorKind::smart) {
+                    motors[axis] = std::make_unique<StepperMotorSmart>(configs[axis]);
                 } else {
-                    const auto& dumb = probe.dumb_[axis];
-                    motors[axis] = std::make_unique<StepperMotorDumb>(probe.motors_[axis],
-                        dumb.speedDegPerSec_, dumb.pauseAfterSeries_, dumb.remainingPulsesTolerance_);
+                    const auto& motor = configs[axis];
+                    motors[axis] = std::make_unique<StepperMotorDumb>(configs[axis],
+                        motor.dumbSpeedDegSec_, motor.dumbPause_, motor.dumbRemainingPulsesTolerance_);
                 }
                 statuses[axis] = motors[axis]->prepare(movements[pair][axis], usedPins);
                 if (statuses[axis] < 0) { failed = true; break; }
@@ -90,8 +90,8 @@ int main(int argc, char** argv) {
                 break;
             }
             for (size_t axis = 0; axis < motors.size(); ++axis) {
-                motors[axis]->result().log(probe.motors_[axis].options_, axis == 0 ? "[pan] real" : "[tilt] real",
-                    probe.motors_[axis].verbose_, probe.motors_[axis].expecterInterval_);
+                motors[axis]->result().log(configs[axis].options_, axis == 0 ? "[pan] real" : "[tilt] real",
+                    configs[axis].verbose_, configs[axis].expecterInterval_);
             }
         }
     }

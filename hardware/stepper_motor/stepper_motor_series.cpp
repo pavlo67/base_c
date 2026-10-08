@@ -22,7 +22,7 @@ StepperMotorSeries::StepperMotorSeries(
         return;
     }
 
-    const float distanceDeg = static_cast<float>(pulsesCount) * stepperOpts.degPulse;
+    const float distanceDeg = static_cast<float>(pulsesCount) * stepperOpts.degPulseGeared;
     // Equal endpoints are cruise, even if fused arithmetic would leave a rounding residual.
     accelerationDegPerSec2_ = distanceDeg > 0.0F && lastSpeedDegPerSec != firstSpeedDegPerSec
                             ? (lastSpeedDegPerSec * lastSpeedDegPerSec - initialSpeedDegPerSec_ * initialSpeedDegPerSec_) / (2.0F * distanceDeg)
@@ -37,7 +37,7 @@ StepperMotorSeries::StepperMotorSeries(
 
 float StepperMotorSeries::expectedRotationDeg(const stepper_motor_options_t& stepperOpts) const {
     const float direction = directionForward_ ? 1.0F : -1.0F;
-    return direction * static_cast<float>(expectedPulsesCount_) * stepperOpts.degPulse;
+    return direction * static_cast<float>(expectedPulsesCount_) * stepperOpts.degPulseGeared;
 }
 
 float StepperMotorSeries::idealIntervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) const {
@@ -57,17 +57,17 @@ float StepperMotorSeries::idealIntervalSec(uint64_t pulseIndex, const stepper_mo
     }
 
     if (expectedPulsesCount_ == 1 && initialSpeedDegPerSec_ == 0 && accelerationDegPerSec2_ == 0) {
-        const float peak = std::min(std::sqrt(stepperOpts.accelMaxDegSec2 * stepperOpts.degPulse),
-            std::min(stepperOpts.speedMaxDegSec, stepperOpts.freqMax * stepperOpts.degPulse));
-        return std::max(stepperOpts.degPulse / peak + peak / stepperOpts.accelMaxDegSec2,
+        const float peak = std::min(std::sqrt(stepperOpts.accelMaxDegSec2 * stepperOpts.degPulseGeared),
+            std::min(stepperOpts.speedMaxDegSec, stepperOpts.freqMax * stepperOpts.degPulseGeared));
+        return std::max(stepperOpts.degPulseGeared / peak + peak / stepperOpts.accelMaxDegSec2,
             static_cast<float>(terminalInterval_) / SECOND);
     }
 
-    const float distanceBefore = static_cast<float>(pulseIndex) * stepperOpts.degPulse;
+    const float distanceBefore = static_cast<float>(pulseIndex) * stepperOpts.degPulseGeared;
     const double speedBeforeSquared = static_cast<double>(initialSpeedDegPerSec_) * initialSpeedDegPerSec_
         + 2.0 * accelerationDegPerSec2_ * distanceBefore;
     // const float speedAfterSquared  = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * (distanceBefore + stepperOpts.degreesPerPulse);
-    const double speedAfterSquared = speedBeforeSquared + 2.0 * accelerationDegPerSec2_ * stepperOpts.degPulse;
+    const double speedAfterSquared = speedBeforeSquared + 2.0 * accelerationDegPerSec2_ * stepperOpts.degPulseGeared;
 
     const double tolerance = std::max(1.0, static_cast<double>(initialSpeedDegPerSec_) * initialSpeedDegPerSec_) * 1e-6;
     if (speedBeforeSquared < -tolerance || speedAfterSquared < -tolerance) {
@@ -77,7 +77,7 @@ float StepperMotorSeries::idealIntervalSec(uint64_t pulseIndex, const stepper_mo
     const float speedBefore = std::sqrt(std::max(0.0, speedBeforeSquared));
     const float speedAfter  = std::sqrt(std::max(0.0, speedAfterSquared));
     const float speedSum    = speedBefore + speedAfter;
-    return speedSum > EPS ? 2.0F * stepperOpts.degPulse / speedSum : 0.0F;
+    return speedSum > EPS ? 2.0F * stepperOpts.degPulseGeared / speedSum : 0.0F;
 }
 
 float StepperMotorSeries::scheduledIntervalSec(uint64_t pulseIndex, const stepper_motor_options_t& stepperOpts) {
@@ -93,18 +93,18 @@ float StepperMotorSeries::scheduledIntervalSec(uint64_t pulseIndex, const steppe
     if (livePwm_) {
         // Match the integer-Hz command range, rounding down to respect speed limits.
         const double maxFrequency = std::min({10000.0, static_cast<double>(stepperOpts.freqMax),
-            static_cast<double>(stepperOpts.speedMaxDegSec) / stepperOpts.degPulse});
+            static_cast<double>(stepperOpts.speedMaxDegSec) / stepperOpts.degPulseGeared});
         const double requested = cruiseFrequency_ && accelerationDegPerSec2_ == 0
             ? static_cast<double>(cruiseFrequency_) : 1.0 / interval;
         double frequency = std::floor(std::min(requested, maxFrequency) + 1e-6);
         if (frequency < 1) { return 0; }
         const double requestedFrequency = frequency;
         const double previousFrequency = activeInterval_ ? static_cast<double>(SECOND) / activeInterval_
-            : std::abs(initialSpeedDegPerSec_) / stepperOpts.degPulse;
+            : std::abs(initialSpeedDegPerSec_) / stepperOpts.degPulseGeared;
         if (previousFrequency >= 1 && previousFrequency <= maxFrequency) {
             const double previousCommand = std::round(previousFrequency);
             while (frequency != previousCommand) {
-                const double acceleration = 2.0 * stepperOpts.degPulse * std::abs(frequency - previousFrequency)
+                const double acceleration = 2.0 * stepperOpts.degPulseGeared * std::abs(frequency - previousFrequency)
                     / (1.0 / frequency + 1.0 / previousFrequency);
                 if (acceleration <= stepperOpts.accelMaxDegSec2) { break; }
                 frequency += frequency < previousCommand ? 1 : -1;
@@ -137,9 +137,9 @@ float StepperMotorSeries::idealFinalSpeed(const stepper_motor_options_t& stepper
         if (!isFinitePositive(lastInterval)) {
             return 0.0F;
         }
-        speed = stepperOpts.degPulse / lastInterval;
+        speed = stepperOpts.degPulseGeared / lastInterval;
     } else {
-        const float distanceDeg = static_cast<float>(expectedPulsesCount_) * stepperOpts.degPulse;
+        const float distanceDeg = static_cast<float>(expectedPulsesCount_) * stepperOpts.degPulseGeared;
         const float speedSquared = initialSpeedDegPerSec_ * initialSpeedDegPerSec_ + 2.0F * accelerationDegPerSec2_ * distanceDeg;
         if (speedSquared < -EPS) {
             return 0.0F;
@@ -171,7 +171,7 @@ void StepperMotorSeries::reset() {
 }
 
 float StepperMotorSeries::totalRotationDeg(const stepper_motor_options_t& stepperOpts) const {
-    return (directionForward_ ? 1.0F : -1.0F) * pulsesCount_ * stepperOpts.degPulse;
+    return (directionForward_ ? 1.0F : -1.0F) * pulsesCount_ * stepperOpts.degPulseGeared;
 }
 
 float StepperMotorSeries::totalSec() const {
@@ -184,7 +184,7 @@ float StepperMotorSeries::totalSec(const stepper_motor_options_t&) const {
 
 float StepperMotorSeries::finalSpeed(const stepper_motor_options_t& stepperOpts) const {
     return lastInterval_ ? (directionForward_ ? 1.0F : -1.0F) *
-        stepperOpts.degPulse * SECOND / lastInterval_ : 0.0F;
+        stepperOpts.degPulseGeared * SECOND / lastInterval_ : 0.0F;
 }
 
 float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& stepperOpts) {
@@ -207,9 +207,9 @@ float StepperMotorSeries::intervalSec(moment at, const stepper_motor_options_t& 
 
     // A pending PWM period is latched only at the end of the current period.
     while (nextPulseAt_ <= at) {
-        const float speed = stepperOpts.degPulse * SECOND / activeInterval_;
+        const float speed = stepperOpts.degPulseGeared * SECOND / activeInterval_;
         const duration previousInterval = lastInterval_ ? lastInterval_ : initialPulseInterval_;
-        const float previousSpeed = previousInterval ? stepperOpts.degPulse * SECOND / previousInterval
+        const float previousSpeed = previousInterval ? stepperOpts.degPulseGeared * SECOND / previousInterval
             : std::abs(initialSpeedDegPerSec_);
         const double separationSec = previousInterval ?
             (static_cast<double>(previousInterval) + activeInterval_) / (2.0 * SECOND) :

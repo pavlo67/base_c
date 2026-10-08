@@ -1,13 +1,15 @@
 #include "stepper_motor_dumb.h"
 
 #include <gtest/gtest.h>
+#include <numbers>
+#include "hardware/stepper_motor/config/platform_config.h"
 
 namespace {
 
 StepperMotorRunConfig dumbConfig() {
     return StepperMotorRunConfig{
         .pinStep_ = 1, .pinDir_ = 2, .pinEna_ = 3,
-        .options_ = {10000, 0.1F, 1000, 1000},
+        .options_ = {10000, 0.1F, 1000, 1000, {1, 1, 0, 1, 1000 * std::numbers::pi / 180}},
         .expecterInterval_ = 5 * MILLISECOND,
         .pulseHigh_ = 10 * MICROSECOND,
         .timeLimit_ = 2 * SECOND
@@ -15,8 +17,11 @@ StepperMotorRunConfig dumbConfig() {
 }
 
 TEST(StepperMotorDumbPlan, TimerToleranceCapsTheConstantFrequency) {
+    auto config = dumbConfig();
+    std::string error;
+    ASSERT_TRUE(stepperMotorOptionsOk(config.options_, error)) << error;
     printf("[DMB] Plan 400 fixed pulses with a three-pulse completion window\n");
-    StepperMotorDumb motor(dumbConfig(), 500, 15 * MILLISECOND, 3);
+    StepperMotorDumb motor(config, 500, 15 * MILLISECOND, 3);
     std::array<bool, Gpio::PIN_COUNT> usedPins{};
     ASSERT_EQ(motor.prepare(40, usedPins), StepperMotor::RUNNING);
     ASSERT_EQ(motor.result().seq.size(), 1U);
@@ -25,19 +30,19 @@ TEST(StepperMotorDumbPlan, TimerToleranceCapsTheConstantFrequency) {
     ASSERT_EQ(series.cruiseFrequency_, 800U);
     ASSERT_EQ(series.intervalAlgorithm_, LINEAR_INTERVAL_ACCELERATION);
     ASSERT_FLOAT_EQ(series.accelerationDegPerSec2_, 0);
-    ASSERT_NEAR(series.idealIntervalSec(0, dumbConfig().options_), 0.00125, 1e-8);
-    ASSERT_NEAR(series.idealIntervalSec(399, dumbConfig().options_), 0.00125, 1e-8);
+    ASSERT_NEAR(series.idealIntervalSec(0, config.options_), 0.00125, 1e-8);
+    ASSERT_NEAR(series.idealIntervalSec(399, config.options_), 0.00125, 1e-8);
     ASSERT_EQ(series.pulsesCount_, 0U);
 
     printf("[DMB] Clamp the completion window for a one-pulse move\n");
-    StepperMotorDumb onePulse(dumbConfig(), 500, 0, 3);
+    StepperMotorDumb onePulse(config, 500, 0, 3);
     usedPins.fill(false);
     ASSERT_EQ(onePulse.prepare(0.1F, usedPins), StepperMotor::RUNNING);
     ASSERT_EQ(onePulse.result().seq.front().expectedPulsesCount_, 1U);
     ASSERT_EQ(onePulse.result().seq.front().cruiseFrequency_, 200U);
 
     printf("[DMB] Reject a speed below the minimum integer PWM command\n");
-    StepperMotorDumb tooSlow(dumbConfig(), 0.05F, 0, 3);
+    StepperMotorDumb tooSlow(config, 0.05F, 0, 3);
     usedPins.fill(false);
     ASSERT_EQ(tooSlow.prepare(40, usedPins), Gpio::INVALID_ARGUMENT);
 }
@@ -50,8 +55,11 @@ protected:
 };
 
 TEST_F(StepperMotorDumbTest, StopsWithinToleranceThenWaitsBeforeCompletion) {
+    auto config = dumbConfig();
+    std::string error;
+    ASSERT_TRUE(stepperMotorOptionsOk(config.options_, error)) << error;
     printf("[DMB] Start fixed PWM, stop near target, then finish pause\n");
-    StepperMotorDumb motor(dumbConfig(), 500, 15 * MILLISECOND, 3);
+    StepperMotorDumb motor(config, 500, 15 * MILLISECOND, 3);
     std::array<bool, Gpio::PIN_COUNT> usedPins{};
     ASSERT_EQ(motor.prepare(-40, usedPins), StepperMotor::RUNNING);
     ASSERT_EQ(motor.action(0), StepperMotor::RUNNING);
@@ -78,8 +86,11 @@ TEST_F(StepperMotorDumbTest, StopsWithinToleranceThenWaitsBeforeCompletion) {
 }
 
 TEST_F(StepperMotorDumbTest, ProbeUsesFixedSpeedPlanner) {
+    auto config = dumbConfig();
+    std::string error;
+    ASSERT_TRUE(stepperMotorOptionsOk(config.options_, error)) << error;
     printf("[DMB] Execute inherited probe with constant-speed planning\n");
-    StepperMotorDumb motor(dumbConfig(), 500, 2 * MILLISECOND, 1);
+    StepperMotorDumb motor(config, 500, 2 * MILLISECOND, 1);
     StepperMotorSeriesSequence real;
     ASSERT_EQ(motor.probe(0.5F, true, "dumb", &real), Gpio::SUCCESS);
     ASSERT_EQ(real.seq.size(), 1U);
