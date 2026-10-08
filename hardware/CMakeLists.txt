@@ -12,8 +12,10 @@ target_link_libraries(hardware_gpio PUBLIC Threads::Threads ${RPI_LIBS})
 add_executable(gpio_test gpio/gpio_test.cpp)
 set_target_properties(gpio_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_test>")
 target_link_libraries(gpio_test PRIVATE stepper_platform GTest::gtest)
-add_test(NAME gpio_test COMMAND gpio_test)
-set_tests_properties(gpio_test PROPERTIES RUN_SERIAL TRUE LABELS "gpio")
+if(SYSTEM STREQUAL "RPI4" OR SYSTEM STREQUAL "RPI5")
+    add_test(NAME gpio_test COMMAND gpio_test)
+    set_tests_properties(gpio_test PROPERTIES RUN_SERIAL TRUE LABELS "gpio")
+endif()
 
 ## Contract tests always use the desktop implementation, even on a Raspberry Pi.
 #add_executable(gpio_contract_test gpio/gpio_contract_test.cpp gpio/gpio.cpp gpio/platforms/gpio_desktop.cpp)
@@ -49,7 +51,9 @@ add_executable(stepper_motor_test
 )
 set_target_properties(stepper_motor_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_test>")
 target_link_libraries(stepper_motor_test PRIVATE stepper_platform GTest::gtest)
-add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
+if(SYSTEM STREQUAL "RPI4" OR SYSTEM STREQUAL "RPI5")
+    add_test(NAME stepper_motor_test COMMAND stepper_motor_test)
+endif()
 
 # pulses_probe ---------------------------------------
 

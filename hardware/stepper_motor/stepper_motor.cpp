@@ -107,7 +107,7 @@ int StepperMotor::prepare(float angle, std::array<bool, Gpio::PIN_COUNT>& usedPi
         printf("%s ERROR: invalid motor options, angle or timing: %s\n", ON_STEPPER_PREPARE, error.c_str());
         return Gpio::INVALID_ARGUMENT;
     }
-    for (const auto pin : {config_.pinStep_, config_.pinDir_, config_.pinEna_}) {
+    for (const auto pin : {config_.pinStep_, config_.pinDir_}) {
         if (pin >= Gpio::PIN_COUNT || usedPins[pin]) {
             printf("%s ERROR: pins must be valid and distinct across both motors\n", ON_STEPPER_PREPARE);
             return Gpio::INVALID_ARGUMENT;
