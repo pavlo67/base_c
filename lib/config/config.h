@@ -4,6 +4,8 @@
 #include "yaml-cpp/yaml.h"
 
 #include <string>
+#include <atomic>
+#include <memory>
 
 class Config {
 public:
@@ -22,5 +24,7 @@ private:
     bool loaded_ = false;
 };
 
+// Publish immutable snapshots; readers retain their snapshot while loading a section.
+using SharedConfig = std::atomic<std::shared_ptr<const Config>>;
 
 #endif //BASE_CONFIG_H
