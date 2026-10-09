@@ -4,8 +4,8 @@ API_KEY: replace-with-a-secret
 # Platform motion configuration.
 pan:
   pinStep: 17
-  pinDir: 24
-  pinEna: 27
+  pinDir: 27
+  pinEna: 19
   freqMax: 8000
   degPulse: 0.225 # motor degrees per pulse
   speedMaxDegSec: 180 # platform degrees per second
@@ -20,9 +20,9 @@ pan:
   timeLimitMs: 60000
 
 tilt:
-  pinStep: 18
-  pinDir: 23
-  pinEna: 22
+  pinStep: 6
+  pinDir: 26
+  pinEna: 4
   freqMax: 8000
   degPulse: 0.225 # motor degrees per pulse
   speedMaxDegSec: 180 # platform degrees per second
