@@ -1,3 +1,5 @@
-#pragma once
+#if BASE_USE_HEALTH_MONITOR
+    #pragma once
 
-int runHealthMonitor();
+    int runHealthMonitor();
+#endif
