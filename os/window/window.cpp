@@ -11,6 +11,7 @@ namespace {
     constexpr const char* ON_IS_WINDOW_ENVIRONMENT_AVAILABLE = "[isWindowEnvironmentAvailable()]";
     constexpr const char* ON_POSITION_GSTREAMER_WINDOW_TOP_LEFT = "[positionGstreamerWindowTopLeft()]";
     constexpr const char* ON_POSITION_WINDOW_RIGHT_OF_WINDOW = "[positionWindowRightOfWindow()]";
+    constexpr const char* ON_ACTIVATE_WINDOW = "[activateWindow()]";
     constexpr auto WINDOW_LOOKUP_DELAY = std::chrono::milliseconds(100);
     constexpr int WINDOW_BOTTOM_RESERVED_HEIGHT = 200;
     constexpr int WINDOW_RESERVED_WIDTH = 10;
@@ -218,6 +219,23 @@ bool getActiveWindowId(WindowId& windowId, std::string& error) {
     return true;
 }
 
+bool getGstreamerWindowId(WindowId& windowId, std::string& error) {
+    error.clear();
+    windowId = 0;
+    Display* display = openDisplay(error, "[getGstreamerWindowId()]");
+    if (display == nullptr) {
+        return false;
+    }
+    const Window window = findGstreamerWindow(display);
+    XCloseDisplay(display);
+    if (window == None) {
+        error = "[getGstreamerWindowId()] ERROR: GStreamer window is unavailable";
+        return false;
+    }
+    windowId = window;
+    return true;
+}
+
 bool positionGstreamerWindowTopLeft(const std::atomic_bool& positioningActive, WindowId& windowId, std::string& error) {
     error.clear();
     windowId = 0;
@@ -275,4 +293,33 @@ bool positionWindowRightOfWindow(WindowId windowId, WindowId leftWindowId, std::
                                               ON_POSITION_WINDOW_RIGHT_OF_WINDOW);
     XCloseDisplay(display);
     return positioned;
+}
+
+bool activateWindow(WindowId windowId, std::string& error) {
+    error.clear();
+    Display* display = openDisplay(error, ON_ACTIVATE_WINDOW);
+    if (display == nullptr) {
+        return false;
+    }
+    const Atom activeWindowAtom = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
+    if (!isEwmhAtomSupported(display, activeWindowAtom)) {
+        error = std::string(ON_ACTIVATE_WINDOW) + " ERROR: window manager does not support _NET_ACTIVE_WINDOW";
+        XCloseDisplay(display);
+        return false;
+    }
+    XEvent event{};
+    event.xclient.type = ClientMessage;
+    event.xclient.window = static_cast<Window>(windowId);
+    event.xclient.message_type = activeWindowAtom;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = 1;
+    event.xclient.data.l[1] = CurrentTime;
+    if (XSendEvent(display, DefaultRootWindow(display), False, SubstructureRedirectMask | SubstructureNotifyMask, &event) == 0) {
+        error = std::string(ON_ACTIVATE_WINDOW) + " ERROR: cannot send window activation request";
+        XCloseDisplay(display);
+        return false;
+    }
+    XFlush(display);
+    XCloseDisplay(display);
+    return true;
 }

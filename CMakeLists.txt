@@ -17,7 +17,7 @@ find_package(Threads REQUIRED)
 
 # external libs --------------------------------------------------------
 
-if(NOT PAN_TILT_ROOT)
+if(NOT PT_ROOT)
 
     message("USING LOCAL BASE DEPENDENCIES")
 
