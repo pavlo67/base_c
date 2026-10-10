@@ -37,6 +37,18 @@ void trim(std::string& str) {
     }
 }
 
+std::string configValuesString(const std::map<std::string, std::string>& values) {
+    std::string text;
+    for (const auto& [name, value] : values) {
+        text += name + ": " + value + '\n';
+    }
+    return text;
+}
+
+void printComponentState(const std::string& name, const std::map<std::string, std::string>& values) {
+    printf("\n\n%s\n%s\n", name.c_str(), configValuesString(values).c_str());
+}
+
 std::string tail(std::string const& src, size_t const length) {
     if (length >= src.size()) { return src; }
     return src.substr(src.size() - length);

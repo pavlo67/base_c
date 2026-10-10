@@ -34,7 +34,9 @@ int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
     printf("[MOT] Load pan hardware from %s\n", HARDWARE_CONFIG_PATH);
     std::array<StepperMotorRunConfig, 2> motors;
-    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return EXIT_FAILURE; }
+    ComponentStateMove section;
+    if (!section.load(Config(HARDWARE_CONFIG_PATH))) { return EXIT_FAILURE; }
+    section.getMotors(motors);
     testPanHardware = motors[0];
     std::string optionsError;
     if (!stepperMotorOptionsOk(STEPPER_OPTS, optionsError)) {

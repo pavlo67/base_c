@@ -33,7 +33,9 @@ int main(int argc, char** argv) {
 
     const Config config(CONFIG_PATH);
     std::array<StepperMotorRunConfig, 2> configs{};
-    if (!loadPlatformMotorConfig(config, configs)) { return 1; }
+    ComponentStateMove section;
+    if (!section.load(config)) { return EXIT_FAILURE; }
+    section.getMotors(configs);
     for (size_t axis = 0; axis < configs.size(); ++axis) {
         const auto& motor = configs[axis];
         printf("[PRB] %s pins (BCM): PUL/STEP=%d DIR=%d ENA=%d\n",

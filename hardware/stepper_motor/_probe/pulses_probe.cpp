@@ -44,7 +44,9 @@ int main(int argc, char** argv) {
 
     printf("[PUL] Load pan hardware from %s\n", HARDWARE_CONFIG_PATH);
     std::array<StepperMotorRunConfig, 2> motors;
-    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
+    ComponentStateMove section;
+    if (!section.load(Config(HARDWARE_CONFIG_PATH))) { return EXIT_FAILURE; }
+    section.getMotors(motors);
     const auto& pan = motors[0];
     printf("[PUL] pan pins (BCM): PUL/STEP=%d DIR=%d ENA=%d\n",
         pan.pinStep_, pan.pinDir_, pan.pinEna_);

@@ -164,16 +164,20 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     }
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
     std::array<StepperMotorRunConfig, 2> motors{};
-    ASSERT_TRUE(loadPlatformMotorConfig(Config(path.string()), motors));
+    ComponentStateMove section;
+    ASSERT_TRUE(section.load(Config(path.string())));
+    section.getMotors(motors);
     ASSERT_NEAR(motors[0].options_.degPulseGeared, 0.125, 1e-8);
     ASSERT_NEAR(motors[1].options_.degPulseGeared, 0.1125, 1e-8);
     ASSERT_NEAR(motors[0].options_.accelMaxDegSec2, 11444.940082303707, 0.1);
     printf("[PLT] Select Smart or Dumb for the paired probe\n");
-    ASSERT_TRUE(loadPlatformMotorConfig(Config(path.string()), motors));
+    ASSERT_TRUE(section.load(Config(path.string())));
+    section.getMotors(motors);
     ASSERT_EQ(motors[0].kind_, StepperMotorKind::smart);
     document["motorClass"] = "Smart";
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_TRUE(loadPlatformMotorConfig(Config(path.string()), motors));
+    ASSERT_TRUE(section.load(Config(path.string())));
+    section.getMotors(motors);
     ASSERT_EQ(motors[0].kind_, StepperMotorKind::smart);
     document["motorClass"] = "Dumb";
     for (const auto* axis : {"pan", "tilt"}) {
@@ -182,7 +186,8 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
         document[axis]["dumbRemainingPulsesTolerance"] = 3;
     }
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_TRUE(loadPlatformMotorConfig(Config(path.string()), motors));
+    ASSERT_TRUE(section.load(Config(path.string())));
+    section.getMotors(motors);
     ASSERT_EQ(motors[0].kind_, StepperMotorKind::dumb);
     ASSERT_EQ(motors[1].kind_, StepperMotorKind::dumb);
     ASSERT_FLOAT_EQ(motors[0].dumbSpeedDegSec_, 90);
@@ -190,11 +195,13 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     ASSERT_EQ(motors[1].dumbRemainingPulsesTolerance_, 3U);
     document["tilt"]["dumbPauseMs"] = 60000;
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_FALSE(loadPlatformMotorConfig(Config(path.string()), motors));
-    ASSERT_EQ(motors[1].dumbPause_, 0);
+    ASSERT_FALSE(section.load(Config(path.string())));
+    section.getMotors(motors);
+    ASSERT_EQ(motors[1].dumbPause_, 10 * MILLISECOND);
     document["motorClass"] = "Unknown";
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_FALSE(loadPlatformMotorConfig(Config(path.string()), motors));
+    ASSERT_FALSE(section.load(Config(path.string())));
+    section.getMotors(motors);
     ASSERT_EQ(motors[0].kind_, StepperMotorKind::dumb);
     ASSERT_EQ(motors[1].kind_, StepperMotorKind::dumb);
     document["motorClass"] = "Dumb";
@@ -202,15 +209,17 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     document["pan"]["speedMaxDegSec"] = 25;
     document["tilt"]["torqueMaxNm"] = -0.5;
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_FALSE(loadPlatformMotorConfig(Config(path.string()), motors));
-    ASSERT_FLOAT_EQ(motors[0].options_.speedMaxDegSec, 25);
-    ASSERT_DOUBLE_EQ(motors[1].options_.mechanics_.torqueMaxNm_, -0.5);
+    ASSERT_FALSE(section.load(Config(path.string())));
+    section.getMotors(motors);
+    ASSERT_FLOAT_EQ(motors[0].options_.speedMaxDegSec, 180);
+    ASSERT_DOUBLE_EQ(motors[1].options_.mechanics_.torqueMaxNm_, 0.5);
 
     printf("[PLT] Reload Smart after Dumb and clear class-specific settings\n");
     document["motorClass"] = "Smart";
     document["tilt"]["torqueMaxNm"] = 0.5;
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_TRUE(loadPlatformMotorConfig(Config(path.string()), motors));
+    ASSERT_TRUE(section.load(Config(path.string())));
+    section.getMotors(motors);
     for (const auto& motor : motors) {
         ASSERT_EQ(motor.kind_, StepperMotorKind::smart);
         ASSERT_FLOAT_EQ(motor.dumbSpeedDegSec_, 0);

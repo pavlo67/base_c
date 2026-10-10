@@ -48,13 +48,14 @@ bool stepperMotorOptionsOk(stepper_motor_options_t& options, std::string& error)
     return true;
 }
 
-constexpr const char* ON_LOAD_MOTOR_CONFIG = "[loadPlatformMotorConfig()]";
+constexpr const char* ON_LOAD_MOTOR_CONFIG = "[ComponentStateMove.load()]";
 
-bool loadPlatformMotorConfig(const Config& cfg, std::array<StepperMotorRunConfig, 2>& motors) {
+bool ComponentStateMove::load(const Config& cfg) {
     if (!cfg.loadedOk()) {
         printf("%s ERROR: configuration is unavailable\n", ON_LOAD_MOTOR_CONFIG);
         return false;
     }
+    std::array<StepperMotorRunConfig, 2> motors{};
     std::array<bool, Gpio::PIN_COUNT> used{};
     const char* axis = "pan";
     try {
@@ -126,5 +127,49 @@ bool loadPlatformMotorConfig(const Config& cfg, std::array<StepperMotorRunConfig
         printf("%s ERROR: %s: %s\n", ON_LOAD_MOTOR_CONFIG, axis, error.what());
         return false;
     }
+    {
+        std::lock_guard lock(mutex_);
+        motors_ = motors;
+        loaded_ = true;
+    }
     return true;
+}
+
+config_values_t ComponentStateMove::get() const {
+    std::lock_guard lock(mutex_);
+    config_values_t values;
+    if (!loaded_) {
+        return values;
+    }
+    for (size_t i = 0; i < motors_.size(); ++i) {
+        const auto& motor = motors_[i];
+        const std::string axis = i == 0 ? "pan" : "tilt";
+        values[axis + ".pinStep"] = std::to_string(motor.pinStep_);
+        values[axis + ".pinDir"] = std::to_string(motor.pinDir_);
+        values[axis + ".pinEna"] = std::to_string(motor.pinEna_);
+        values[axis + ".freqMax"] = std::to_string(motor.options_.freqMax);
+        values[axis + ".degPulse"] = std::to_string(motor.options_.degPulse);
+        values[axis + ".speedMaxDegSec"] = std::to_string(motor.options_.speedMaxDegSec);
+        values[axis + ".gearRatio"] = std::to_string(motor.options_.mechanics_.gearRatio_);
+        values[axis + ".momentOfInertia"] = std::to_string(motor.options_.mechanics_.momentOfInertia_);
+        values[axis + ".rotorInertia"] = std::to_string(motor.options_.mechanics_.rotorInertia_);
+        values[axis + ".transmissionEfficiency"] = std::to_string(motor.options_.mechanics_.transmissionEfficiency_);
+        values[axis + ".torqueMaxNm"] = std::to_string(motor.options_.mechanics_.torqueMaxNm_);
+        values[axis + ".hardwarePwm"] = motor.hardwarePwm_ ? "true" : "false";
+        values[axis + ".expecterIntervalUs"] = std::to_string(motor.expecterInterval_ / MICROSECOND);
+        values[axis + ".pulseHighUs"] = std::to_string(motor.pulseHigh_ / MICROSECOND);
+        values[axis + ".timeLimitMs"] = std::to_string(motor.timeLimit_ / MILLISECOND);
+        values[axis + ".motorClass"] = motor.kind_ == StepperMotorKind::smart ? "Smart" : "Dumb";
+        if (motor.kind_ == StepperMotorKind::dumb) {
+            values[axis + ".dumbSpeedDegSec"] = std::to_string(motor.dumbSpeedDegSec_);
+            values[axis + ".dumbPauseMs"] = std::to_string(motor.dumbPause_ / MILLISECOND);
+            values[axis + ".dumbRemainingPulsesTolerance"] = std::to_string(motor.dumbRemainingPulsesTolerance_);
+        }
+    }
+    return values;
+}
+
+void ComponentStateMove::getMotors(std::array<StepperMotorRunConfig, 2>& motors) const {
+    std::lock_guard lock(mutex_);
+    motors = motors_;
 }

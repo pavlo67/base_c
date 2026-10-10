@@ -15,7 +15,9 @@ int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
     printf("[GPIO] Load pan hardware from %s\n", HARDWARE_CONFIG_PATH);
     std::array<StepperMotorRunConfig, 2> motors;
-    if (!loadPlatformMotorConfig(Config(HARDWARE_CONFIG_PATH), motors)) { return 1; }
+    ComponentStateMove section;
+    if (!section.load(Config(HARDWARE_CONFIG_PATH))) { return EXIT_FAILURE; }
+    section.getMotors(motors);
     const auto& pan = motors[0];
     GPIO_TEST_PINS = {pan.pinStep_, pan.pinDir_};
     PIN = pan.pinStep_;

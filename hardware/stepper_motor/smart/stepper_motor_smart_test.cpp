@@ -516,7 +516,9 @@ TEST_F(StepperMotorTest, exhaustedBrakingBudgetSkipsTailAfterLargeDelay) {
 TEST_F(StepperMotorTest, configuredPlatformPairCompletesWithoutClaimingEnablePins) {
     printf("[PAIR] Load configured mechanics and execute 10/5 degrees through prepare/update\n");
     std::array<StepperMotorRunConfig, 2> configs{};
-    ASSERT_TRUE(loadPlatformMotorConfig(Config("machina.yaml"), configs));
+    ComponentStateMove section;
+    ASSERT_TRUE(section.load(Config("machina.yaml")));
+    section.getMotors(configs);
     for (const float direction : {1.0F, -1.0F}) {
         std::array<StepperMotorSmart, 2> motors{
             StepperMotorSmart(configs[0]), StepperMotorSmart(configs[1])};
