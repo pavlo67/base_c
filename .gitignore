@@ -15,6 +15,7 @@ build/
 .idea/
 .codex/
 .claude/
+.ccache/
 
 # Log files, reports, archives, backups
 _log/

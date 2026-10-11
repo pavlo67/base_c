@@ -65,8 +65,8 @@ bool ComponentStateMove::load(const Config& cfg) {
     try {
         const auto kindNode = cfg.get("motorClass");
         const std::string kind = kindNode ? kindNode.as<std::string>() : "Smart";
-        if (kind != "Smart" && kind != "Dumb" && kind != "Simulation") {
-            printf("%s ERROR: motorClass must be Smart, Dumb or Simulation\n", ON_LOAD_MOTOR_CONFIG);
+        if (kind != "Smart" && kind != "Dumb" && kind != "DumbDumb" && kind != "Simulation") {
+            printf("%s ERROR: motorClass must be Smart, Dumb, DumbDumb or Simulation\n", ON_LOAD_MOTOR_CONFIG);
             return false;
         }
         for (size_t i = 0; i < motors.size(); ++i) {
@@ -75,10 +75,12 @@ bool ComponentStateMove::load(const Config& cfg) {
             auto& motor = motors[i];
             motor = {};
             motor.kind_ = kind == "Smart" ? StepperMotorKind::smart :
-                (kind == "Dumb" ? StepperMotorKind::dumb : StepperMotorKind::simulation);
+                (kind == "Dumb" ? StepperMotorKind::dumb :
+                    (kind == "DumbDumb" ? StepperMotorKind::dumbDumb : StepperMotorKind::simulation));
             motor.pinStep_ = node["pinStep"].as<unsigned>();
             motor.pinDir_ = node["pinDir"].as<unsigned>();
             motor.pinEna_ = node["pinEna"].as<unsigned>();
+            motor.reversed_ = node["reversed"] ? node["reversed"].as<bool>() : false;
             motor.options_.freqMax = node["freqMax"].as<float>();
             motor.options_.degPulse = node["degPulse"].as<float>();
             motor.options_.speedMaxDegSec = node["speedMaxDegSec"].as<float>();
@@ -154,6 +156,7 @@ config_values_t ComponentStateMove::get() const {
         values[axis + ".pinStep"] = std::to_string(motor.pinStep_);
         values[axis + ".pinDir"] = std::to_string(motor.pinDir_);
         values[axis + ".pinEna"] = std::to_string(motor.pinEna_);
+        values[axis + ".reversed"] = motor.reversed_ ? "true" : "false";
         values[axis + ".freqMax"] = std::to_string(motor.options_.freqMax);
         values[axis + ".degPulse"] = std::to_string(motor.options_.degPulse);
         values[axis + ".speedMaxDegSec"] = std::to_string(motor.options_.speedMaxDegSec);
@@ -167,7 +170,8 @@ config_values_t ComponentStateMove::get() const {
         values[axis + ".pulseHighUs"] = std::to_string(motor.pulseHigh_ / MICROSECOND);
         values[axis + ".timeLimitMs"] = std::to_string(motor.timeLimit_ / MILLISECOND);
         values[axis + ".motorClass"] = motor.kind_ == StepperMotorKind::smart ? "Smart" :
-            (motor.kind_ == StepperMotorKind::dumb ? "Dumb" : "Simulation");
+            (motor.kind_ == StepperMotorKind::dumb ? "Dumb" :
+                (motor.kind_ == StepperMotorKind::dumbDumb ? "DumbDumb" : "Simulation"));
         if (motor.kind_ == StepperMotorKind::dumb || motor.kind_ == StepperMotorKind::simulation) {
             values[axis + ".dumbSpeedDegSec"] = std::to_string(motor.dumbSpeedDegSec_);
             values[axis + ".dumbPauseMs"] = std::to_string(motor.dumbPause_ / MILLISECOND);

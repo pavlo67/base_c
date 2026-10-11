@@ -33,6 +33,10 @@ public:
     int probe(float rotationDeg, bool withEstimates, const std::string& label = "motor", StepperMotorSeriesSequence* real = nullptr);
     int prepare(float angle, std::array<bool, Gpio::PIN_COUNT>& usedPins);
     int update();
+    // Replaces an in-flight relative move without changing its scheduler phase.
+    // Only motors with a persistent background scheduler implement this.
+    virtual int replaceMove(float angle) { (void)angle; return Gpio::NOT_SUPPORTED; }
+    [[nodiscard]] virtual bool hasBackgroundScheduler() const { return false; }
     [[nodiscard]] Clock::time_point nextWake() const { return std::min(next_, deadline_); }
     [[nodiscard]] const StepperMotorSeriesSequence& result() const { return sequence_; }
     int stop();

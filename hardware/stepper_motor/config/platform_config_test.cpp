@@ -171,6 +171,16 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     ASSERT_NEAR(motors[0].options_.degPulseGeared, 0.125, 1e-8);
     ASSERT_NEAR(motors[1].options_.degPulseGeared, 0.1125, 1e-8);
     ASSERT_NEAR(motors[0].options_.accelMaxDegSec2, 11444.940082303707, 0.1);
+    ASSERT_FALSE(motors[0].reversed_);
+    ASSERT_FALSE(motors[1].reversed_);
+    printf("[PLT] Load independent installed-motor direction reversals\n");
+    document["pan"]["reversed"] = true;
+    document["tilt"]["reversed"] = false;
+    { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
+    ASSERT_TRUE(section.load(Config(path.string())));
+    section.getMotors(motors);
+    ASSERT_TRUE(motors[0].reversed_);
+    ASSERT_FALSE(motors[1].reversed_);
     printf("[PLT] Load named GPIO pins and reject motor pin conflicts\n");
     document["gpio"]["latch"] = 5;
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
@@ -218,6 +228,15 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     section.getMotors(motors);
     ASSERT_EQ(motors[0].kind_, StepperMotorKind::dumb);
     ASSERT_EQ(motors[1].kind_, StepperMotorKind::dumb);
+    printf("[PLT] Select the persistent DumbDumb scheduler without Dumb-only settings\n");
+    document["motorClass"] = "DumbDumb";
+    { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
+    ASSERT_TRUE(section.load(Config(path.string())));
+    section.getMotors(motors);
+    ASSERT_EQ(motors[0].kind_, StepperMotorKind::dumbDumb);
+    ASSERT_EQ(motors[1].kind_, StepperMotorKind::dumbDumb);
+    ASSERT_FLOAT_EQ(motors[0].dumbSpeedDegSec_, 0);
+    ASSERT_EQ(motors[1].dumbPause_, 0);
     document["motorClass"] = "Dumb";
     document["tilt"]["dumbPauseMs"] = 10;
     document["pan"]["speedMaxDegSec"] = 25;

@@ -38,6 +38,7 @@ add_library(stepper_motor
         stepper_motor/stepper_motor_series_helpers.cpp
         stepper_motor/smart/stepper_motor_smart.cpp
         stepper_motor/dumb/stepper_motor_dumb.cpp
+        stepper_motor/dumb_dumb/stepper_motor_dumb_dumb.cpp
         stepper_motor/stepper_motor_series.cpp
 )
 target_link_libraries(stepper_motor PUBLIC Threads::Threads hardware_gpio)

@@ -173,7 +173,7 @@ StepperMotorSeriesSequence getSeriesSequence(
         const stepper_motor_options_t& stepperOpts,
         stepper_motor_algorithm_t intervalAlgorithm = CONSTANT_ACCELERATION);
 
-enum class StepperMotorKind { smart, dumb, simulation };
+enum class StepperMotorKind { smart, dumb, dumbDumb, simulation };
 
 // Configuration for a rest-to-rest move; the application owns GPIO lifecycle.
 struct StepperMotorRunConfig {
@@ -185,6 +185,7 @@ struct StepperMotorRunConfig {
     duration pulseHigh_ = 0;
     duration timeLimit_ = 60 * SECOND;
     bool hardwarePwm_ = false;
+    bool reversed_ = false;
     bool verbose_ = false;
     StepperMotorKind kind_ = StepperMotorKind::smart;
     float dumbSpeedDegSec_ = 0;

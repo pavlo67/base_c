@@ -1,4 +1,5 @@
 #include "stepper_motor_dumb.h"
+#include "hardware/stepper_motor/dumb_dumb/stepper_motor_dumb_dumb.h"
 
 #include <gtest/gtest.h>
 #include <numbers>
@@ -123,6 +124,21 @@ TEST_F(StepperMotorDumbTest, CallsPulseCallbackBeforeEveryElapsedPulse) {
     for (const bool direction : directions) {
         ASSERT_TRUE(direction);
     }
+}
+
+TEST_F(StepperMotorDumbTest, DumbDumbReplacesRemainingPulsesWithoutRestartingItsClock) {
+    auto config = dumbConfig();
+    std::string error;
+    ASSERT_TRUE(stepperMotorOptionsOk(config.options_, error)) << error;
+    printf("[DDD] Replace a queued move while the fixed background clock is active\n");
+    StepperMotorDumbDumb motor(config);
+    ASSERT_EQ(motor.replaceMove(1.0F), Gpio::SUCCESS);
+    ASSERT_EQ(Gpio::instance().read(config.pinDir_), 1);
+    std::this_thread::sleep_for(std::chrono::nanoseconds(2 * config.expecterInterval_));
+    ASSERT_EQ(motor.replaceMove(-0.2F), Gpio::SUCCESS);
+    ASSERT_EQ(Gpio::instance().read(config.pinDir_), 0);
+    std::this_thread::sleep_for(std::chrono::nanoseconds(3 * config.expecterInterval_));
+    ASSERT_EQ(Gpio::instance().read(config.pinStep_), 0);
 }
 #endif
 
