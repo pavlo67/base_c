@@ -17,6 +17,7 @@ build/
 .claude/
 
 # Log files, reports, archives, backups
+_log/
 *.xls*
 *.tab*
 *.log*
