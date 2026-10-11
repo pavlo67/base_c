@@ -62,7 +62,12 @@ set_target_properties(pulses_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BI
 target_link_libraries(pulses_probe PRIVATE stepper_platform)
 
 # Shared platform mechanics, YAML configuration and probe.
-add_library(stepper_platform stepper_motor/config/platform_config.cpp ../lib/config/config.cpp)
+add_library(stepper_platform
+    stepper_motor/config/platform_config.cpp
+    gpio/component_state_gpio.cpp
+    ../lib/config/config.cpp
+    ../lib/strlib.cpp
+)
 target_link_libraries(stepper_platform PUBLIC stepper_motor yaml-cpp::yaml-cpp)
 # Programs may override their source path constant with a machina.yaml path.
 add_executable(platform_probe stepper_motor/_probe/platform_probe.cpp)

@@ -1,5 +1,8 @@
 API_KEY: replace-with-a-secret 
 
+# Named BCM GPIO pins used synchronously by application actions.
+gpio:
+  fix: 16
 
 # Platform motion configuration.
 pan:

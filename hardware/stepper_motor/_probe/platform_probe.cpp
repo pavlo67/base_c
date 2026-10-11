@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
 
     const Config config(CONFIG_PATH);
     std::array<StepperMotorRunConfig, 2> configs{};
-    ComponentStateMove section;
+    ComponentStateMove section("pan", "tilt");
     if (!section.load(config)) { return EXIT_FAILURE; }
     section.getMotors(configs);
     for (size_t axis = 0; axis < configs.size(); ++axis) {

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <limits>
 #include <numbers>
+#include <utility>
 #include "hardware/gpio/gpio.h"
 #include "lib/mathlib.h"
 
@@ -50,6 +51,9 @@ bool stepperMotorOptionsOk(stepper_motor_options_t& options, std::string& error)
 
 constexpr const char* ON_LOAD_MOTOR_CONFIG = "[ComponentStateMove.load()]";
 
+ComponentStateMove::ComponentStateMove(std::string panSection, std::string tiltSection)
+    : panSection_(std::move(panSection)), tiltSection_(std::move(tiltSection)) {}
+
 bool ComponentStateMove::load(const Config& cfg) {
     if (!cfg.loadedOk()) {
         printf("%s ERROR: configuration is unavailable\n", ON_LOAD_MOTOR_CONFIG);
@@ -57,7 +61,7 @@ bool ComponentStateMove::load(const Config& cfg) {
     }
     std::array<StepperMotorRunConfig, 2> motors{};
     std::array<bool, Gpio::PIN_COUNT> used{};
-    const char* axis = "pan";
+    const char* axis = panSection_.c_str();
     try {
         const auto kindNode = cfg.get("motorClass");
         const std::string kind = kindNode ? kindNode.as<std::string>() : "Smart";
@@ -66,7 +70,7 @@ bool ComponentStateMove::load(const Config& cfg) {
             return false;
         }
         for (size_t i = 0; i < motors.size(); ++i) {
-            axis = i == 0 ? "pan" : "tilt";
+            axis = i == 0 ? panSection_.c_str() : tiltSection_.c_str();
             const auto node = cfg.get(axis);
             auto& motor = motors[i];
             motor = {};
@@ -132,6 +136,8 @@ bool ComponentStateMove::load(const Config& cfg) {
         motors_ = motors;
         loaded_ = true;
     }
+
+    printComponentState("MOVE", get());
     return true;
 }
 
@@ -143,7 +149,7 @@ config_values_t ComponentStateMove::get() const {
     }
     for (size_t i = 0; i < motors_.size(); ++i) {
         const auto& motor = motors_[i];
-        const std::string axis = i == 0 ? "pan" : "tilt";
+        const std::string& axis = i == 0 ? panSection_ : tiltSection_;
         values[axis + ".pinStep"] = std::to_string(motor.pinStep_);
         values[axis + ".pinDir"] = std::to_string(motor.pinDir_);
         values[axis + ".pinEna"] = std::to_string(motor.pinEna_);
@@ -172,4 +178,15 @@ config_values_t ComponentStateMove::get() const {
 void ComponentStateMove::getMotors(std::array<StepperMotorRunConfig, 2>& motors) const {
     std::lock_guard lock(mutex_);
     motors = motors_;
+}
+
+std::set<unsigned> ComponentStateMove::getPins() const {
+    std::lock_guard lock(mutex_);
+    std::set<unsigned> pins;
+    for (const auto& motor : motors_) {
+        pins.insert(motor.pinStep_);
+        pins.insert(motor.pinDir_);
+        pins.insert(motor.pinEna_);
+    }
+    return pins;
 }

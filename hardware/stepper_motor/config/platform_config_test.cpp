@@ -1,4 +1,5 @@
 #include "platform_config.h"
+#include "hardware/gpio/component_state_gpio.h"
 #include "lib/strlib.h"
 
 #include <gtest/gtest.h>
@@ -164,12 +165,25 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     }
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
     std::array<StepperMotorRunConfig, 2> motors{};
-    ComponentStateMove section;
+    ComponentStateMove section("pan", "tilt");
     ASSERT_TRUE(section.load(Config(path.string())));
     section.getMotors(motors);
     ASSERT_NEAR(motors[0].options_.degPulseGeared, 0.125, 1e-8);
     ASSERT_NEAR(motors[1].options_.degPulseGeared, 0.1125, 1e-8);
     ASSERT_NEAR(motors[0].options_.accelMaxDegSec2, 11444.940082303707, 0.1);
+    printf("[PLT] Load named GPIO pins and reject motor pin conflicts\n");
+    document["gpio"]["latch"] = 5;
+    { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
+    ComponentStateGPIO gpio("gpio", section.getPins());
+    ASSERT_TRUE(gpio.load(Config(path.string())));
+    ASSERT_TRUE(gpio.usesPin(5));
+    ASSERT_EQ(gpio.get().at("latch"), "5");
+    ASSERT_EQ(gpio.readPin("missing"), Gpio::INVALID_ARGUMENT);
+    document["gpio"]["conflict"] = motors[0].pinStep_;
+    { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
+    ASSERT_FALSE(gpio.load(Config(path.string())));
+    ASSERT_TRUE(gpio.usesPin(5));
+    ASSERT_FALSE(gpio.usesPin(motors[0].pinStep_));
     printf("[PLT] Select Smart or Dumb for the paired probe\n");
     ASSERT_TRUE(section.load(Config(path.string())));
     section.getMotors(motors);

@@ -12,8 +12,7 @@ std::vector<std::string> split(std::string s, const std::string& delimiter);
 std::string tail(std::string const& src, size_t const length);
 void trim(std::string& str);
 
-std::string configValuesString(const std::map<std::string, std::string>& values);
-void printComponentState(const std::string& name, const std::map<std::string, std::string>& values);
+std::string stringMapToMultilineString(const std::map<std::string, std::string>& values);
 
 void logger(FILE* fLog, const char* format, ...);
 
