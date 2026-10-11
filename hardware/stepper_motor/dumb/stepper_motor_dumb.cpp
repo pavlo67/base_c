@@ -6,8 +6,9 @@
 #include <limits>
 
 StepperMotorDumb::StepperMotorDumb(const StepperMotorRunConfig& config, float speedDegPerSec,
-        duration pauseAfterSeries, uint64_t remainingPulsesTolerance)
-    : StepperMotor(config), speedDegPerSec_(speedDegPerSec), pauseAfterSeries_(pauseAfterSeries),
+        duration pauseAfterSeries, uint64_t remainingPulsesTolerance,
+        std::function<void(bool directionForward)> pulseCallback)
+    : StepperMotor(config, std::move(pulseCallback)), speedDegPerSec_(speedDegPerSec), pauseAfterSeries_(pauseAfterSeries),
       remainingPulsesTolerance_(remainingPulsesTolerance) {}
 
 constexpr const char* ON_DUMB_PLAN_SEQUENCE = "[StepperMotorDumb.planSequence()]";

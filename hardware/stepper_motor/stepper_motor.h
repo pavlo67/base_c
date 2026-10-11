@@ -4,6 +4,7 @@
 #include <array>
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <mutex>
 
 #include "hardware/gpio/gpio.h"
@@ -19,7 +20,8 @@ public:
     static constexpr int COMPLETE = 1;
     static constexpr int TIME_LIMIT = -10008;
 
-    explicit StepperMotor(const StepperMotorRunConfig& config);
+    explicit StepperMotor(const StepperMotorRunConfig& config,
+        std::function<void(bool directionForward)> pulseCallback = nullptr);
     virtual ~StepperMotor();
     StepperMotor(const StepperMotor&) = delete;
     StepperMotor& operator=(const StepperMotor&) = delete;
@@ -56,6 +58,7 @@ protected:
     Clock::time_point deadline_{};
     std::chrono::nanoseconds tick_{};
     bool started_ = false;
+    std::function<void(bool directionForward)> pulseCallback_;
 
 private:
     int runReal(const std::string& label, StepperMotorSeriesSequence* real);

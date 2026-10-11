@@ -7,7 +7,8 @@
 #include <limits>
 #include <thread>
 
-StepperMotor::StepperMotor(const StepperMotorRunConfig& config) : config_(config) {}
+StepperMotor::StepperMotor(const StepperMotorRunConfig& config, std::function<void(bool directionForward)> pulseCallback)
+    : config_(config), pulseCallback_(std::move(pulseCallback)) {}
 
 StepperMotor::~StepperMotor() { (void)stop(); }
 
@@ -41,6 +42,13 @@ std::mutex& stepperMotorExecutionMutex() {
 void StepperMotor::setSequence(const StepperMotorSeriesSequence& sequence) {
     sequence_ = sequence;
     prepareSequence();
+    if (pulseCallback_) {
+        for (auto& series : sequence_.seq) {
+            series.onPulse_ = [this, directionForward = series.directionForward_](moment) {
+                pulseCallback_(directionForward);
+            };
+        }
+    }
     initialized_ = false;
     lastAt_ = 0;
     accelerationTicks_ = 0;

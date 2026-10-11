@@ -65,8 +65,8 @@ bool ComponentStateMove::load(const Config& cfg) {
     try {
         const auto kindNode = cfg.get("motorClass");
         const std::string kind = kindNode ? kindNode.as<std::string>() : "Smart";
-        if (kind != "Smart" && kind != "Dumb") {
-            printf("%s ERROR: motorClass must be Smart or Dumb\n", ON_LOAD_MOTOR_CONFIG);
+        if (kind != "Smart" && kind != "Dumb" && kind != "Simulation") {
+            printf("%s ERROR: motorClass must be Smart, Dumb or Simulation\n", ON_LOAD_MOTOR_CONFIG);
             return false;
         }
         for (size_t i = 0; i < motors.size(); ++i) {
@@ -74,7 +74,8 @@ bool ComponentStateMove::load(const Config& cfg) {
             const auto node = cfg.get(axis);
             auto& motor = motors[i];
             motor = {};
-            motor.kind_ = kind == "Smart" ? StepperMotorKind::smart : StepperMotorKind::dumb;
+            motor.kind_ = kind == "Smart" ? StepperMotorKind::smart :
+                (kind == "Dumb" ? StepperMotorKind::dumb : StepperMotorKind::simulation);
             motor.pinStep_ = node["pinStep"].as<unsigned>();
             motor.pinDir_ = node["pinDir"].as<unsigned>();
             motor.pinEna_ = node["pinEna"].as<unsigned>();
@@ -105,7 +106,7 @@ bool ComponentStateMove::load(const Config& cfg) {
             motor.expecterInterval_ = interval * MICROSECOND;
             motor.pulseHigh_ = pulse * MICROSECOND;
             motor.timeLimit_ = limit * MILLISECOND;
-            if (motor.kind_ == StepperMotorKind::dumb) {
+            if (motor.kind_ == StepperMotorKind::dumb || motor.kind_ == StepperMotorKind::simulation) {
                 motor.dumbSpeedDegSec_ = node["dumbSpeedDegSec"].as<float>();
                 const auto pauseMs = node["dumbPauseMs"].as<uint64_t>();
                 motor.dumbRemainingPulsesTolerance_ = node["dumbRemainingPulsesTolerance"].as<uint64_t>();
@@ -165,8 +166,9 @@ config_values_t ComponentStateMove::get() const {
         values[axis + ".expecterIntervalUs"] = std::to_string(motor.expecterInterval_ / MICROSECOND);
         values[axis + ".pulseHighUs"] = std::to_string(motor.pulseHigh_ / MICROSECOND);
         values[axis + ".timeLimitMs"] = std::to_string(motor.timeLimit_ / MILLISECOND);
-        values[axis + ".motorClass"] = motor.kind_ == StepperMotorKind::smart ? "Smart" : "Dumb";
-        if (motor.kind_ == StepperMotorKind::dumb) {
+        values[axis + ".motorClass"] = motor.kind_ == StepperMotorKind::smart ? "Smart" :
+            (motor.kind_ == StepperMotorKind::dumb ? "Dumb" : "Simulation");
+        if (motor.kind_ == StepperMotorKind::dumb || motor.kind_ == StepperMotorKind::simulation) {
             values[axis + ".dumbSpeedDegSec"] = std::to_string(motor.dumbSpeedDegSec_);
             values[axis + ".dumbPauseMs"] = std::to_string(motor.dumbPause_ / MILLISECOND);
             values[axis + ".dumbRemainingPulsesTolerance"] = std::to_string(motor.dumbRemainingPulsesTolerance_);

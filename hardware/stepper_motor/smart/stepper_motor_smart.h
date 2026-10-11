@@ -5,7 +5,8 @@
 
 class StepperMotorSmart final : public StepperMotor {
 public:
-    explicit StepperMotorSmart(const StepperMotorRunConfig& config);
+    explicit StepperMotorSmart(const StepperMotorRunConfig& config,
+        std::function<void(bool directionForward)> pulseCallback = nullptr);
     StepperMotorSmart(const StepperMotorRunConfig& config, const StepperMotorSeriesSequence& sequence);
     StepperMotorSmart(const StepperMotorSeriesSequence& sequence, unsigned pinStep,
         unsigned pinDir, unsigned pinEna, const stepper_motor_options_t& options,

@@ -1,5 +1,7 @@
 #include "config.h"
 
+#include <utility>
+
 Config::Config(const std::string& filePath) {
     try {
         root_ = YAML::LoadFile(filePath);
@@ -10,5 +12,7 @@ Config::Config(const std::string& filePath) {
         loaded_ = false;
     }
 }
+
+Config::Config(YAML::Node root) : root_(std::move(root)), loaded_(root_.IsDefined()) {}
 
 

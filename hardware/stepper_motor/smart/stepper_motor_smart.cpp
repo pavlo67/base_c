@@ -6,8 +6,9 @@
 #include <cstdio>
 #include <limits>
 
-StepperMotorSmart::StepperMotorSmart(const StepperMotorRunConfig& config)
-    : StepperMotor(config) {}
+StepperMotorSmart::StepperMotorSmart(const StepperMotorRunConfig& config,
+        std::function<void(bool directionForward)> pulseCallback)
+    : StepperMotor(config, std::move(pulseCallback)) {}
 
 StepperMotorSmart::StepperMotorSmart(const StepperMotorRunConfig& config,
         const StepperMotorSeriesSequence& sequence)

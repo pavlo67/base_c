@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 #include <numbers>
+#include <vector>
 #include "hardware/stepper_motor/config/platform_config.h"
 
 namespace {
@@ -99,6 +100,29 @@ TEST_F(StepperMotorDumbTest, ProbeUsesFixedSpeedPlanner) {
     ASSERT_FLOAT_EQ(real.seq.front().maxAccelerationDegSec2_, 0);
     ASSERT_GE(real.seq.front().pulsesCount_, 4U);
     ASSERT_LE(real.seq.front().pulsesCount_, 5U);
+}
+
+TEST_F(StepperMotorDumbTest, CallsPulseCallbackBeforeEveryElapsedPulse) {
+    auto config = dumbConfig();
+    std::string error;
+    ASSERT_TRUE(stepperMotorOptionsOk(config.options_, error)) << error;
+    std::vector<bool> directions;
+    StepperMotorDumb motor(config, 500, 0, 0, [&directions](bool directionForward) {
+        directions.push_back(directionForward);
+    });
+    std::array<bool, Gpio::PIN_COUNT> usedPins{};
+    printf("[DMB] Verify one callback per forward pulse\n");
+    ASSERT_EQ(motor.prepare(1, usedPins), StepperMotor::RUNNING);
+    ASSERT_EQ(motor.action(0), StepperMotor::RUNNING);
+    int status = StepperMotor::RUNNING;
+    for (moment at = 5 * MILLISECOND; status == StepperMotor::RUNNING; at += 5 * MILLISECOND) {
+        status = motor.action(at);
+    }
+    ASSERT_EQ(status, StepperMotor::COMPLETE);
+    ASSERT_EQ(directions.size(), motor.result().seq.front().pulsesCount_);
+    for (const bool direction : directions) {
+        ASSERT_TRUE(direction);
+    }
 }
 #endif
 
