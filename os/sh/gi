@@ -1,6 +1,7 @@
 #!/bin/sh
 
 gi_commands='
+echo ""
 git add . || exit $?
 if git diff --cached --quiet --exit-code; then
     :
@@ -22,4 +23,6 @@ git submodule foreach '
 ' || exit $?
 
 git submodule foreach "$gi_commands" || exit $?
+
+echo "\nentering main module"
 sh -c "$gi_commands"

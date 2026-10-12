@@ -1,0 +1,8 @@
+#!/bin/sh
+
+gi_commands='echo "" && git status'
+
+git submodule foreach "$gi_commands" || exit $?
+
+echo "\nentering main module"
+sh -c "$gi_commands"
