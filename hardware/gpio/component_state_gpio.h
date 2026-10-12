@@ -19,11 +19,10 @@ public:
     int setPinMode(const std::string& name, GpioMode mode);
     int writePin(const std::string& name, unsigned level);
     int readPin(const std::string& name);
+    int getPin(const std::string& name, unsigned& pin) const;
     [[nodiscard]] bool usesPin(unsigned pin) const;
 
 private:
-    int findPin(const std::string& name, unsigned& pin) const;
-
     mutable std::mutex mutex_;
     std::string section_;
     std::map<std::string, unsigned> pins_;

@@ -72,7 +72,7 @@ config_values_t ComponentStateGPIO::get() const {
     return values;
 }
 
-int ComponentStateGPIO::findPin(const std::string& name, unsigned& pin) const {
+int ComponentStateGPIO::getPin(const std::string& name, unsigned& pin) const {
     std::lock_guard lock(mutex_);
     const auto found = pins_.find(name);
     if (!loaded_ || found == pins_.end()) {
@@ -84,7 +84,7 @@ int ComponentStateGPIO::findPin(const std::string& name, unsigned& pin) const {
 
 int ComponentStateGPIO::setPinMode(const std::string& name, GpioMode mode) {
     unsigned pin = 0;
-    const int found = findPin(name, pin);
+    const int found = getPin(name, pin);
     if (found < 0) {
         printf("%s ERROR: pin %s is not configured\n", ON_SET_PIN_MODE, name.c_str());
         return found;
@@ -94,7 +94,7 @@ int ComponentStateGPIO::setPinMode(const std::string& name, GpioMode mode) {
 
 int ComponentStateGPIO::writePin(const std::string& name, unsigned level) {
     unsigned pin = 0;
-    const int found = findPin(name, pin);
+    const int found = getPin(name, pin);
     if (found < 0) {
         printf("%s ERROR: pin %s is not configured\n", ON_WRITE_PIN, name.c_str());
         return found;
@@ -104,7 +104,7 @@ int ComponentStateGPIO::writePin(const std::string& name, unsigned level) {
 
 int ComponentStateGPIO::readPin(const std::string& name) {
     unsigned pin = 0;
-    const int found = findPin(name, pin);
+    const int found = getPin(name, pin);
     if (found < 0) {
         printf("%s ERROR: pin %s is not configured\n", ON_READ_PIN, name.c_str());
         return found;
