@@ -38,6 +38,9 @@ Do not show diffs.
 Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat string conversion, math, filesystem, and formatting
 helpers as reusable by default. 
 
+Функція `main()` в`main.cpp` записується першою — після всіх #include, констант, типів, статичних змінних і декларацій хелперів (без body). 
+Аналогічно і в инших cpp-файлах — спершу декларації, потім основні змістовні функції/методи, а всі хелпери — в кінці файлу. 
+
 All class member field names must end with an underscore, e.g. `original_`.
 
 Never create overloaded functions or methods. Every function or method must have a unique name within its scope, 
@@ -54,8 +57,6 @@ Wherever possible, use error codes/messages instead of throwing exceptions.
 
 Don't use stderr (`std::cerr`); send all error messages to stdout. Error messages must follow the format `<context> ERROR: <details>`.
 
-The `main()` function in `main.cpp` should appear first — after includes, constants, types, static variables, and helper 
-declarations (without bodies), of course.
 
 Don't use CLI parameters in apps unless explicitly required by the task — define all parameters as constants in main.cpp.
 
