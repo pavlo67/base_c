@@ -26,7 +26,7 @@ endif()
 # gpio probe ------------------------------------------
 
 add_executable(gpio_probe
-        gpio/_probes/gpio_probe.cpp
+        gpio/probes/gpio_probe.cpp
 )
 set_target_properties(gpio_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
 target_link_libraries(gpio_probe PRIVATE hardware_gpio cxxopts::cxxopts)
@@ -58,7 +58,7 @@ endif()
 
 # pulses_probe ---------------------------------------
 
-add_executable(pulses_probe stepper_motor/_probe/pulses_probe.cpp)
+add_executable(pulses_probe stepper_motor/probes/pulses_probe.cpp)
 set_target_properties(pulses_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
 target_link_libraries(pulses_probe PRIVATE stepper_platform)
 
@@ -71,7 +71,7 @@ add_library(stepper_platform
 )
 target_link_libraries(stepper_platform PUBLIC stepper_motor yaml-cpp::yaml-cpp)
 # Programs may override their source path constant with a machina.yaml path.
-add_executable(platform_probe stepper_motor/_probe/platform_probe.cpp)
+add_executable(platform_probe stepper_motor/probes/platform_probe.cpp)
 set_target_properties(platform_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
 target_link_libraries(platform_probe PRIVATE stepper_platform)
 add_executable(stepper_platform_test stepper_motor/config/platform_config_test.cpp)

@@ -67,7 +67,7 @@ Thus Raspberry Pi runs exercise real hardware and require routing/access permiss
 `pwm_sysfs_test` uses temporary files. `gpio_probe` takes one or more BCM pin numbers
 from CLI via cxxopts, e.g. `sudo ./gpio_probe 3 5 11`, without reading configuration.
 `--help` prints usage without initializing GPIO. The previous manual parser is
-preserved in `gpio/_probes/gpio_probe0.cpp` for comparison and is not a build target.
+preserved in `gpio/probes/gpio_probe0.cpp` for comparison and is not a build target.
 The probe validates all pins as integers in 0..27 before initializing GPIO, then visits
 pins in argument order (including duplicates): five pulses each, 500 ms HIGH / 500 ms
 LOW, followed by INPUT cleanup. It terminates the shared backend before exiting;
