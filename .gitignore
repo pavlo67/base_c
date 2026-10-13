@@ -10,12 +10,14 @@
 
 # CMake & IDE files
 cmake-build-debug/
+cmake-build-release/
 _build/
 build/
 .idea/
 .codex/
 .claude/
 .ccache/
+CMakeFiles/
 
 # Log files, reports, archives, backups
 _log/
