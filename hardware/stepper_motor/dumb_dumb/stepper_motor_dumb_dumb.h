@@ -16,6 +16,8 @@ public:
     int action(moment at) override;
     int replaceMove(float angle) override;
     [[nodiscard]] bool hasBackgroundScheduler() const override { return true; }
+    [[nodiscard]] bool hasPendingBackgroundMove() const override;
+    [[nodiscard]] int backgroundMoveResult() const override;
 
 protected:
     void prepareSequence() override {}
@@ -24,7 +26,7 @@ private:
     int configurePinsLocked();
     void runBackground(std::stop_token stop);
 
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::condition_variable_any wake_;
     std::jthread worker_;
     int64_t remainingPulses_ = 0;

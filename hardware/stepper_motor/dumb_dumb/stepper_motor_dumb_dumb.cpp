@@ -63,6 +63,16 @@ int StepperMotorDumbDumb::replaceMove(float angle) {
     return Gpio::SUCCESS;
 }
 
+bool StepperMotorDumbDumb::hasPendingBackgroundMove() const {
+    std::lock_guard lock(mutex_);
+    return remainingPulses_ != 0;
+}
+
+int StepperMotorDumbDumb::backgroundMoveResult() const {
+    std::lock_guard lock(mutex_);
+    return result_;
+}
+
 void StepperMotorDumbDumb::runBackground(std::stop_token stop) {
     const auto interval = std::chrono::nanoseconds(std::max<duration>(MICROSECOND, config_.expecterInterval_));
     std::unique_lock lock(mutex_);

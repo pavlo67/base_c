@@ -37,6 +37,8 @@ public:
     // Only motors with a persistent background scheduler implement this.
     virtual int replaceMove(float angle) { (void)angle; return Gpio::NOT_SUPPORTED; }
     [[nodiscard]] virtual bool hasBackgroundScheduler() const { return false; }
+    [[nodiscard]] virtual bool hasPendingBackgroundMove() const { return false; }
+    [[nodiscard]] virtual int backgroundMoveResult() const { return Gpio::SUCCESS; }
     [[nodiscard]] Clock::time_point nextWake() const { return std::min(next_, deadline_); }
     [[nodiscard]] const StepperMotorSeriesSequence& result() const { return sequence_; }
     int stop();

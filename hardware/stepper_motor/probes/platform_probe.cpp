@@ -3,6 +3,7 @@
 #include "hardware/gpio/gpio.h"
 #include "hardware/stepper_motor/config/platform_config.h"
 #include "hardware/stepper_motor/dumb/stepper_motor_dumb.h"
+#include "hardware/stepper_motor/dumb_dumb/stepper_motor_dumb_dumb.h"
 #include "hardware/stepper_motor/smart/stepper_motor_smart.h"
 
 #include <algorithm>
@@ -54,7 +55,9 @@ int main(int argc, char** argv) {
         for (size_t pair = 0; pair < movements.size(); ++pair) {
             printf("[PRB] Pair %zu/%zu: pan=%g deg, tilt=%g deg, class=%s\n", pair + 1,
                 movements.size(), movements[pair][0], movements[pair][1],
-                configs[0].kind_ == StepperMotorKind::smart ? "Smart" : "Dumb");
+                configs[0].kind_ == StepperMotorKind::smart ? "Smart" :
+                    (configs[0].kind_ == StepperMotorKind::dumb ? "Dumb" :
+                        (configs[0].kind_ == StepperMotorKind::dumbDumb ? "DumbDumb" : "Simulation")));
             std::array<std::unique_ptr<StepperMotor>, 2> motors;
             std::array<bool, Gpio::PIN_COUNT> usedPins{};
             std::array<int, 2> statuses{};
@@ -62,12 +65,15 @@ int main(int argc, char** argv) {
             for (size_t axis = 0; axis < motors.size(); ++axis) {
                 if (configs[axis].kind_ == StepperMotorKind::smart) {
                     motors[axis] = std::make_unique<StepperMotorSmart>(configs[axis]);
+                } else if (configs[axis].kind_ == StepperMotorKind::dumbDumb) {
+                    motors[axis] = std::make_unique<StepperMotorDumbDumb>(configs[axis]);
                 } else {
                     const auto& motor = configs[axis];
                     motors[axis] = std::make_unique<StepperMotorDumb>(configs[axis],
                         motor.dumbSpeedDegSec_, motor.dumbPause_, motor.dumbRemainingPulsesTolerance_);
                 }
-                statuses[axis] = motors[axis]->prepare(movements[pair][axis], usedPins);
+                statuses[axis] = configs[axis].kind_ == StepperMotorKind::dumbDumb ?
+                    motors[axis]->replaceMove(movements[pair][axis]) : motors[axis]->prepare(movements[pair][axis], usedPins);
                 if (statuses[axis] < 0) { failed = true; break; }
             }
             if (failed) { result = 1; break; }
@@ -75,6 +81,17 @@ int main(int argc, char** argv) {
                 bool active = false;
                 Clock::time_point wake = Clock::time_point::max();
                 for (size_t axis = 0; axis < motors.size(); ++axis) {
+                    if (configs[axis].kind_ == StepperMotorKind::dumbDumb) {
+                        if (motors[axis]->backgroundMoveResult() < 0) {
+                            failed = true;
+                            break;
+                        }
+                        if (motors[axis]->hasPendingBackgroundMove()) {
+                            active = true;
+                            wake = std::min(wake, Clock::now() + std::chrono::nanoseconds(configs[axis].expecterInterval_));
+                        }
+                        continue;
+                    }
                     if (statuses[axis] != StepperMotor::RUNNING) { continue; }
                     statuses[axis] = motors[axis]->update();
                     if (statuses[axis] < 0) { failed = true; break; }
