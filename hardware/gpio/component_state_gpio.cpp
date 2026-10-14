@@ -72,6 +72,10 @@ config_values_t ComponentStateGPIO::get() const {
     return values;
 }
 
+void ComponentStateGPIO::test() {
+    testSavedInterfaces();
+}
+
 int ComponentStateGPIO::getPin(const std::string& name, unsigned& pin) const {
     std::lock_guard lock(mutex_);
     const auto found = pins_.find(name);

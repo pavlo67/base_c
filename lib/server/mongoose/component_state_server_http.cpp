@@ -64,6 +64,10 @@ config_values_t ComponentStateServerHTTP::get() const {
     return {{"host", host_}, {"port", std::to_string(port_)}};
 }
 
+void ComponentStateServerHTTP::test() {
+    testSavedInterfaces();
+}
+
 void ComponentStateServerHTTP::getServerConfig(uint32_t& host, uint16_t& port) const {
     std::lock_guard lock(mutex_);
     if (!loaded_ || !ipV4StringToHost(host_, host)) {

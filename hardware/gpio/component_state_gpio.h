@@ -15,6 +15,7 @@ public:
 
     bool load(const Config& cfg) final;
     [[nodiscard]] config_values_t get() const final;
+    void test() final;
 
     int setPinMode(const std::string& name, GpioMode mode);
     int writePin(const std::string& name, unsigned level);

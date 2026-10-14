@@ -18,6 +18,7 @@ public:
 
     bool load(const Config& cfg) final;
     config_values_t get() const final;
+    void test() final;
 
     void getMotors(std::array<StepperMotorRunConfig, 2>& motors) const;
     [[nodiscard]] std::set<unsigned> getPins() const;

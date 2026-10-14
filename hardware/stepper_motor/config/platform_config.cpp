@@ -181,6 +181,10 @@ config_values_t ComponentStateMove::get() const {
     return values;
 }
 
+void ComponentStateMove::test() {
+    testSavedInterfaces();
+}
+
 void ComponentStateMove::getMotors(std::array<StepperMotorRunConfig, 2>& motors) const {
     std::lock_guard lock(mutex_);
     motors = motors_;

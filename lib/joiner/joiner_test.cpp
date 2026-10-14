@@ -17,6 +17,13 @@ bool f2(const std::string& s) {
 using F1 = int (*)(int, double);
 using F2 = bool (*)(const std::string&);
 
+class InterfaceBase {
+public:
+    virtual ~InterfaceBase() = default;
+};
+
+class InterfaceDerived final : public InterfaceBase {};
+
 TEST(JoinerTest, joiner_test) {
     Joiner joiner;
 
@@ -49,4 +56,21 @@ TEST(JoinerTest, joiner_test) {
 
     // I3: неіснуючий ключ
     ASSERT_EQ(joiner.Get<F1>("I3"), nullptr);
+
+    const auto allF1 = joiner.GetAll<F1>();
+    ASSERT_EQ(allF1.size(), 1U);
+    ASSERT_EQ(allF1.front(), &f1);
+
+    const auto allF2 = joiner.GetAll<F2>();
+    ASSERT_EQ(allF2.size(), 1U);
+    ASSERT_EQ(allF2.front(), &f2);
+
+    InterfaceDerived interface;
+    joiner.Set<InterfaceBase>("I3", &interface);
+    ASSERT_EQ(joiner.Get<InterfaceDerived*>("I3"), &interface);
+    ASSERT_EQ(joiner.Get<InterfaceBase*>("I3"), &interface);
+
+    const auto allBase = joiner.GetAll<InterfaceBase*>();
+    ASSERT_EQ(allBase.size(), 1U);
+    ASSERT_EQ(allBase.front(), &interface);
 }

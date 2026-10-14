@@ -13,6 +13,7 @@ public:
 
     bool load(const Config& cfg) final;
     [[nodiscard]] config_values_t get() const final;
+    void test() final;
 
     void getServerConfig(uint32_t& host, uint16_t& port) const;
 
