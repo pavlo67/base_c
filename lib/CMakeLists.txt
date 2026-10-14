@@ -28,6 +28,8 @@ add_test(NAME http_test COMMAND server_http_test)
 # lib_server_http_mngs ---------------------------------------------------------------
 
 add_library(lib_server_http_mngs
+        strlib.cpp
+        server/mongoose/component_state_server_http.cpp
         server/mongoose/mngs.cpp
         server/server.cpp
 )
@@ -46,10 +48,16 @@ target_link_libraries(server_http_mngs_hello PRIVATE lib_server_http_mngs)
 
 add_executable(server_http_mngs_test
         server/mongoose/mngs_test.cpp
+        config/config.cpp
         server/server.cpp
 )
 set_target_properties(server_http_mngs_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_test>")
 target_link_libraries(server_http_mngs_test PRIVATE lib_server_http_mngs GTest::gtest_main)
+if(TARGET yaml-cpp::yaml-cpp)
+    target_link_libraries(server_http_mngs_test PRIVATE yaml-cpp::yaml-cpp)
+else()
+    target_link_libraries(server_http_mngs_test PRIVATE yaml-cpp)
+endif()
 add_test(NAME server_http_mngs_test COMMAND server_http_mngs_test)
 
 # joiner_test ------------------------------------------------------------------------

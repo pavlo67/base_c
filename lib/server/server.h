@@ -30,6 +30,7 @@ struct ServerResponse {
 };
 
 std::string ipV4ToString(uint32_t ipV4Host);
+bool ipV4StringToHost(const std::string& value, uint32_t& ipV4Host);
 
 using ServerHTTPHandler = std::function<void(const ServerRequest&, ServerResponse&)>;
 using ServerWebSocketHandler = std::function<void(const std::string& message, std::string& response)>;

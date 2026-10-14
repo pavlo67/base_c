@@ -1,4 +1,5 @@
 #include "lib/server/mongoose/mngs.h"
+#include "lib/server/mongoose/component_state_server_http.h"
 
 #include <arpa/inet.h>
 #include <chrono>
@@ -118,4 +119,36 @@ TEST(Server, HTTPAndWebSocket) {
     EXPECT_NE(wsState.body.find("WS_TEST_KEY"), std::string::npos);
 
     mg_mgr_free(&manager);
+}
+
+TEST(Server, LoadsHTTPConfiguration) {
+    printf("[HTTP_CFG] Load a configured IPv4 listener endpoint\n");
+    YAML::Node document;
+    document["serverHTTP"]["host"] = "127.0.0.1";
+    document["serverHTTP"]["port"] = 18082;
+    const Config config(document);
+    ComponentStateServerHTTP section("serverHTTP");
+
+    ASSERT_TRUE(section.load(config));
+    uint32_t host = 0;
+    uint16_t port = 0;
+    section.getServerConfig(host, port);
+    ASSERT_EQ(host, 0x7f000001U);
+    ASSERT_EQ(port, 18082);
+    ASSERT_EQ(section.get().at("host"), "127.0.0.1");
+    ASSERT_EQ(section.get().at("port"), "18082");
+}
+
+TEST(Server, RejectsInvalidHTTPConfiguration) {
+    printf("[HTTP_CFG] Reject invalid listener address and port\n");
+    ComponentStateServerHTTP section("serverHTTP");
+    YAML::Node invalidHost;
+    invalidHost["serverHTTP"]["host"] = "localhost";
+    invalidHost["serverHTTP"]["port"] = 8080;
+    ASSERT_FALSE(section.load(Config(invalidHost)));
+
+    YAML::Node invalidPort;
+    invalidPort["serverHTTP"]["host"] = "0.0.0.0";
+    invalidPort["serverHTTP"]["port"] = 0;
+    ASSERT_FALSE(section.load(Config(invalidPort)));
 }

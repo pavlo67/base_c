@@ -11,3 +11,12 @@ std::string ipV4ToString(uint32_t ipV4Host) {
 
     return buffer;
 }
+
+bool ipV4StringToHost(const std::string& value, uint32_t& ipV4Host) {
+    in_addr address{};
+    if (inet_pton(AF_INET, value.c_str(), &address) != 1) {
+        return false;
+    }
+    ipV4Host = ntohl(address.s_addr);
+    return true;
+}
