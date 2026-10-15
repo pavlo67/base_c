@@ -72,6 +72,16 @@ bool ComponentStateMove::load(const Config& cfg) {
         for (size_t i = 0; i < motors.size(); ++i) {
             axis = i == 0 ? panSection_.c_str() : tiltSection_.c_str();
             const auto node = cfg.get(axis);
+            if (!node.IsDefined() || !node.IsMap()) {
+                printf("%s ERROR: %s section is missing or is not a map\n", ON_LOAD_MOTOR_CONFIG, axis);
+                return false;
+            }
+            if (!configSectionHasRequiredKeys(node, axis,
+                    {"pinStep", "pinDir", "pinEna", "freqMax", "degPulse", "speedMaxDegSec", "gearRatio",
+                        "momentOfInertia", "rotorInertia", "transmissionEfficiency", "torqueMaxNm", "hardwarePwm",
+                        "expecterIntervalUs", "pulseHighUs", "timeLimitMs"}, ON_LOAD_MOTOR_CONFIG)) {
+                return false;
+            }
             auto& motor = motors[i];
             motor = {};
             motor.kind_ = kind == "Smart" ? StepperMotorKind::smart :
@@ -109,6 +119,10 @@ bool ComponentStateMove::load(const Config& cfg) {
             motor.pulseHigh_ = pulse * MICROSECOND;
             motor.timeLimit_ = limit * MILLISECOND;
             if (motor.kind_ == StepperMotorKind::dumb || motor.kind_ == StepperMotorKind::simulation) {
+                if (!configSectionHasRequiredKeys(node, axis,
+                        {"dumbSpeedDegSec", "dumbPauseMs", "dumbRemainingPulsesTolerance"}, ON_LOAD_MOTOR_CONFIG)) {
+                    return false;
+                }
                 motor.dumbSpeedDegSec_ = node["dumbSpeedDegSec"].as<float>();
                 const auto pauseMs = node["dumbPauseMs"].as<uint64_t>();
                 motor.dumbRemainingPulsesTolerance_ = node["dumbRemainingPulsesTolerance"].as<uint64_t>();

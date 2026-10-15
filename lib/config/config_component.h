@@ -2,6 +2,8 @@
 #define BASE_CONFIG_SECTION_H
 
 #include <functional>
+#include <cstdio>
+#include <initializer_list>
 #include <map>
 #include <string>
 #include <utility>
@@ -11,6 +13,17 @@
 #include "lib/strlib.h"
 
 using config_values_t = std::map<std::string, std::string>;
+
+inline bool configSectionHasRequiredKeys(const YAML::Node& section, const std::string& sectionName,
+        std::initializer_list<const char*> keys, const char* context) {
+    for (const char* key : keys) {
+        if (!section[key].IsDefined()) {
+            printf("%s ERROR: %s.%s is required\n", context, sectionName.c_str(), key);
+            return false;
+        }
+    }
+    return true;
+}
 
 class ComponentState {
 public:

@@ -6,6 +6,7 @@
 
 namespace {
     constexpr const char* ON_LOAD = "[ComponentStateGPIO.load()]";
+    constexpr const char* ON_GET_PIN = "[ComponentStateGPIO.getPin()]";
     constexpr const char* ON_SET_PIN_MODE = "[ComponentStateGPIO.setPinMode()]";
     constexpr const char* ON_WRITE_PIN = "[ComponentStateGPIO.writePin()]";
     constexpr const char* ON_READ_PIN = "[ComponentStateGPIO.readPin()]";
@@ -79,7 +80,12 @@ void ComponentStateGPIO::test() {
 int ComponentStateGPIO::getPin(const std::string& name, unsigned& pin) const {
     std::lock_guard lock(mutex_);
     const auto found = pins_.find(name);
-    if (!loaded_ || found == pins_.end()) {
+    if (!loaded_) {
+        printf("%s ERROR: %s configuration is unavailable\n", ON_GET_PIN, section_.c_str());
+        return Gpio::INVALID_ARGUMENT;
+    }
+    if (found == pins_.end()) {
+        printf("%s ERROR: %s.%s is not configured\n", ON_GET_PIN, section_.c_str(), name.c_str());
         return Gpio::INVALID_ARGUMENT;
     }
     pin = found->second;
