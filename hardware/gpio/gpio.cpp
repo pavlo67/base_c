@@ -42,7 +42,7 @@ int Gpio::terminate() {
 int Gpio::check(unsigned pin, bool output) const {
     if (!initialized_) { return NOT_INITIALIZED; }
     if (pin >= PIN_COUNT) { return INVALID_ARGUMENT; }
-    if (!pins_[pin].configured || (output && pins_[pin].mode == GpioMode::input)) {
+    if (!pins_[pin].configured || (output && pins_[pin].mode != GpioMode::output)) {
         return WRONG_MODE;
     }
     return 0;
@@ -50,7 +50,7 @@ int Gpio::check(unsigned pin, bool output) const {
 
 int Gpio::setMode(unsigned pin, GpioMode requested) {
     if (!initialized_) { return NOT_INITIALIZED; }
-    if (pin >= PIN_COUNT || (requested != GpioMode::input && requested != GpioMode::output && requested != GpioMode::hardwarePwm)) {
+    if (pin >= PIN_COUNT || (requested != GpioMode::input && requested != GpioMode::inputPullUp && requested != GpioMode::output && requested != GpioMode::hardwarePwm)) {
         return INVALID_ARGUMENT;
     }
     if (requested == GpioMode::hardwarePwm) {

@@ -33,7 +33,11 @@ add_library(lib_server_http_mngs
         server/mongoose/mngs.cpp
         server/server.cpp
 )
-target_link_libraries(lib_server_http_mngs PUBLIC mongoose Threads::Threads)
+if(TARGET yaml-cpp::yaml-cpp)
+    target_link_libraries(lib_server_http_mngs PUBLIC mongoose Threads::Threads yaml-cpp::yaml-cpp)
+else()
+    target_link_libraries(lib_server_http_mngs PUBLIC mongoose Threads::Threads yaml-cpp)
+endif()
 target_include_directories(lib_server_http_mngs PUBLIC ${CMAKE_SOURCE_DIR})
 
 # server_http_mngs_hello -------------------------------------------------------------

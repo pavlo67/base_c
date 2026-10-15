@@ -39,7 +39,11 @@ protected:
             const int result = gpioWrite(pin, 0);
             if (result < 0) { return result; }
         }
-        return gpioSetMode(pin, requested == GpioMode::output ? PI_OUTPUT : PI_INPUT);
+        const int modeResult = gpioSetMode(pin, requested == GpioMode::output ? PI_OUTPUT : PI_INPUT);
+        if (modeResult < 0) { return modeResult; }
+        if (requested == GpioMode::inputPullUp) { return gpioSetPullUpDown(pin, PI_PUD_UP); }
+        if (requested == GpioMode::input) { return gpioSetPullUpDown(pin, PI_PUD_OFF); }
+        return Gpio::SUCCESS;
     }
     int readLevel(unsigned pin) override { return gpioRead(pin); }
     int writeLevel(unsigned pin, unsigned level) override { return gpioWrite(pin, level); }
