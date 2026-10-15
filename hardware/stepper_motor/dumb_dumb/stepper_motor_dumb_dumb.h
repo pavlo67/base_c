@@ -8,7 +8,7 @@
 
 // A deliberately simple motor: its background clock never restarts. Commands
 // replace the remaining signed pulse count observed by that clock.
-class StepperMotorDumbDumb final : public StepperMotor {
+class StepperMotorDumbDumb : public StepperMotor {
 public:
     explicit StepperMotorDumbDumb(const StepperMotorRunConfig& config);
     ~StepperMotorDumbDumb() override;
@@ -21,6 +21,7 @@ public:
 
 protected:
     void prepareSequence() override {}
+    virtual void onPulse(bool directionForward) { (void)directionForward; }
 
 private:
     int configurePinsLocked();

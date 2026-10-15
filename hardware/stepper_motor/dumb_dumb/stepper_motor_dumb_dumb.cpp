@@ -97,6 +97,7 @@ void StepperMotorDumbDumb::runBackground(std::stop_token stop) {
             result_ = codeLow;
             continue;
         }
+        onPulse(remainingPulses_ > 0);
         remainingPulses_ += remainingPulses_ > 0 ? -1 : 1;
     }
 }
