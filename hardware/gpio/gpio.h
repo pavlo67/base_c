@@ -3,7 +3,7 @@
 
 #include <array>
 
-enum class GpioMode { input, output, hardwarePwm };
+enum class GpioMode { input, inputPullUp, output, hardwarePwm };
 enum class GpioPwmLayout { rpi4, rpi5 };
 
 int gpioHardwarePwmChannel(unsigned pin, GpioPwmLayout layout);

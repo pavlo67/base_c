@@ -67,8 +67,13 @@ protected:
             if (result >= 0) { hardwarePins_[pin] = true; }
             return result;
         }
-        const int result = requested == GpioMode::output
-            ? lgGpioClaimOutput(handle_, 0, pin, 0) : lgGpioClaimInput(handle_, 0, pin);
+        if (requested == GpioMode::output) {
+            const int result = lgGpioClaimOutput(handle_, 0, pin, 0);
+            if (result >= 0) { claimed_[pin] = true; }
+            return result;
+        }
+        const int flags = requested == GpioMode::inputPullUp ? LG_SET_PULL_UP : 0;
+        const int result = lgGpioClaimInput(handle_, flags, pin);
         if (result >= 0) { claimed_[pin] = true; }
         return result;
     }
