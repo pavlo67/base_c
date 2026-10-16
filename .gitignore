@@ -22,6 +22,7 @@ node_modules/
 
 # Log files, reports, archives, backups
 _log/
+_log_remote/
 *.xls*
 *.tab*
 *.log*

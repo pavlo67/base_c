@@ -399,6 +399,19 @@ bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesyst
     return true;
 }
 
+const std::string ON_COPY_FILE_REPLACING = "[copyFileReplacing()]";
+
+bool copyFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath) {
+    std::error_code error;
+    std::filesystem::copy_file(srcPath, dstPath, std::filesystem::copy_options::overwrite_existing, error);
+    if (error) {
+        printf("%s ERROR: failed to copy %s -> %s: %s\n", ON_COPY_FILE_REPLACING.c_str(), srcPath.c_str(),
+            dstPath.c_str(), error.message().c_str());
+        return false;
+    }
+    return true;
+}
+
 const std::string ON_CLEANUP_DIRECTORY = "[cleanupDirectory()]";
 
 bool cleanupDirectory(const std::filesystem::path& dirPath) {

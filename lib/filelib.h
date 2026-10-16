@@ -32,6 +32,7 @@ bool        ensureDirectory(const std::filesystem::path& path, const std::string
 bool        ensureNotRegularFile(const std::filesystem::path& path, const std::string& label);
 std::string safePathPart(std::string s);
 bool        sameFileSize(const std::filesystem::path& a, const std::filesystem::path& b, bool& same);
+bool        copyFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath);
 bool        removeFsPath(const std::filesystem::path& path, const std::string& reason);
 bool        moveFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath);
 bool        cleanupDirectory(const std::filesystem::path& dirPath);

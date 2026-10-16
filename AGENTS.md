@@ -62,6 +62,7 @@ Wherever possible, use error codes/messages instead of throwing exceptions.
 
 Don't use stderr (`std::cerr`); send all error messages to stdout. Error messages must follow the format `<context> ERROR: <details>`.
 
+Не використовуй std::cout, std::cerr в основному коді системи — скрізь користуємось тільки printf().  
 
 Don't use CLI parameters in apps unless explicitly required by the task — define all parameters as constants in main.cpp.
 
