@@ -25,8 +25,7 @@ bool ComponentStateServerHTTP::load(const Config& cfg) {
             printf("%s ERROR: %s section is missing or is not a map\n", ON_LOAD, section_.c_str());
             return false;
         }
-        if (!node["host"] || !node["port"]) {
-            printf("%s ERROR: %s.host and %s.port are required\n", ON_LOAD, section_.c_str(), section_.c_str());
+        if (!configSectionHasRequiredKeys(node, section_, {"host", "port"}, ON_LOAD)) {
             return false;
         }
         host = node["host"].as<std::string>();

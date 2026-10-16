@@ -144,12 +144,14 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     } cleanup{directory, std::filesystem::current_path()};
     std::filesystem::current_path(directory);
     YAML::Node document;
+    document["motorClass"] = "Smart";
     for (const auto* axis : {"pan", "tilt"}) {
         const bool pan = std::string(axis) == "pan";
         auto node = document[axis];
         node["pinStep"] = pan ? 17 : 18;
         node["pinDir"] = pan ? 22 : 23;
         node["pinEna"] = pan ? 27 : 26;
+        node["reversed"] = false;
         node["freqMax"] = 8000;
         node["degPulse"] = 0.225;
         node["speedMaxDegSec"] = 180;

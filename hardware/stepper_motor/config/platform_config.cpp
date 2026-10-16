@@ -64,7 +64,11 @@ bool ComponentStateMove::load(const Config& cfg) {
     const char* axis = panSection_.c_str();
     try {
         const auto kindNode = cfg.get("motorClass");
-        const std::string kind = kindNode ? kindNode.as<std::string>() : "Smart";
+        if (!kindNode.IsDefined()) {
+            printf("%s ERROR: motorClass is required\n", ON_LOAD_MOTOR_CONFIG);
+            return false;
+        }
+        const std::string kind = kindNode.as<std::string>();
         if (kind != "Smart" && kind != "Dumb" && kind != "DumbDumb" && kind != "Simulation") {
             printf("%s ERROR: motorClass must be Smart, Dumb, DumbDumb or Simulation\n", ON_LOAD_MOTOR_CONFIG);
             return false;
@@ -77,7 +81,7 @@ bool ComponentStateMove::load(const Config& cfg) {
                 return false;
             }
             if (!configSectionHasRequiredKeys(node, axis,
-                    {"pinStep", "pinDir", "pinEna", "freqMax", "degPulse", "speedMaxDegSec", "gearRatio",
+                    {"pinStep", "pinDir", "pinEna", "reversed", "freqMax", "degPulse", "speedMaxDegSec", "gearRatio",
                         "momentOfInertia", "rotorInertia", "transmissionEfficiency", "torqueMaxNm", "hardwarePwm",
                         "expecterIntervalUs", "pulseHighUs", "timeLimitMs"}, ON_LOAD_MOTOR_CONFIG)) {
                 return false;
@@ -90,7 +94,7 @@ bool ComponentStateMove::load(const Config& cfg) {
             motor.pinStep_ = node["pinStep"].as<unsigned>();
             motor.pinDir_ = node["pinDir"].as<unsigned>();
             motor.pinEna_ = node["pinEna"].as<unsigned>();
-            motor.reversed_ = node["reversed"] ? node["reversed"].as<bool>() : false;
+            motor.reversed_ = node["reversed"].as<bool>();
             motor.options_.freqMax = node["freqMax"].as<float>();
             motor.options_.degPulse = node["degPulse"].as<float>();
             motor.options_.speedMaxDegSec = node["speedMaxDegSec"].as<float>();

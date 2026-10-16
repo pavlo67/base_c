@@ -12,7 +12,7 @@ target_link_libraries(hardware_gpio PUBLIC Threads::Threads ${RPI_LIBS})
 
 add_executable(gpio_test gpio/gpio_test.cpp)
 set_target_properties(gpio_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_test>")
-target_link_libraries(gpio_test PRIVATE stepper_platform GTest::gtest)
+target_link_libraries(gpio_test PRIVATE stepper_platform GTest::gtest_main)
 
 ## Contract tests always use the desktop implementation, even on a Raspberry Pi.
 #add_executable(gpio_contract_test gpio/gpio_contract_test.cpp gpio/gpio.cpp gpio/platforms/gpio_desktop.cpp)

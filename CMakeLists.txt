@@ -85,17 +85,6 @@ endif()
 message(STATUS "GPIO platform: ${GPIO_BOARD_PLATFORM} (implementation: ${SYSTEM})")
 add_compile_definitions(SYSTEM_IS_${SYSTEM}=1)
 
-option(USE_CAMERA "Find and use libcamera" OFF)
-
-if(USE_CAMERA)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(CAMERA REQUIRED libcamera)               # sudo apt install libcamera-dev
-    find_library(LIBCAMERA_LIBRARY libcamera.so REQUIRED)
-    find_library(LIBCAMERA_BASE_LIBRARY libcamera-base.so REQUIRED)
-    set(LIBCAMERA_LIBS "${LIBCAMERA_LIBRARY}" "${LIBCAMERA_BASE_LIBRARY}")
-    include_directories(${CAMERA_INCLUDE_DIRS})
-endif()
-
 #find_package(SDL2 REQUIRED)                     # sudo apt install libsdl2-dev libsdl2-2.0-0
 #include_directories(${SDL2_INCLUDE_DIRS})
 

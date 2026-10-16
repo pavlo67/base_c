@@ -9,11 +9,11 @@
 #include "gpio.h"
 #include "lib/config/config_component.h"
 
-class ComponentStateGPIO final : public ComponentState {
+class ComponentStateGPIO : public ComponentState {
 public:
     ComponentStateGPIO(std::string section, std::set<unsigned> reservedPins);
 
-    bool load(const Config& cfg) final;
+    virtual bool load(const Config& cfg);
     [[nodiscard]] config_values_t get() const final;
     void test() final;
 
@@ -23,9 +23,11 @@ public:
     int getPin(const std::string& name, unsigned& pin) const;
     [[nodiscard]] bool usesPin(unsigned pin) const;
 
-private:
+protected:
     mutable std::mutex mutex_;
     std::string section_;
+
+private:
     std::map<std::string, unsigned> pins_;
     std::set<unsigned> reservedPins_;
     bool loaded_ = false;
