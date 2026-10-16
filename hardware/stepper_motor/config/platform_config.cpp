@@ -1,5 +1,6 @@
 #include "platform_config.h"
 
+
 #include <cstdio>
 #include <limits>
 #include <numbers>
@@ -218,3 +219,4 @@ std::set<unsigned> ComponentStateMove::getPins() const {
     }
     return pins;
 }
+

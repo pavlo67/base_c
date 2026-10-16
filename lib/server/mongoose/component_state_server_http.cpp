@@ -1,5 +1,6 @@
 #include "component_state_server_http.h"
 
+
 #include <cstdio>
 #include <utility>
 
@@ -76,3 +77,4 @@ void ComponentStateServerHTTP::getServerConfig(uint32_t& host, uint16_t& port) c
     }
     port = port_;
 }
+
