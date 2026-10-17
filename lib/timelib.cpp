@@ -37,22 +37,29 @@ uint32_t internal32Ms() {
     return monotonicNowMs() - startedAtMs;
 }
 
-TimingStat::TimingStat(uint afterCnt, uint resetEachCnt) {
-    afterCnt_     = afterCnt;
-    resetEachCnt_ = resetEachCnt;
-    cnt_    = 0;
-    sum_    = 0;
-    min_    = 0;
-    max_    = 0;
+TimingStat::TimingStat(uint afterCnt) {
+    afterCnt_ = afterCnt;
+    cnt_      = 0;
+    sum_      = 0;
+    min_      = 0;
+    max_      = 0;
+    #if TIMING_LOG_STAT_MAX > 0
+        cntLogMax_    = TIMING_LOG_STAT_MAX;
+        valuesMinCnt_ = 0;
+        valuesMaxCnt_ = 0;
+    #endif
 };
 
-void TimingStat::add(moment started_at) {
+void TimingStat::add(moment started_at, uint32_t frameN) {
     duration once = now() - started_at;
 
     cnt_++;
     sum_ += once;
 
-    // TODO!!! process resetEachCnt_
+    #if TIMING_LOG_STAT_MAX > 0
+        addMinValue(frameN, once);
+        addMaxValue(frameN, once);
+    #endif
 
     if (cnt_ == afterCnt_) {
         afterCnt_ = 0;
@@ -60,6 +67,10 @@ void TimingStat::add(moment started_at) {
         sum_      = 0;
         min_      = 0;
         max_      = 0;
+        #if TIMING_LOG_STAT_MAX > 0
+            valuesMinCnt_ = 0;
+            valuesMaxCnt_ = 0;
+        #endif
 
     } else if (cnt_ == 1) {
         min_ = max_ = once;
@@ -87,5 +98,60 @@ void TimingStat::show(const std::string& label, bool showFPS, FILE* fLog) {
     if (fLog) {
         fprintf(fLog, title.c_str(), label.c_str(), s.cnt, s.avg / MICROSECOND, s.max / MICROSECOND, s.min / MICROSECOND);
     }
+    #if TIMING_LOG_STAT_MAX > 0
+        showValues(label, "minimum values", valuesMin_, valuesMinCnt_, fLog);
+        showValues(label, "maximum values", valuesMax_, valuesMaxCnt_, fLog);
+    #endif
 }
+
+#if TIMING_LOG_STAT_MAX > 0
+    void TimingStat::addMinValue(uint32_t frameN, duration value) {
+        uint32_t idx = 0;
+        while (idx < valuesMinCnt_ && valuesMin_[idx].value <= value) {
+            idx++;
+        }
+        if (idx == cntLogMax_) {
+            return;
+        }
+        const uint32_t valuesCnt = valuesMinCnt_ < cntLogMax_ ? valuesMinCnt_ : cntLogMax_ - 1;
+        for (uint32_t i = valuesCnt; i > idx; i--) {
+            valuesMin_[i] = valuesMin_[i - 1];
+        }
+        valuesMin_[idx] = {frameN, value};
+        if (valuesMinCnt_ < cntLogMax_) {
+            valuesMinCnt_++;
+        }
+    }
+
+    void TimingStat::addMaxValue(uint32_t frameN, duration value) {
+        uint32_t idx = 0;
+        while (idx < valuesMaxCnt_ && valuesMax_[idx].value >= value) {
+            idx++;
+        }
+        if (idx == cntLogMax_) {
+            return;
+        }
+        const uint32_t valuesCnt = valuesMaxCnt_ < cntLogMax_ ? valuesMaxCnt_ : cntLogMax_ - 1;
+        for (uint32_t i = valuesCnt; i > idx; i--) {
+            valuesMax_[i] = valuesMax_[i - 1];
+        }
+        valuesMax_[idx] = {frameN, value};
+        if (valuesMaxCnt_ < cntLogMax_) {
+            valuesMaxCnt_++;
+        }
+    }
+
+    void TimingStat::showValues(const std::string& label, const char* title, const timing_stat_value* values, uint32_t valuesCnt, FILE* fLog) {
+        printf("timing/%s: %s\n", label.c_str(), title);
+        if (fLog) {
+            fprintf(fLog, "timing/%s: %s\n", label.c_str(), title);
+        }
+        for (uint32_t i = 0; i < valuesCnt; i++) {
+            printf("  #%u: %llu us\n", values[i].frameN, static_cast<unsigned long long>(values[i].value / MICROSECOND));
+            if (fLog) {
+                fprintf(fLog, "  #%u: %llu us\n", values[i].frameN, static_cast<unsigned long long>(values[i].value / MICROSECOND));
+            }
+        }
+    }
+#endif
 

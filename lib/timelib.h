@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <string>
 
+#include "defines.h"
+
 // Shared monotonic application clock; independent of wall-clock corrections.
 using Clock = std::chrono::steady_clock;
 
@@ -34,21 +36,37 @@ typedef struct {
     duration max;
 } timing_stat;
 
+#if TIMING_LOG_STAT_MAX > 0
+    typedef struct {
+        uint32_t frameN;
+        duration value;
+    } timing_stat_value;
+#endif
+
 class TimingStat {
 public:
 
-    explicit    TimingStat(uint afterCnt = 0, uint resetEachCnt = 0);
-    void        add(moment started_at);
+    explicit    TimingStat(uint afterCnt = 0);
+    void        add(moment started_at, uint32_t frameN = 0);
     timing_stat get();
     void        show(const std::string& label, bool showFPS = false, FILE* fLog = nullptr);
 
 private:
     uint     afterCnt_;
-    uint     resetEachCnt_;
     uint32_t cnt_;
     duration sum_;
     duration min_;
     duration max_;
+    #if TIMING_LOG_STAT_MAX > 0
+        void              addMinValue(uint32_t frameN, duration value);
+        void              addMaxValue(uint32_t frameN, duration value);
+        void              showValues(const std::string& label, const char* title, const timing_stat_value* values, uint32_t valuesCnt, FILE* fLog);
+        uint32_t          cntLogMax_;
+        uint32_t          valuesMinCnt_;
+        uint32_t          valuesMaxCnt_;
+        timing_stat_value valuesMin_[TIMING_LOG_STAT_MAX];
+        timing_stat_value valuesMax_[TIMING_LOG_STAT_MAX];
+    #endif
 };
 
 
