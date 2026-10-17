@@ -130,6 +130,9 @@ Use only fatal assertions in tests (ASSERT_... in GTest, not EXPECT_..)
 
 Add concise test logs showing the sequence of steps. Use distinct short prefixes to identify output from different goroutines or applications.
 
+Тести, що використовують мережеві порти, UDP, GUI або інші системні ресурси, слід запускати поза sandbox. Не вважати помилки sandbox помилками 
+коду; одразу запитувати ескалацію виконання.
+
 Пробники й тести повинні викликати ті самі точки входу та перевіряти той самий код і життєвий цикл (зокрема, ті ж функції завантаження конфігів),
 які використовує основний застосунок. Не повинно бути ніяких окремих хелперів для пробників і тестів (єдиний виняток — дозволено хелпери для тестування 
 структур даних).
