@@ -9,6 +9,7 @@
 
 class Config {
 public:
+    Config() = default;
     explicit Config(const std::string& filePath);
     explicit Config(YAML::Node root);
 
