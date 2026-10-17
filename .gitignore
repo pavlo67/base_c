@@ -16,7 +16,6 @@ build/
 .idea/
 .codex/
 .claude/
-.ccache/
 CMakeFiles/
 node_modules/
 
