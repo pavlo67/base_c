@@ -49,7 +49,7 @@ public:
     explicit    TimingStat(uint afterCnt = 0);
     void        add(moment started_at, uint32_t frameN = 0);
     timing_stat get();
-    void        show(const std::string& label, bool showFPS = false, FILE* fLog = nullptr);
+    void        show(const std::string& label, bool showFPS = false, bool shouldShowValues = true, FILE* fLog = nullptr);
 
 private:
     uint     afterCnt_;

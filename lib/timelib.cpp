@@ -90,7 +90,7 @@ timing_stat TimingStat::get() {
 
 std::string SHOW_TITLE = "timing/%s: cnt = %6d, avg = %8llu us, max = %8llu us, min = %8llu us";
 
-void TimingStat::show(const std::string& label, bool showFPS, FILE* fLog) {
+void TimingStat::show(const std::string& label, bool showFPS, bool shouldShowValues, FILE* fLog) {
     timing_stat s = get();
     std::string title = (SHOW_TITLE + (showFPS ? ", fps = " + std::to_string(double(SECOND) / double(s.avg)) : "")) + "\n";
 
@@ -99,8 +99,10 @@ void TimingStat::show(const std::string& label, bool showFPS, FILE* fLog) {
         fprintf(fLog, title.c_str(), label.c_str(), s.cnt, s.avg / MICROSECOND, s.max / MICROSECOND, s.min / MICROSECOND);
     }
     #if TIMING_LOG_STAT_MAX > 0
-        showValues(label, "minimum values", valuesMin_, valuesMinCnt_, fLog);
-        showValues(label, "maximum values", valuesMax_, valuesMaxCnt_, fLog);
+        if (shouldShowValues) {
+            showValues(label, "minimum values", valuesMin_, valuesMinCnt_, fLog);
+            showValues(label, "maximum values", valuesMax_, valuesMaxCnt_, fLog);
+        }
     #endif
 }
 
