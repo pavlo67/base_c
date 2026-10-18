@@ -13,8 +13,7 @@ extern std::string COMMIT;
 #endif
 
 #define JSON_ERROR         false
-#define TIMING_LOG         true
-#define SUPPRESS_INIT_INFO true
+#define BASE_TIMING_LOG         true
 
 #define STEPPER_MOTOR_PROBE_VERBOSE false
 #define STEPPER_MOTOR_PROBE_HARDWARE_PWM false
