@@ -20,4 +20,3 @@ extern std::string COMMIT;
 #define STEPPER_MOTOR_PROBE_HARDWARE_PWM false
 
 #endif // DEFINES_BASE_H
-
