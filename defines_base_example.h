@@ -5,15 +5,15 @@
 
 extern std::string COMMIT;
 
-#define POINTS_LOG     false
-#if POINTS_LOG
-#define POINT(label1, label2) printf("%d-%d\n", label1, label2);
-#else
-#define POINT(label1, label2)
-#endif
-
-#define JSON_ERROR         false
-#define BASE_TIMING_LOG         true
+// #define POINTS_LOG     false
+// #if POINTS_LOG
+// #define POINT(label1, label2) printf("%d-%d\n", label1, label2);
+// #else
+// #define POINT(label1, label2)
+// #endif
+//
+// #define JSON_ERROR         false
+// #define TIMING_LOG         true
 
 #define STEPPER_MOTOR_PROBE_VERBOSE false
 #define STEPPER_MOTOR_PROBE_HARDWARE_PWM false
