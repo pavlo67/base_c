@@ -14,6 +14,7 @@ std::string pathOfFile(const std::string& filepath);
 std::string extOfFile(const std::string& filepath);
 std::string extPartOfFile(const std::string& filepath);
 std::filesystem::path filePathWithSuffix(const std::filesystem::path& filepath, const std::string& suffix);
+std::filesystem::path filePathWithStemSuffix(const std::filesystem::path& filepath, const std::string& stemSuffix);
 
 bool        clearFile(const std::string& filepath);
 std::string newPath(const std::string& path);

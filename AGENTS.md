@@ -50,7 +50,8 @@ helpers as reusable by default.
 Функція `main()` в`main.cpp` записується першою — після всіх #include, констант, типів, статичних змінних і декларацій хелперів (без body). 
 Аналогічно і в инших cpp-файлах — спершу декларації, потім основні змістовні функції/методи, а всі хелпери — в кінці файлу. 
 
-All class member field names must end with an underscore, e.g. `original_`.
+Всі поля обʼєктів і структур з методами повинні закінчуватись підкреслюванням, наприклад: `original_` (але це не стосується структур, 
+в яких нема методів).
 
 Never create overloaded functions or methods. Every function or method must have a unique name within its scope, 
 regardless of differences in parameter types, parameter count, qualifiers, or return type. If two operations require 

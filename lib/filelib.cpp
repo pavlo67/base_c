@@ -72,6 +72,10 @@ std::filesystem::path filePathWithSuffix(const std::filesystem::path& filepath, 
     return filepath.parent_path() / (filepath.stem().string() + "." + suffix);
 }
 
+std::filesystem::path filePathWithStemSuffix(const std::filesystem::path& filepath, const std::string& stemSuffix) {
+    return filepath.parent_path() / (filepath.stem().string() + stemSuffix + filepath.extension().string());
+}
+
 
 const std::string ON_NEW_FILE = "[newFile()]";
 FILE* newFile(const std::string& filepath) {
