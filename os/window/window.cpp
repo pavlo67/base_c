@@ -9,7 +9,9 @@
 
 namespace {
     constexpr const char* ON_IS_WINDOW_ENVIRONMENT_AVAILABLE = "[isWindowEnvironmentAvailable()]";
+    constexpr const char* ON_GET_PRIMARY_SCREEN_WIDTH = "[getPrimaryScreenWidth()]";
     constexpr const char* ON_POSITION_GSTREAMER_WINDOW_TOP_LEFT = "[positionGstreamerWindowTopLeft()]";
+    constexpr const char* ON_POSITION_WINDOW_TOP_LEFT_WITH_WIDTH = "[positionWindowTopLeftWithWidth()]";
     constexpr const char* ON_POSITION_WINDOW_RIGHT_OF_WINDOW = "[positionWindowRightOfWindow()]";
     constexpr const char* ON_ACTIVATE_WINDOW = "[activateWindow()]";
     constexpr auto WINDOW_LOOKUP_DELAY = std::chrono::milliseconds(100);
@@ -201,6 +203,22 @@ bool isWindowEnvironmentAvailable(std::string& error) {
     return true;
 }
 
+bool getPrimaryScreenWidth(int& width, std::string& error) {
+    error.clear();
+    width = 0;
+    Display* display = openDisplay(error, ON_GET_PRIMARY_SCREEN_WIDTH);
+    if (display == nullptr) {
+        return false;
+    }
+    width = getScreenLayout(display).width;
+    XCloseDisplay(display);
+    if (width <= 0) {
+        error = std::string(ON_GET_PRIMARY_SCREEN_WIDTH) + " ERROR: invalid screen width " + std::to_string(width);
+        return false;
+    }
+    return true;
+}
+
 bool getActiveWindowId(WindowId& windowId, std::string& error) {
     error.clear();
     windowId = 0;
@@ -261,6 +279,34 @@ bool positionGstreamerWindowTopLeft(const std::atomic_bool& positioningActive, W
     }
     XCloseDisplay(display);
     return false;
+}
+
+bool positionWindowTopLeftWithWidth(WindowId windowId, int width, std::string& error) {
+    error.clear();
+    Display* display = openDisplay(error, ON_POSITION_WINDOW_TOP_LEFT_WITH_WIDTH);
+    if (display == nullptr) {
+        return false;
+    }
+    if (!areWindowMoveResizeRequestsSupported(display, error, ON_POSITION_WINDOW_TOP_LEFT_WITH_WIDTH) ||
+        !isWindowStateRequestSupported(display, error, ON_POSITION_WINDOW_TOP_LEFT_WITH_WIDTH)) {
+        XCloseDisplay(display);
+        return false;
+    }
+    XWindowAttributes attributes;
+    if (XGetWindowAttributes(display, static_cast<Window>(windowId), &attributes) == 0) {
+        error = std::string(ON_POSITION_WINDOW_TOP_LEFT_WITH_WIDTH) + " ERROR: cannot get window geometry";
+        XCloseDisplay(display);
+        return false;
+    }
+    if (width <= 0) {
+        error = std::string(ON_POSITION_WINDOW_TOP_LEFT_WITH_WIDTH) + " ERROR: invalid window width " + std::to_string(width);
+        XCloseDisplay(display);
+        return false;
+    }
+    const bool positioned = moveResizeWindow(display, static_cast<Window>(windowId), 0, 0, width, attributes.height, error,
+                                              ON_POSITION_WINDOW_TOP_LEFT_WITH_WIDTH);
+    XCloseDisplay(display);
+    return positioned;
 }
 
 bool positionWindowRightOfWindow(WindowId windowId, WindowId leftWindowId, std::string& error) {
