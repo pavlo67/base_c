@@ -13,6 +13,7 @@ add_executable(server_http_hello
         server/cpp-httplib/_example/hello.cpp
         server/server.cpp
 )
+set_target_properties(server_http_hello PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
 target_link_libraries(server_http_hello PRIVATE lib_server_http)
 
 # server_http_test -------------------------------------------------------------------
@@ -46,6 +47,7 @@ add_executable(server_http_mngs_hello
         server/mongoose/_example/hello.cpp
         server/server.cpp
 )
+set_target_properties(server_http_mngs_hello PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
 target_link_libraries(server_http_mngs_hello PRIVATE lib_server_http_mngs)
 
 # server_http_mngs_test --------------------------------------------------------------
@@ -70,6 +72,7 @@ add_executable(joiner_test
         joiner/joiner_test.cpp
 )
 
+set_target_properties(joiner_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_test>")
 target_link_libraries(joiner_test PRIVATE GTest::gtest_main)
 add_test(NAME joiner_test COMMAND joiner_test)
 

@@ -112,5 +112,6 @@ if(NOT TARGET hello)
     add_executable(hello
             apps/hello.cpp
     )
+    set_target_properties(hello PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
     target_link_libraries(hello PRIVATE Threads::Threads)
 endif()
