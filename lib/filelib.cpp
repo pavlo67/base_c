@@ -169,6 +169,64 @@ bool writeFile(const std::string& filepath, const char* modes, const char* conte
     return (size_t)cnt == strlen(content);
 }
 
+bool writeFileWithTimestampBackup(const std::filesystem::path& filepath, const std::string& content,
+        std::filesystem::path& backupPath, std::string& error) {
+    error.clear();
+    backupPath.clear();
+    std::error_code fsError;
+    const auto status = std::filesystem::status(filepath, fsError);
+    if (fsError || !std::filesystem::is_regular_file(status)) {
+        error = "source is not a regular file: " + filepath.string();
+        if (fsError) { error += ": " + fsError.message(); }
+        return false;
+    }
+
+    const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+    for (unsigned attempt = 0; attempt < 100; ++attempt) {
+        const std::string suffix = "." + std::to_string(timestamp) +
+            (attempt == 0 ? "" : "." + std::to_string(attempt)) + ".bak";
+        const auto candidate = std::filesystem::path(filepath.string() + suffix);
+        fsError.clear();
+        if (std::filesystem::copy_file(filepath, candidate, std::filesystem::copy_options::none, fsError)) {
+            backupPath = candidate;
+            break;
+        }
+        if (fsError != std::errc::file_exists) {
+            error = "cannot back up " + filepath.string() + ": " + fsError.message();
+            return false;
+        }
+    }
+    if (backupPath.empty()) {
+        error = "cannot allocate a unique backup name for " + filepath.string();
+        return false;
+    }
+
+    const auto temporaryPath = std::filesystem::path(filepath.string() + "." + std::to_string(timestamp) + ".tmp");
+    {
+        std::ofstream output(temporaryPath, std::ios::binary | std::ios::trunc);
+        output.write(content.data(), static_cast<std::streamsize>(content.size()));
+        output.close();
+        if (!output.good()) {
+            error = "cannot write temporary file for " + filepath.string();
+            std::filesystem::remove(temporaryPath, fsError);
+            return false;
+        }
+    }
+    std::filesystem::permissions(temporaryPath, status.permissions(), fsError);
+    if (fsError) {
+        error = "cannot preserve permissions for " + filepath.string() + ": " + fsError.message();
+        std::filesystem::remove(temporaryPath, fsError);
+        return false;
+    }
+    std::filesystem::rename(temporaryPath, filepath, fsError);
+    if (fsError) {
+        error = "cannot replace " + filepath.string() + ": " + fsError.message();
+        std::filesystem::remove(temporaryPath, fsError);
+        return false;
+    }
+    return true;
+}
+
 const std::string ON_FIND_EXTENSION = "[findExtension()]";
 int findExtension(std::string path, const std::string* exts, int extsCnt) {
     if (extsCnt <= 0) {

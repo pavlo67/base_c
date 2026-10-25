@@ -12,6 +12,11 @@ StepperMotor::StepperMotor(const StepperMotorRunConfig& config, std::function<vo
 
 StepperMotor::~StepperMotor() { (void)stop(); }
 
+int StepperMotor::updateOptions(const stepper_motor_options_t& options) {
+    config_.options_ = options;
+    return Gpio::SUCCESS;
+}
+
 const std::string ON_STEPPER_STOP = "[StepperMotor.stop()]";
 
 int StepperMotor::stop() {

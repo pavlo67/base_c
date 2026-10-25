@@ -36,6 +36,7 @@ public:
     // Replaces an in-flight relative move without changing its scheduler phase.
     // Only motors with a persistent background scheduler implement this.
     virtual int replaceMove(float angle) { (void)angle; return Gpio::NOT_SUPPORTED; }
+    virtual int updateOptions(const stepper_motor_options_t& options);
     [[nodiscard]] virtual bool hasBackgroundScheduler() const { return false; }
     [[nodiscard]] virtual bool hasPendingBackgroundMove() const { return false; }
     [[nodiscard]] virtual int backgroundMoveResult() const { return Gpio::SUCCESS; }

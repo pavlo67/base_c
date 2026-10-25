@@ -38,6 +38,7 @@ int StepperMotorDumbDumb::configurePinsLocked() {
 }
 
 int StepperMotorDumbDumb::replaceMove(float angle) {
+    std::lock_guard lock(mutex_);
     if (!std::isfinite(angle) || config_.options_.degPulseGeared <= 0) {
         printf("%s ERROR: angle or configured degrees per pulse is invalid\n", ON_DUMB_DUMB_REPLACE_MOVE);
         return Gpio::INVALID_ARGUMENT;
@@ -47,7 +48,6 @@ int StepperMotorDumbDumb::replaceMove(float angle) {
         printf("%s ERROR: requested pulse count is out of range\n", ON_DUMB_DUMB_REPLACE_MOVE);
         return Gpio::INVALID_ARGUMENT;
     }
-    std::lock_guard lock(mutex_);
     const int configured = configurePinsLocked();
     if (configured < 0) { return configured; }
     const int direction = angle >= 0 ? 1 : 0;
@@ -60,6 +60,12 @@ int StepperMotorDumbDumb::replaceMove(float angle) {
     remainingPulses_ = angle >= 0 ? static_cast<int64_t>(pulses) : -static_cast<int64_t>(pulses);
     result_ = Gpio::SUCCESS;
     wake_.notify_all();
+    return Gpio::SUCCESS;
+}
+
+int StepperMotorDumbDumb::updateOptions(const stepper_motor_options_t& options) {
+    std::lock_guard lock(mutex_);
+    config_.options_ = options;
     return Gpio::SUCCESS;
 }
 

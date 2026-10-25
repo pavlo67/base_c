@@ -61,6 +61,7 @@ add_library(stepper_platform
     stepper_motor/config/platform_config.cpp
     gpio/component_state_gpio.cpp
     ../lib/config/config.cpp
+    ../lib/filelib.cpp
     ../lib/strlib.cpp
 )
 target_link_libraries(stepper_platform PUBLIC stepper_motor yaml-cpp::yaml-cpp)

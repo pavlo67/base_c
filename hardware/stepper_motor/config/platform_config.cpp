@@ -2,11 +2,15 @@
 
 
 #include <cstdio>
+#include <filesystem>
+#include <iomanip>
 #include <limits>
 #include <numbers>
+#include <sstream>
 #include <utility>
 #include "hardware/gpio/gpio.h"
 #include "lib/mathlib.h"
+#include "lib/filelib.h"
 
 const std::string ON_STEPPER_OPTIONS_OK = "[stepperMotorOptionsOk()] ERROR: ";
 
@@ -48,6 +52,95 @@ bool stepperMotorOptionsOk(stepper_motor_options_t& options, std::string& error)
         return false;
     }
     return true;
+}
+
+GearRatioCalibrationResult calibrateGearRatioFiles(const std::string& configPath,
+        const std::string& examplePath, const std::string& axis, int16_t angleCurrentDeg_10,
+        int16_t angleRealDeg_10, double& gearRatio, std::string& error) {
+    error.clear();
+    gearRatio = 0;
+    if ((axis != "pan" && axis != "tilt") || angleCurrentDeg_10 == 0 || angleRealDeg_10 == 0 ||
+            (angleCurrentDeg_10 < 0) != (angleRealDeg_10 < 0)) {
+        error = "angles must be nonzero and have the same direction";
+        return GearRatioCalibrationResult::invalidArguments;
+    }
+
+    try {
+        std::string configText;
+        if (!readFile(configPath, configText)) {
+            error = "cannot read configuration: " + configPath;
+            return GearRatioCalibrationResult::fileError;
+        }
+        const YAML::Node root = YAML::Load(configText);
+        const YAML::Node ratioNode = root[axis]["gearRatio"];
+        if (!ratioNode.IsDefined() || !ratioNode.IsScalar()) {
+            error = "configuration key is missing: " + axis + ".gearRatio";
+            return GearRatioCalibrationResult::fileError;
+        }
+        const double oldRatio = ratioNode.as<double>();
+        const double factor = static_cast<double>(angleRealDeg_10) / angleCurrentDeg_10;
+        gearRatio = oldRatio * factor;
+        if (!isFinitePositive(oldRatio) || !isFinitePositive(factor) || !isFinitePositive(gearRatio)) {
+            error = "calculated gearRatio is invalid";
+            return GearRatioCalibrationResult::invalidArguments;
+        }
+
+        std::ostringstream formatted;
+        formatted << std::setprecision(std::numeric_limits<double>::max_digits10) << gearRatio;
+        std::string updatedConfig;
+        if (!replaceYamlSectionScalar(configText, axis, "gearRatio", formatted.str(), updatedConfig, error)) {
+            return GearRatioCalibrationResult::fileError;
+        }
+        const YAML::Node verified = YAML::Load(updatedConfig);
+        if (!verified[axis]["gearRatio"].IsScalar() ||
+                verified[axis]["gearRatio"].as<double>() != gearRatio) {
+            error = "updated configuration did not preserve gearRatio";
+            return GearRatioCalibrationResult::fileError;
+        }
+
+        std::string updatedExample;
+        std::error_code fsError;
+        const bool exampleExists = std::filesystem::exists(examplePath, fsError);
+        if (fsError) {
+            error = "cannot inspect example configuration: " + fsError.message();
+            return GearRatioCalibrationResult::fileError;
+        }
+        if (exampleExists) {
+            std::string exampleText;
+            if (!readFile(examplePath, exampleText) ||
+                    !replaceYamlSectionScalar(exampleText, axis, "gearRatio", formatted.str(), updatedExample, error)) {
+                if (error.empty()) { error = "cannot update example configuration"; }
+                return GearRatioCalibrationResult::fileError;
+            }
+            const YAML::Node verifiedExample = YAML::Load(updatedExample);
+            if (!verifiedExample[axis]["gearRatio"].IsScalar() ||
+                    verifiedExample[axis]["gearRatio"].as<double>() != gearRatio) {
+                error = "updated example did not preserve gearRatio";
+                return GearRatioCalibrationResult::fileError;
+            }
+        }
+
+        std::filesystem::path configBackup;
+        if (!writeFileWithTimestampBackup(configPath, updatedConfig, configBackup, error)) {
+            return GearRatioCalibrationResult::fileError;
+        }
+        if (exampleExists) {
+            std::filesystem::path exampleBackup;
+            if (!writeFileWithTimestampBackup(examplePath, updatedExample, exampleBackup, error)) {
+                if (!copyFileReplacing(configBackup, configPath)) {
+                    error += "; configuration rollback failed";
+                }
+                return GearRatioCalibrationResult::fileError;
+            }
+        }
+    } catch (const YAML::Exception& failure) {
+        error = std::string("invalid YAML configuration: ") + failure.what();
+        return GearRatioCalibrationResult::fileError;
+    } catch (const std::exception& failure) {
+        error = failure.what();
+        return GearRatioCalibrationResult::fileError;
+    }
+    return GearRatioCalibrationResult::complete;
 }
 
 constexpr const char* ON_LOAD_MOTOR_CONFIG = "[ComponentStateMove.load()]";

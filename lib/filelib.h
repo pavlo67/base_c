@@ -28,6 +28,8 @@ std::list<std::string> listOfFiles(const std::string& path, const std::string* e
 bool        readFileByLines(const std::string& filepath, std::vector<std::string>& lines);
 bool        readFile(const std::string& filepath, std::string& text);
 bool        writeFile(const std::string& filepath, const char* modes, const char* content);
+bool        writeFileWithTimestampBackup(const std::filesystem::path& filepath, const std::string& content,
+            std::filesystem::path& backupPath, std::string& error);
 bool        renamePath(const std::string& oldPath, const std::string& newPath);
 
 bool        ensureDirectory(const std::filesystem::path& path, const std::string& label, bool createIfMissing = true);

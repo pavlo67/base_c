@@ -7,6 +7,9 @@
 #include <atomic>
 #include <memory>
 
+bool replaceYamlSectionScalar(const std::string& text, const std::string& section, const std::string& key,
+    const std::string& value, std::string& updated, std::string& error);
+
 class Config {
 public:
     Config() = default;

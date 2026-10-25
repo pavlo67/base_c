@@ -2,6 +2,7 @@
 #define BASE_CPP_STEPPER_MOTOR_CONFIG_PLATFORM_CONFIG_H
 
 #include <array>
+#include <cstdint>
 #include <mutex>
 #include <set>
 #include <string>
@@ -12,6 +13,11 @@
 // Validates source options and derives geared displacement and acceleration in place.
 // Call before using the options, and again after changing their source values.
 bool stepperMotorOptionsOk(stepper_motor_options_t& options, std::string& error);
+
+enum class GearRatioCalibrationResult { complete, invalidArguments, fileError };
+GearRatioCalibrationResult calibrateGearRatioFiles(const std::string& configPath,
+    const std::string& examplePath, const std::string& axis, int16_t angleCurrentDeg_10,
+    int16_t angleRealDeg_10, double& gearRatio, std::string& error);
 class ComponentStateMove final : public ComponentState {
 public:
     ComponentStateMove(std::string panSection, std::string tiltSection);
