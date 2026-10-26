@@ -14,9 +14,7 @@
 // Call before using the options, and again after changing their source values.
 bool stepperMotorOptionsOk(stepper_motor_options_t& options, std::string& error);
 
-enum class GearRatioCalibrationResult { complete, invalidArguments, fileError };
-GearRatioCalibrationResult calibrateGearRatioFiles(const std::string& configPath,
-    const std::string& examplePath, const std::string& axis, int16_t angleCurrentDeg_10,
+bool calculateGearRatio(double currentGearRatio, int16_t angleCurrentDeg_10,
     int16_t angleRealDeg_10, double& gearRatio, std::string& error);
 class ComponentStateMove final : public ComponentState {
 public:

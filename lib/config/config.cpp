@@ -1,5 +1,8 @@
 #include "config.h"
 
+#include "lib/filelib.h"
+
+#include <filesystem>
 #include <sstream>
 #include <utility>
 
@@ -79,6 +82,69 @@ bool replaceYamlSectionScalar(const std::string& text, const std::string& sectio
         return false;
     }
     updated = output.str();
+    return true;
+}
+
+bool updateYamlScalarFiles(const std::string& configPath, const std::string& examplePath,
+        const std::string& section, const std::string& key, const std::string& value, std::string& error) {
+    error.clear();
+    try {
+        std::string configText;
+        if (!readFile(configPath, configText)) {
+            error = "cannot read configuration: " + configPath;
+            return false;
+        }
+        std::string updatedConfig;
+        if (!replaceYamlSectionScalar(configText, section, key, value, updatedConfig, error)) {
+            return false;
+        }
+        const YAML::Node verified = YAML::Load(updatedConfig);
+        if (!verified[section][key].IsScalar()) {
+            error = "updated configuration scalar is unavailable: " + section + "." + key;
+            return false;
+        }
+
+        std::string updatedExample;
+        std::error_code fsError;
+        const bool exampleExists = std::filesystem::exists(examplePath, fsError);
+        if (fsError) {
+            error = "cannot inspect example configuration: " + fsError.message();
+            return false;
+        }
+        if (exampleExists) {
+            std::string exampleText;
+            if (!readFile(examplePath, exampleText) ||
+                    !replaceYamlSectionScalar(exampleText, section, key, value, updatedExample, error)) {
+                if (error.empty()) { error = "cannot update example configuration"; }
+                return false;
+            }
+            const YAML::Node verifiedExample = YAML::Load(updatedExample);
+            if (!verifiedExample[section][key].IsScalar()) {
+                error = "updated example scalar is unavailable: " + section + "." + key;
+                return false;
+            }
+        }
+
+        std::filesystem::path configBackup;
+        if (!writeFileWithTimestampBackup(configPath, updatedConfig, configBackup, error)) {
+            return false;
+        }
+        if (exampleExists) {
+            std::filesystem::path exampleBackup;
+            if (!writeFileWithTimestampBackup(examplePath, updatedExample, exampleBackup, error)) {
+                if (!copyFileReplacing(configBackup, configPath)) {
+                    error += "; configuration rollback failed";
+                }
+                return false;
+            }
+        }
+    } catch (const YAML::Exception& failure) {
+        error = std::string("invalid YAML configuration: ") + failure.what();
+        return false;
+    } catch (const std::exception& failure) {
+        error = failure.what();
+        return false;
+    }
     return true;
 }
 

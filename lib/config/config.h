@@ -9,6 +9,8 @@
 
 bool replaceYamlSectionScalar(const std::string& text, const std::string& section, const std::string& key,
     const std::string& value, std::string& updated, std::string& error);
+bool updateYamlScalarFiles(const std::string& configPath, const std::string& examplePath,
+    const std::string& section, const std::string& key, const std::string& value, std::string& error);
 
 class Config {
 public:
