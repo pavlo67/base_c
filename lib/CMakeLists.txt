@@ -55,6 +55,7 @@ target_link_libraries(server_http_mngs_hello PRIVATE lib_server_http_mngs)
 add_executable(server_http_mngs_test
         server/mongoose/mngs_test.cpp
         config/config.cpp
+        filelib.cpp
         server/server.cpp
 )
 set_target_properties(server_http_mngs_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_test>")
