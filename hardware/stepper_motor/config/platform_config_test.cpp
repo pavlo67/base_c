@@ -1,5 +1,6 @@
 #include "platform_config.h"
 #include "hardware/gpio/component_state_gpio.h"
+#include "lib/gtest_stdout.h"
 #include "lib/strlib.h"
 
 #include <gtest/gtest.h>
@@ -122,9 +123,18 @@ TEST(PlatformMotor, SignedCliNumbers) {
     ASSERT_FLOAT_EQ(value, 90);
     ASSERT_TRUE(parseFiniteFloat("-4.5e1", value));
     ASSERT_FLOAT_EQ(value, -45);
-    for (const auto* invalid : {"", "+", "++1", "+-1", "90junk", "nan", "inf", "1e100", " 90"}) {
-        ASSERT_FALSE(parseFiniteFloat(invalid, value)) << invalid;
+    const auto captured = test_support::captureStdout([&] {
+        std::array<bool, 9> results{};
+        size_t index = 0;
+        for (const auto* invalid : {"", "+", "++1", "+-1", "90junk", "nan", "inf", "1e100", " 90"}) {
+            results[index++] = parseFiniteFloat(invalid, value);
+        }
+        return results;
+    });
+    for (const bool result : captured.result_) {
+        ASSERT_FALSE(result) << captured.output_;
     }
+    ASSERT_NE(captured.output_.find("[parseFiniteFloat()] ERROR: "), std::string::npos) << captured.output_;
 }
 
 TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
@@ -190,10 +200,22 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     ASSERT_TRUE(gpio.load(Config(path.string())));
     ASSERT_TRUE(gpio.usesPin(5));
     ASSERT_EQ(gpio.get().at("latch"), "5");
-    ASSERT_EQ(gpio.readPin("missing"), Gpio::INVALID_ARGUMENT);
+    const auto missingPin = test_support::captureStdout([&] {
+        return gpio.readPin("missing");
+    });
+    ASSERT_EQ(missingPin.result_, Gpio::INVALID_ARGUMENT) << missingPin.output_;
+    ASSERT_NE(missingPin.output_.find("[ComponentStateGPIO.getPin()] ERROR: "), std::string::npos)
+        << missingPin.output_;
+    ASSERT_NE(missingPin.output_.find("[ComponentStateGPIO.readPin()] ERROR: "), std::string::npos)
+        << missingPin.output_;
     document["gpio"]["conflict"] = motors[0].pinStep_;
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_FALSE(gpio.load(Config(path.string())));
+    const auto pinConflict = test_support::captureStdout([&] {
+        return gpio.load(Config(path.string()));
+    });
+    ASSERT_FALSE(pinConflict.result_) << pinConflict.output_;
+    ASSERT_NE(pinConflict.output_.find("[ComponentStateGPIO.load()] ERROR: "), std::string::npos)
+        << pinConflict.output_;
     ASSERT_TRUE(gpio.usesPin(5));
     ASSERT_FALSE(gpio.usesPin(motors[0].pinStep_));
     printf("[PLT] Select Smart or Dumb for the paired probe\n");
@@ -221,12 +243,22 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     ASSERT_EQ(motors[1].dumbRemainingPulsesTolerance_, 3U);
     document["tilt"]["dumbPauseMs"] = 60000;
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_FALSE(section.load(Config(path.string())));
+    const auto invalidPause = test_support::captureStdout([&] {
+        return section.load(Config(path.string()));
+    });
+    ASSERT_FALSE(invalidPause.result_) << invalidPause.output_;
+    ASSERT_NE(invalidPause.output_.find("[ComponentStateMove.load()] ERROR: "), std::string::npos)
+        << invalidPause.output_;
     section.getMotors(motors);
     ASSERT_EQ(motors[1].dumbPause_, 10 * MILLISECOND);
     document["motorClass"] = "Unknown";
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_FALSE(section.load(Config(path.string())));
+    const auto invalidClass = test_support::captureStdout([&] {
+        return section.load(Config(path.string()));
+    });
+    ASSERT_FALSE(invalidClass.result_) << invalidClass.output_;
+    ASSERT_NE(invalidClass.output_.find("[ComponentStateMove.load()] ERROR: "), std::string::npos)
+        << invalidClass.output_;
     section.getMotors(motors);
     ASSERT_EQ(motors[0].kind_, StepperMotorKind::dumb);
     ASSERT_EQ(motors[1].kind_, StepperMotorKind::dumb);
@@ -244,7 +276,12 @@ TEST(PlatformMotor, YamlConversionAndInPlaceReload) {
     document["pan"]["speedMaxDegSec"] = 25;
     document["tilt"]["torqueMaxNm"] = -0.5;
     { std::ofstream file(path); file << document; ASSERT_TRUE(file.good()); }
-    ASSERT_FALSE(section.load(Config(path.string())));
+    const auto invalidMechanics = test_support::captureStdout([&] {
+        return section.load(Config(path.string()));
+    });
+    ASSERT_FALSE(invalidMechanics.result_) << invalidMechanics.output_;
+    ASSERT_NE(invalidMechanics.output_.find("[ComponentStateMove.load()] ERROR: "), std::string::npos)
+        << invalidMechanics.output_;
     section.getMotors(motors);
     ASSERT_FLOAT_EQ(motors[0].options_.speedMaxDegSec, 180);
     ASSERT_DOUBLE_EQ(motors[1].options_.mechanics_.torqueMaxNm_, 0.5);

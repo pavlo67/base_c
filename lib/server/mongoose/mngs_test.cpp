@@ -1,7 +1,9 @@
 #include "lib/server/mongoose/mngs.h"
 #include "lib/server/mongoose/component_state_server_http.h"
+#include "lib/gtest_stdout.h"
 
 #include <arpa/inet.h>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <string>
@@ -145,10 +147,19 @@ TEST(Server, RejectsInvalidHTTPConfiguration) {
     YAML::Node invalidHost;
     invalidHost["serverHTTP"]["host"] = "localhost";
     invalidHost["serverHTTP"]["port"] = 8080;
-    ASSERT_FALSE(section.load(Config(invalidHost)));
 
     YAML::Node invalidPort;
     invalidPort["serverHTTP"]["host"] = "0.0.0.0";
     invalidPort["serverHTTP"]["port"] = 0;
-    ASSERT_FALSE(section.load(Config(invalidPort)));
+    const auto captured = test_support::captureStdout([&] {
+        return std::array{
+            section.load(Config(invalidHost)),
+            section.load(Config(invalidPort))
+        };
+    });
+    for (const bool result : captured.result_) {
+        ASSERT_FALSE(result) << captured.output_;
+    }
+    ASSERT_NE(captured.output_.find("[ComponentStateServerHTTP.load()] ERROR: "), std::string::npos)
+        << captured.output_;
 }
