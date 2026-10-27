@@ -145,7 +145,8 @@ int StepperMotorSmart::action(moment at) {
             auto& next = sequence_.seq[index_];
             next.initialPulseInterval_ = completed.lastInterval_;
             phaseStartedAt_ = at;
-            code = gpio.write(config_.pinDir_, next.directionForward_ ? 1 : 0);
+            code = gpio.write(config_.pinDir_,
+                stepperMotorDirectionLevel(next.directionForward_, config_.reversed_) ? 1 : 0);
             if (code < 0) { return fail(code, "cannot set DIR"); }
             if (completed.directionForward_ != next.directionForward_) {
                 readyAt_ = at + config_.pulseHigh_;

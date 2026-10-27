@@ -12,8 +12,9 @@ StepperMotor::StepperMotor(const StepperMotorRunConfig& config, std::function<vo
 
 StepperMotor::~StepperMotor() { (void)stop(); }
 
-int StepperMotor::updateOptions(const stepper_motor_options_t& options) {
+int StepperMotor::updateCalibration(const stepper_motor_options_t& options, bool reversed) {
     config_.options_ = options;
+    config_.reversed_ = reversed;
     return Gpio::SUCCESS;
 }
 
@@ -100,7 +101,10 @@ int StepperMotor::initialize(moment at) {
         code = gpio.setMode(config_.pinDir_, GpioMode::output);
         directionConfigured_ = code >= 0;
     }
-    if (code >= 0) { code = gpio.write(config_.pinDir_, sequence_.seq.front().directionForward_ ? 1 : 0); }
+    if (code >= 0) {
+        code = gpio.write(config_.pinDir_,
+            stepperMotorDirectionLevel(sequence_.seq.front().directionForward_, config_.reversed_) ? 1 : 0);
+    }
     if (code < 0) { return fail(code); }
     initialized_ = true;
     phaseStartedAt_ = at;
@@ -242,4 +246,8 @@ int StepperMotor::probe(float rotationDeg, bool withEstimates, const std::string
     if (cleanup < 0) { return fail(cleanup, "previous motion cleanup failed"); }
     setSequence(plan);
     return runReal(label, real);
+}
+
+bool stepperMotorDirectionLevel(bool directionForward, bool reversed) {
+    return directionForward != reversed;
 }

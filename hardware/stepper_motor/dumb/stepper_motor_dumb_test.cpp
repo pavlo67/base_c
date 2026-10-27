@@ -18,6 +18,14 @@ StepperMotorRunConfig dumbConfig() {
     };
 }
 
+TEST(StepperMotorDirection, AppliesConfiguredReversal) {
+    printf("[DIR] Convert logical motor direction to the configured DIR level\n");
+    ASSERT_TRUE(stepperMotorDirectionLevel(true, false));
+    ASSERT_FALSE(stepperMotorDirectionLevel(false, false));
+    ASSERT_FALSE(stepperMotorDirectionLevel(true, true));
+    ASSERT_TRUE(stepperMotorDirectionLevel(false, true));
+}
+
 TEST(StepperMotorDumbPlan, TimerToleranceCapsTheConstantFrequency) {
     auto config = dumbConfig();
     std::string error;
@@ -134,9 +142,12 @@ TEST_F(StepperMotorDumbTest, DumbDumbReplacesRemainingPulsesWithoutRestartingIts
     StepperMotorDumbDumb motor(config);
     ASSERT_EQ(motor.replaceMove(1.0F), Gpio::SUCCESS);
     ASSERT_EQ(Gpio::instance().read(config.pinDir_), 1);
+    ASSERT_EQ(motor.updateCalibration(config.options_, true), Gpio::SUCCESS);
+    ASSERT_EQ(motor.replaceMove(1.0F), Gpio::SUCCESS);
+    ASSERT_EQ(Gpio::instance().read(config.pinDir_), 0);
     std::this_thread::sleep_for(std::chrono::nanoseconds(2 * config.expecterInterval_));
     ASSERT_EQ(motor.replaceMove(-0.2F), Gpio::SUCCESS);
-    ASSERT_EQ(Gpio::instance().read(config.pinDir_), 0);
+    ASSERT_EQ(Gpio::instance().read(config.pinDir_), 1);
     std::this_thread::sleep_for(std::chrono::nanoseconds(3 * config.expecterInterval_));
     ASSERT_EQ(Gpio::instance().read(config.pinStep_), 0);
 }

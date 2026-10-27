@@ -50,7 +50,7 @@ int StepperMotorDumbDumb::replaceMove(float angle) {
     }
     const int configured = configurePinsLocked();
     if (configured < 0) { return configured; }
-    const int direction = angle >= 0 ? 1 : 0;
+    const int direction = stepperMotorDirectionLevel(angle >= 0, config_.reversed_) ? 1 : 0;
     const int code = Gpio::instance().write(config_.pinDir_, direction);
     if (code < 0) {
         printf("%s ERROR: direction setup failed: %d\n", ON_DUMB_DUMB_REPLACE_MOVE, code);
@@ -63,9 +63,10 @@ int StepperMotorDumbDumb::replaceMove(float angle) {
     return Gpio::SUCCESS;
 }
 
-int StepperMotorDumbDumb::updateOptions(const stepper_motor_options_t& options) {
+int StepperMotorDumbDumb::updateCalibration(const stepper_motor_options_t& options, bool reversed) {
     std::lock_guard lock(mutex_);
     config_.options_ = options;
+    config_.reversed_ = reversed;
     return Gpio::SUCCESS;
 }
 

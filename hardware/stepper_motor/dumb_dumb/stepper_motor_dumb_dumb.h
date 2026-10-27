@@ -15,7 +15,7 @@ public:
 
     int action(moment at) override;
     int replaceMove(float angle) override;
-    int updateOptions(const stepper_motor_options_t& options) override;
+    int updateCalibration(const stepper_motor_options_t& options, bool reversed) override;
     [[nodiscard]] bool hasBackgroundScheduler() const override { return true; }
     [[nodiscard]] bool hasPendingBackgroundMove() const override;
     [[nodiscard]] int backgroundMoveResult() const override;
