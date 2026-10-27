@@ -85,43 +85,75 @@ bool replaceYamlSectionScalar(const std::string& text, const std::string& sectio
     return true;
 }
 
-bool updateYamlScalarFiles(const std::string& configPath, const std::string& examplePath,
-        const std::string& section, const std::string& key, const std::string& value, std::string& error) {
+constexpr const char* ON_UPDATE_YAML_SECTION_SCALARS_FILES = "[updateYamlSectionScalarsFiles()] ERROR: ";
+
+bool updateYamlSectionScalarsFiles(const std::string& configPath, const std::string& examplePath,
+        const std::string& section, const std::vector<std::pair<std::string, std::string>>& values,
+        std::string& error) {
     error.clear();
+    if (values.empty()) {
+        error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) + "no configuration values supplied";
+        return false;
+    }
     try {
         std::string configText;
         if (!readFile(configPath, configText)) {
-            error = "cannot read configuration: " + configPath;
+            error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) + "cannot read configuration: " + configPath;
             return false;
         }
-        std::string updatedConfig;
-        if (!replaceYamlSectionScalar(configText, section, key, value, updatedConfig, error)) {
-            return false;
+        std::string updatedConfig = configText;
+        for (const auto& [key, value] : values) {
+            std::string nextConfig;
+            if (!replaceYamlSectionScalar(updatedConfig, section, key, value, nextConfig, error)) {
+                error = ON_UPDATE_YAML_SECTION_SCALARS_FILES + error;
+                return false;
+            }
+            updatedConfig = std::move(nextConfig);
         }
         const YAML::Node verified = YAML::Load(updatedConfig);
-        if (!verified[section][key].IsScalar()) {
-            error = "updated configuration scalar is unavailable: " + section + "." + key;
-            return false;
+        for (const auto& entry : values) {
+            const auto& key = entry.first;
+            if (!verified[section][key].IsScalar()) {
+                error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) +
+                    "updated configuration scalar is unavailable: " +
+                    section + "." + key;
+                return false;
+            }
         }
 
         std::string updatedExample;
         std::error_code fsError;
         const bool exampleExists = std::filesystem::exists(examplePath, fsError);
         if (fsError) {
-            error = "cannot inspect example configuration: " + fsError.message();
+            error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) + "cannot inspect example configuration: " +
+                fsError.message();
             return false;
         }
         if (exampleExists) {
             std::string exampleText;
-            if (!readFile(examplePath, exampleText) ||
-                    !replaceYamlSectionScalar(exampleText, section, key, value, updatedExample, error)) {
-                if (error.empty()) { error = "cannot update example configuration"; }
+            if (!readFile(examplePath, exampleText)) {
+                error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) +
+                    "cannot read example configuration: " + examplePath;
                 return false;
             }
+            updatedExample = exampleText;
+            for (const auto& [key, value] : values) {
+                std::string nextExample;
+                if (!replaceYamlSectionScalar(updatedExample, section, key, value, nextExample, error)) {
+                    error = ON_UPDATE_YAML_SECTION_SCALARS_FILES + error;
+                    return false;
+                }
+                updatedExample = std::move(nextExample);
+            }
             const YAML::Node verifiedExample = YAML::Load(updatedExample);
-            if (!verifiedExample[section][key].IsScalar()) {
-                error = "updated example scalar is unavailable: " + section + "." + key;
-                return false;
+            for (const auto& entry : values) {
+                const auto& key = entry.first;
+                if (!verifiedExample[section][key].IsScalar()) {
+                    error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) +
+                        "updated example scalar is unavailable: " +
+                        section + "." + key;
+                    return false;
+                }
             }
         }
 
@@ -139,10 +171,11 @@ bool updateYamlScalarFiles(const std::string& configPath, const std::string& exa
             }
         }
     } catch (const YAML::Exception& failure) {
-        error = std::string("invalid YAML configuration: ") + failure.what();
+        error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) +
+            "invalid YAML configuration: " + failure.what();
         return false;
     } catch (const std::exception& failure) {
-        error = failure.what();
+        error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) + failure.what();
         return false;
     }
     return true;

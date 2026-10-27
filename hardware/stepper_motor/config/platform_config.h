@@ -14,8 +14,8 @@
 // Call before using the options, and again after changing their source values.
 bool stepperMotorOptionsOk(stepper_motor_options_t& options, std::string& error);
 
-bool calculateGearRatio(double currentGearRatio, int16_t angleCurrentDeg_10,
-    int16_t angleRealDeg_10, double& gearRatio, std::string& error);
+bool calculateMotorCalibration(double currentGearRatio, bool currentReversed, int16_t angleCurrentDeg_10,
+    int16_t angleRealDeg_10, double& gearRatio, bool& reversed, std::string& error);
 class ComponentStateMove final : public ComponentState {
 public:
     ComponentStateMove(std::string panSection, std::string tiltSection);

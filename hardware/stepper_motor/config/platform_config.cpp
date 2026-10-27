@@ -1,6 +1,7 @@
 #include "platform_config.h"
 
 
+#include <cmath>
 #include <cstdio>
 #include <numbers>
 #include <utility>
@@ -49,21 +50,25 @@ bool stepperMotorOptionsOk(stepper_motor_options_t& options, std::string& error)
     return true;
 }
 
-bool calculateGearRatio(double currentGearRatio, int16_t angleCurrentDeg_10,
-        int16_t angleRealDeg_10, double& gearRatio, std::string& error) {
+constexpr const char* ON_CALCULATE_MOTOR_CALIBRATION = "[calculateMotorCalibration()] ERROR: ";
+
+bool calculateMotorCalibration(double currentGearRatio, bool currentReversed, int16_t angleCurrentDeg_10,
+        int16_t angleRealDeg_10, double& gearRatio, bool& reversed, std::string& error) {
     error.clear();
     gearRatio = 0;
-    if (!isFinitePositive(currentGearRatio) || angleCurrentDeg_10 == 0 || angleRealDeg_10 == 0 ||
-            (angleCurrentDeg_10 < 0) != (angleRealDeg_10 < 0)) {
-        error = "current gearRatio must be positive; angles must be nonzero and have the same direction";
+    reversed = currentReversed;
+    if (!isFinitePositive(currentGearRatio) || angleCurrentDeg_10 == 0 || angleRealDeg_10 == 0) {
+        error = std::string(ON_CALCULATE_MOTOR_CALIBRATION) +
+            "current gearRatio must be positive and angles must be nonzero";
         return false;
     }
-    const double factor = static_cast<double>(angleRealDeg_10) / angleCurrentDeg_10;
+    const double factor = std::abs(static_cast<double>(angleRealDeg_10) / angleCurrentDeg_10);
     gearRatio = currentGearRatio * factor;
     if (!isFinitePositive(factor) || !isFinitePositive(gearRatio)) {
-        error = "calculated gearRatio is invalid";
+        error = std::string(ON_CALCULATE_MOTOR_CALIBRATION) + "calculated gearRatio is invalid";
         return false;
     }
+    reversed = currentReversed != ((angleCurrentDeg_10 < 0) != (angleRealDeg_10 < 0));
     return true;
 }
 

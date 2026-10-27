@@ -60,6 +60,27 @@ TEST(PlatformMotor, RejectInvalidMechanics) {
     ASSERT_TRUE(stepperMotorOptionsOk(options, error));
 }
 
+TEST(PlatformMotor, CalculateCalibrationFromCurrentMotorSettings) {
+    printf("[CAL] Scale the current ratio and preserve or toggle the current direction\n");
+    std::string error;
+    double gearRatio = 0;
+    bool reversed = false;
+    ASSERT_TRUE(calculateMotorCalibration(0.5, false, 900, -450, gearRatio, reversed, error)) << error;
+    ASSERT_DOUBLE_EQ(gearRatio, 0.25);
+    ASSERT_TRUE(reversed);
+    ASSERT_TRUE(calculateMotorCalibration(gearRatio, reversed, 900, 450, gearRatio, reversed, error)) << error;
+    ASSERT_DOUBLE_EQ(gearRatio, 0.125);
+    ASSERT_TRUE(reversed);
+    ASSERT_TRUE(calculateMotorCalibration(gearRatio, reversed, 900, -900, gearRatio, reversed, error)) << error;
+    ASSERT_DOUBLE_EQ(gearRatio, 0.125);
+    ASSERT_FALSE(reversed);
+
+    printf("[CAL] Reject zero measurements without changing the current direction\n");
+    ASSERT_FALSE(calculateMotorCalibration(gearRatio, reversed, 0, 900, gearRatio, reversed, error));
+    ASSERT_NE(error.find("[calculateMotorCalibration()] ERROR: "), std::string::npos);
+    ASSERT_FALSE(reversed);
+}
+
 TEST(PlatformMotor, RepeatedValidationRecalculatesFromSourceValues) {
     printf("[PLT] Preserve motor displacement when preparing the same options repeatedly\n");
     stepper_motor_options_t options{8000, 0.225F, 180, 0};
