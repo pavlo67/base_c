@@ -56,6 +56,11 @@ Completed/error states are sticky; old/duplicate action timestamps are ignored.
 
 Initialization configures the three distinct pins, PWM OFF, DIR and active-low ENA,
 then waits 500 us plus `pulseHigh`; direction changes wait `pulseHigh`.
+Positive motor angles are positive platform motion: pan right or tilt up. By default,
+a positive angle uses DIR=1 and a negative angle uses DIR=0. Set `reversed: true`
+when DIR=1 physically moves that axis in its negative direction; the motor component
+then inverts the DIR level for both signs. Higher-level motion and sight code must
+not apply this wiring correction.
 STEP is 50% PWM at range 40000. `pulseHigh` is a minimum HIGH/LOW duration, not
 manual pulse generation. Live frequencies are rounded down to integer 1..10000 Hz
 within driver/speed/pulse-width limits. Unsupported channels or unrepresentable
@@ -116,6 +121,7 @@ pair on any failure. Required per-axis fields:
 | Fields | Meaning and limits |
 | --- | --- |
 | pinStep, pinDir, pinEna | BCM0..27; all six pins distinct |
+| reversed | Invert DIR so signed platform angles remain independent of installed wiring |
 | freqMax, degPulse | Driver pulses/s; motor degrees/pulse before transmission |
 | speedMaxDegSec | Platform degrees/s |
 | gearRatio | Motor pulley / platform pulley tooth ratio |
