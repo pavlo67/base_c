@@ -42,5 +42,7 @@ bool        moveFileReplacing(const std::filesystem::path& srcPath, const std::f
 bool        cleanupDirectory(const std::filesystem::path& dirPath);
 
 bool        createUniqueDirectory(const std::filesystem::path& parent, const std::string& prefix, std::filesystem::path& directory);
+bool        createNextNumberedDirectory(const std::filesystem::path& parent, unsigned width,
+            unsigned& number, std::filesystem::path& directory);
 
 #endif // __FILELIB_H

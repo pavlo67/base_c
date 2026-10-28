@@ -1,8 +1,12 @@
+#include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cstring>
 #include <cerrno>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <dirent.h>
 #include <filesystem>
 
@@ -117,6 +121,52 @@ std::string newPath(const std::string& path) {
     }
 
     return path.back() == '/' ? path : path + "/";;
+}
+
+bool createNextNumberedDirectory(const std::filesystem::path& parent, unsigned width,
+        unsigned& number, std::filesystem::path& directory) {
+    constexpr const char* context = "[createNextNumberedDirectory()]";
+    number = 0;
+    directory.clear();
+    std::error_code error;
+    std::filesystem::directory_iterator entries(parent, error);
+    if (error) {
+        printf("%s ERROR: cannot read %s: %s\n", context, parent.c_str(), error.message().c_str());
+        return false;
+    }
+    unsigned maximum = 0;
+    for (const auto& entry : entries) {
+        if (!entry.is_directory(error)) {
+            if (error) {
+                printf("%s ERROR: cannot inspect %s: %s\n", context, entry.path().c_str(), error.message().c_str());
+                return false;
+            }
+            continue;
+        }
+        const std::string name = entry.path().filename().string();
+        unsigned candidate = 0;
+        const auto parsed = std::from_chars(name.data(), name.data() + name.size(), candidate);
+        if (parsed.ec == std::errc{} && parsed.ptr == name.data() + name.size()) {
+            maximum = std::max(maximum, candidate);
+        }
+    }
+    for (unsigned candidate = maximum + 1; candidate != 0; ++candidate) {
+        std::ostringstream name;
+        name << std::setw(static_cast<int>(width)) << std::setfill('0') << candidate;
+        const std::filesystem::path candidatePath = parent / name.str();
+        error.clear();
+        if (std::filesystem::create_directory(candidatePath, error)) {
+            number = candidate;
+            directory = candidatePath;
+            return true;
+        }
+        if (error != std::errc::file_exists) {
+            printf("%s ERROR: cannot create %s: %s\n", context, candidatePath.c_str(), error.message().c_str());
+            return false;
+        }
+    }
+    printf("%s ERROR: numbered directory range is exhausted in %s\n", context, parent.c_str());
+    return false;
 }
 
 const std::string ON_READ_FILE_BY_LINES = "[readFileByLines()]";
