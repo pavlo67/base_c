@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <cstring>
@@ -483,6 +484,45 @@ bool removeFsPath(const std::filesystem::path& path, const std::string& reason) 
         std::cout << "\n";
         return false;
     }
+    return true;
+}
+
+constexpr const char* ON_SAME_FILE_CONTENT = "[sameFileContent()]";
+
+bool sameFileContent(const std::filesystem::path& a, const std::filesystem::path& b, bool& same) {
+    same = false;
+    std::error_code error;
+    const uintmax_t aSize = std::filesystem::file_size(a, error);
+    if (error) {
+        printf("%s ERROR: cannot stat %s: %s\n", ON_SAME_FILE_CONTENT, a.c_str(), error.message().c_str());
+        return false;
+    }
+    const uintmax_t bSize = std::filesystem::file_size(b, error);
+    if (error) {
+        printf("%s ERROR: cannot stat %s: %s\n", ON_SAME_FILE_CONTENT, b.c_str(), error.message().c_str());
+        return false;
+    }
+    if (aSize != bSize) {
+        return true;
+    }
+    std::ifstream aStream(a, std::ios::binary);
+    std::ifstream bStream(b, std::ios::binary);
+    if (!aStream || !bStream) {
+        printf("%s ERROR: cannot open %s or %s\n", ON_SAME_FILE_CONTENT, a.c_str(), b.c_str());
+        return false;
+    }
+    std::array<char, 65536> aBuffer{};
+    std::array<char, 65536> bBuffer{};
+    while (aStream && bStream) {
+        aStream.read(aBuffer.data(), aBuffer.size());
+        bStream.read(bBuffer.data(), bBuffer.size());
+        const std::streamsize aCount = aStream.gcount();
+        const std::streamsize bCount = bStream.gcount();
+        if (aCount != bCount || !std::equal(aBuffer.begin(), aBuffer.begin() + aCount, bBuffer.begin())) {
+            return true;
+        }
+    }
+    same = true;
     return true;
 }
 
