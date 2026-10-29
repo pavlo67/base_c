@@ -93,6 +93,9 @@ Wrap all single-statement `if`/`for`/`while` bodies in curly braces, for example
 
 Скрізь, де "return 0/1" означають успіх/невдачу, пишемо, відповідно: "return EXIT_SUCCESS;" або "return EXIT_FAILURE;"
 
+При створенні однофайлових утиліт в apps/probe-підкаталогах не поглиблюємо файлову ієрархію. Напркилад, замість .../apps/<utility_name>/main.cpp 
+створюємо .../apps/<utility_name>.cpp
+
 
 ## Configuration
 
