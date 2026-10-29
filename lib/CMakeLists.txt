@@ -7,15 +7,6 @@ add_library(lib_server_http
 target_link_libraries(lib_server_http PUBLIC httplib::httplib Threads::Threads)
 target_include_directories(lib_server_http PUBLIC ${CMAKE_SOURCE_DIR})
 
-# server_http_hello ------------------------------------------------------------------
-
-add_executable(server_http_hello
-        server/cpp-httplib/_example/hello.cpp
-        server/server.cpp
-)
-set_target_properties(server_http_hello PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
-target_link_libraries(server_http_hello PRIVATE lib_server_http)
-
 # server_http_test -------------------------------------------------------------------
 
 add_executable(server_http_test
@@ -40,15 +31,6 @@ else()
     target_link_libraries(lib_server_http_mngs PUBLIC mongoose Threads::Threads yaml-cpp)
 endif()
 target_include_directories(lib_server_http_mngs PUBLIC ${CMAKE_SOURCE_DIR})
-
-# server_http_mngs_hello -------------------------------------------------------------
-
-add_executable(server_http_mngs_hello
-        server/mongoose/_example/hello.cpp
-        server/server.cpp
-)
-set_target_properties(server_http_mngs_hello PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
-target_link_libraries(server_http_mngs_hello PRIVATE lib_server_http_mngs)
 
 # server_http_mngs_test --------------------------------------------------------------
 

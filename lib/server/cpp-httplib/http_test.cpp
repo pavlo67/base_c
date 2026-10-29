@@ -7,11 +7,9 @@
 #include <gtest/gtest.h>
 
 namespace {
-
-constexpr std::string HOST = "127.0.0.1";
-constexpr uint16_t PORT = 18080;
-constexpr std::string PATH = "/test";
-
+    constexpr std::string HOST = "127.0.0.1";
+    constexpr uint16_t PORT = 18080;
+    constexpr std::string PATH = "/test";
 }
 
 TEST(HTTP, ServerReturnsExpectedContent) {
