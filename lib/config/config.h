@@ -5,6 +5,7 @@
 
 #include <string>
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -13,6 +14,20 @@ bool replaceYamlSectionScalar(const std::string& text, const std::string& sectio
     const std::string& value, std::string& updated, std::string& error);
 bool updateYamlSectionScalarsFiles(const std::string& configPath, const std::string& examplePath,
     const std::string& section, const std::vector<std::pair<std::string, std::string>>& values, std::string& error);
+
+struct ConfigScalarField {
+    uint8_t id_ = 0;
+    std::string section_;
+    std::string name_;
+    std::string value_;
+    bool editableAsInt32_ = false;
+};
+
+bool configScalarValueIsInt32(const std::string& value);
+bool rebuildConfigScalarIdsFile(const std::string& configPath, const std::string& idsPath,
+    std::vector<ConfigScalarField>& fields, std::string& error);
+bool findConfigScalarFieldById(const std::string& idsPath, uint8_t id, ConfigScalarField& field,
+    std::string& error);
 
 class Config {
 public:

@@ -2,17 +2,130 @@
 
 #include "lib/filelib.h"
 
+#include <charconv>
 #include <filesystem>
+#include <limits>
 #include <sstream>
 #include <utility>
 
 namespace {
+    constexpr const char* ON_REBUILD_CONFIG_SCALAR_IDS_FILE = "[rebuildConfigScalarIdsFile()] ERROR: ";
+    constexpr const char* ON_FIND_CONFIG_SCALAR_FIELD_BY_ID = "[findConfigScalarFieldById()] ERROR: ";
+
     std::string trimYamlToken(const std::string& value) {
         const size_t begin = value.find_first_not_of(" \t");
         if (begin == std::string::npos) { return ""; }
         const size_t end = value.find_last_not_of(" \t");
         return value.substr(begin, end - begin + 1);
     }
+
+}
+
+bool configScalarValueIsInt32(const std::string& value) {
+    int32_t parsed = 0;
+    const auto result = std::from_chars(value.data(), value.data() + value.size(), parsed);
+    return result.ec == std::errc{} && result.ptr == value.data() + value.size();
+}
+
+bool rebuildConfigScalarIdsFile(const std::string& configPath, const std::string& idsPath,
+        std::vector<ConfigScalarField>& fields, std::string& error) {
+    fields.clear();
+    error.clear();
+    try {
+        const YAML::Node root = YAML::LoadFile(configPath);
+        if (!root.IsMap()) {
+            error = std::string(ON_REBUILD_CONFIG_SCALAR_IDS_FILE) + "configuration root must be a map";
+            return false;
+        }
+        YAML::Node ids(YAML::NodeType::Map);
+        for (const auto& sectionEntry : root) {
+            if (!sectionEntry.first.IsScalar() || !sectionEntry.second.IsMap()) { continue; }
+            const std::string section = sectionEntry.first.Scalar();
+            for (const auto& fieldEntry : sectionEntry.second) {
+                if (!fieldEntry.first.IsScalar() || !fieldEntry.second.IsScalar()) { continue; }
+                if (fields.size() > std::numeric_limits<uint8_t>::max()) {
+                    error = std::string(ON_REBUILD_CONFIG_SCALAR_IDS_FILE) +
+                        "configuration contains more than 256 direct section scalars";
+                    return false;
+                }
+                const std::string name = fieldEntry.first.Scalar();
+                const std::string value = fieldEntry.second.Scalar();
+                const auto id = static_cast<uint8_t>(fields.size());
+                fields.push_back({id, section, name, value, configScalarValueIsInt32(value)});
+                ids[section][name] = static_cast<unsigned>(id);
+            }
+        }
+        YAML::Emitter output;
+        output << ids;
+        if (!output.good()) {
+            error = std::string(ON_REBUILD_CONFIG_SCALAR_IDS_FILE) + "cannot serialize configuration IDs";
+            return false;
+        }
+        if (!writeFile(idsPath, "w", output.c_str())) {
+            error = std::string(ON_REBUILD_CONFIG_SCALAR_IDS_FILE) + "cannot write " + idsPath;
+            return false;
+        }
+    } catch (const YAML::Exception& failure) {
+        error = std::string(ON_REBUILD_CONFIG_SCALAR_IDS_FILE) + failure.what();
+        return false;
+    } catch (const std::exception& failure) {
+        error = std::string(ON_REBUILD_CONFIG_SCALAR_IDS_FILE) + failure.what();
+        return false;
+    }
+    return true;
+}
+
+bool findConfigScalarFieldById(const std::string& idsPath, uint8_t id, ConfigScalarField& field,
+        std::string& error) {
+    field = {};
+    error.clear();
+    try {
+        const YAML::Node root = YAML::LoadFile(idsPath);
+        if (!root.IsMap()) {
+            error = std::string(ON_FIND_CONFIG_SCALAR_FIELD_BY_ID) + "configuration IDs root must be a map";
+            return false;
+        }
+        bool found = false;
+        for (const auto& sectionEntry : root) {
+            if (!sectionEntry.first.IsScalar() || !sectionEntry.second.IsMap()) {
+                error = std::string(ON_FIND_CONFIG_SCALAR_FIELD_BY_ID) + "invalid section entry";
+                return false;
+            }
+            for (const auto& fieldEntry : sectionEntry.second) {
+                if (!fieldEntry.first.IsScalar() || !fieldEntry.second.IsScalar()) {
+                    error = std::string(ON_FIND_CONFIG_SCALAR_FIELD_BY_ID) + "invalid field entry";
+                    return false;
+                }
+                const unsigned candidate = fieldEntry.second.as<unsigned>();
+                if (candidate > std::numeric_limits<uint8_t>::max()) {
+                    error = std::string(ON_FIND_CONFIG_SCALAR_FIELD_BY_ID) + "field ID is outside uint8 range";
+                    return false;
+                }
+                if (candidate != id) { continue; }
+                if (found) {
+                    error = std::string(ON_FIND_CONFIG_SCALAR_FIELD_BY_ID) + "duplicate field ID " +
+                        std::to_string(static_cast<unsigned>(id));
+                    return false;
+                }
+                found = true;
+                field.id_ = id;
+                field.section_ = sectionEntry.first.Scalar();
+                field.name_ = fieldEntry.first.Scalar();
+            }
+        }
+        if (!found) {
+            error = std::string(ON_FIND_CONFIG_SCALAR_FIELD_BY_ID) + "unknown field ID " +
+                std::to_string(static_cast<unsigned>(id));
+            return false;
+        }
+    } catch (const YAML::Exception& failure) {
+        error = std::string(ON_FIND_CONFIG_SCALAR_FIELD_BY_ID) + failure.what();
+        return false;
+    } catch (const std::exception& failure) {
+        error = std::string(ON_FIND_CONFIG_SCALAR_FIELD_BY_ID) + failure.what();
+        return false;
+    }
+    return true;
 }
 
 bool replaceYamlSectionScalar(const std::string& text, const std::string& section, const std::string& key,
@@ -88,8 +201,7 @@ bool replaceYamlSectionScalar(const std::string& text, const std::string& sectio
 constexpr const char* ON_UPDATE_YAML_SECTION_SCALARS_FILES = "[updateYamlSectionScalarsFiles()] ERROR: ";
 
 bool updateYamlSectionScalarsFiles(const std::string& configPath, const std::string& examplePath,
-        const std::string& section, const std::vector<std::pair<std::string, std::string>>& values,
-        std::string& error) {
+        const std::string& section, const std::vector<std::pair<std::string, std::string>>& values, std::string& error) {
     error.clear();
     if (values.empty()) {
         error = std::string(ON_UPDATE_YAML_SECTION_SCALARS_FILES) + "no configuration values supplied";
