@@ -43,6 +43,8 @@ public:
         return loaded_;
     }
 
+    bool save(const std::string& filePath) const;
+
 private:
     YAML::Node root_;
     bool loaded_ = false;

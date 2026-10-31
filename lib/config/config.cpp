@@ -3,10 +3,25 @@
 #include "lib/filelib.h"
 
 #include <charconv>
+#include <cstdio>
 #include <filesystem>
 #include <limits>
 #include <sstream>
 #include <utility>
+
+bool Config::save(const std::string& filePath) const {
+    if (!loaded_) {
+        printf("[Config.save()] ERROR: configuration is not loaded\n");
+        return false;
+    }
+    YAML::Emitter output;
+    output << root_;
+    if (!output.good()) {
+        printf("[Config.save()] ERROR: cannot serialize configuration: %s\n", output.GetLastError().c_str());
+        return false;
+    }
+    return writeFile(filePath, "w", output.c_str());
+}
 
 namespace {
     constexpr const char* ON_REBUILD_CONFIG_SCALAR_IDS_FILE = "[rebuildConfigScalarIdsFile()] ERROR: ";
