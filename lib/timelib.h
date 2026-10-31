@@ -22,6 +22,7 @@ const duration SECOND      = 1e9;
 const duration MINUTE      = SECOND * 60;
 
 std::string formatTimeCustom(time_t t);
+std::string formatTimeForPath(time_t t);
 moment      now();
 uint64_t    nowMs();
 uint64_t    monotonicNowMs();

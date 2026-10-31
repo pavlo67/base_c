@@ -8,6 +8,12 @@ std::string formatTimeCustom(std::time_t t) {
     return timeString;
 }
 
+std::string formatTimeForPath(std::time_t t) {
+    char timeString[std::size("yyyy_mm_dd_hh_mm_ss")];
+    std::strftime(std::data(timeString), std::size(timeString), "%Y_%m_%d_%H_%M_%S", std::localtime(&t));
+    return timeString;
+}
+
 static const uint64_t startedAtMs = monotonicNowMs();
 
 moment now() {
