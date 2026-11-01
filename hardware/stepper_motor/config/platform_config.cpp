@@ -181,7 +181,6 @@ bool ComponentStateMove::load(const Config& cfg) {
         loaded_ = true;
     }
 
-    printComponentState("MOVE", get());
     return true;
 }
 
@@ -220,6 +219,10 @@ config_values_t ComponentStateMove::get() const {
         }
     }
     return values;
+}
+
+void ComponentStateMove::show() const {
+    printComponentState("MOVE", get());
 }
 
 void ComponentStateMove::test() {

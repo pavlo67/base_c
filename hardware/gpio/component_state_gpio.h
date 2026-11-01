@@ -15,6 +15,7 @@ public:
 
     virtual bool load(const Config& cfg);
     [[nodiscard]] config_values_t get() const final;
+    void show() const final;
     void test() final;
 
     int setPinMode(const std::string& name, GpioMode mode);

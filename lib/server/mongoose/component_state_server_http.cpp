@@ -52,7 +52,6 @@ bool ComponentStateServerHTTP::load(const Config& cfg) {
         port_ = port;
         loaded_ = true;
     }
-    printComponentState(section_, get());
     return true;
 }
 
@@ -62,6 +61,10 @@ config_values_t ComponentStateServerHTTP::get() const {
         return {};
     }
     return {{"host", host_}, {"port", std::to_string(port_)}};
+}
+
+void ComponentStateServerHTTP::show() const {
+    printComponentState(section_, get());
 }
 
 void ComponentStateServerHTTP::test() {

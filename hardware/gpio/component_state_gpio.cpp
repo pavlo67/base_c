@@ -57,7 +57,6 @@ bool ComponentStateGPIO::load(const Config& cfg) {
         pins_ = std::move(pins);
         loaded_ = true;
     }
-    printComponentState(section_, get());
     return true;
 }
 
@@ -71,6 +70,10 @@ config_values_t ComponentStateGPIO::get() const {
         values[name] = std::to_string(pin);
     }
     return values;
+}
+
+void ComponentStateGPIO::show() const {
+    printComponentState(section_, get());
 }
 
 void ComponentStateGPIO::test() {
