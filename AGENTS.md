@@ -43,6 +43,10 @@ AGENTS.md в git-підмодулях — це копії кореневого A
 
 Перед написанням або зміною програмного коду спочатку шукай відповідні готові helper-функції в `lib/` і `hardware/`.
 
+For every new function, ask: - Is it's not tightly coupled to one function and reusable outside this file? If the answer is yes,
+move it to `lib/` or `hardware/` as appropriate. In particular, CSV/text helpers, bool/string conversion helpers, math helpers,
+filesystem helpers, and small formatting helpers are reusable and should be moved to common directories by default unless proven otherwise.
+
 Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat string conversion, math, filesystem, and formatting
 helpers as reusable by default. 
 
@@ -58,21 +62,9 @@ different signatures, give them different, descriptive names.
 
 Guard platform-specific code, including its headers, with platform preprocessor macros so that it is active only on its target platform.
 
-Кожне повідомлення про помилку, за винятком помилок в функції main(), повинно містити однозначний контекст у форматі `[function()] ERROR: ...` 
-або `[Class.function()] ERROR: ...` (в main(): просто "ERROR: ..."). Якщо контекст повторюється в кількох повідомленнях функції, визначати 
-спільну константу перед нею; для одного повідомлення дозволено записувати контекст безпосередньо в літералі.
-
-Wherever possible, use error codes/messages instead of throwing exceptions.
-
-Don't use stderr (`std::cerr`); send all error messages to stdout. Error messages must follow the format `<context> ERROR: <details>`.
-
 Не використовуй std::cout, std::cerr в основному коді системи — скрізь користуємось тільки printf().  
 
 Don't use CLI parameters in apps unless explicitly required by the task — define all parameters as constants in main.cpp.
-
-For every new function, ask: - Is it's not tightly coupled to one function and reusable outside this file? If the answer is yes, 
-move it to `lib/` or `hardware/` as appropriate. In particular, CSV/text helpers, bool/string conversion helpers, math helpers, 
-filesystem helpers, and small formatting helpers are reusable and should be moved to common directories by default unless proven otherwise.
 
 Compile definitions не слід визначати в CMakeLists.txt, за винятком тих, значення яких генерує сам cmake в процесі виконання. 
 Коли потрібна wide-range константа, її місце — в defines_<PROJECT_ALIAS>.h і в defines_<PROJECT_ALIAS>_example.h в корені проєкту.  
@@ -92,9 +84,17 @@ Wrap all single-statement `if`/`for`/`while` bodies in curly braces, for example
 
 Скрізь, де "return 0/1" означають успіх/невдачу, пишемо, відповідно: "return EXIT_SUCCESS;" або "return EXIT_FAILURE;"
 
-При створенні однофайлових утиліт в apps/probe-підкаталогах не поглиблюємо файлову ієрархію. Напркилад, замість .../apps/<utility_name>/main.cpp 
-створюємо .../apps/<utility_name>.cpp
+## Обробка помилок
 
+Скрізь, де можливо, слід використовувати коди/повідомлення помилок замість throwing exceptions.  
+
+Don't use stderr (`std::cerr`); send all error messages to stdout. Error messages must follow the format `<context> ERROR: <details>`.
+
+Кожне повідомлення про помилку, за винятком помилок в функції main(), повинно містити однозначний контекст у форматі `[function()] ERROR: ...`
+або `[Class.function()] ERROR: ...` (в main(): просто "ERROR: ..."). Якщо контекст повторюється в кількох повідомленнях функції, визначати
+спільну константу перед нею; для одного повідомлення дозволено записувати контекст безпосередньо в літералі.
+
+При формуванні повідомлення про помилку слід подробиці — номер фрейма чи ітерації в циклі, якщо щось таке є, инші деталі.  
 
 ## Конфігурація
 
@@ -164,6 +164,9 @@ Add concise test logs showing the sequence of steps. Use distinct short prefixes
 яку слід показати явно. Якщо ж тест/проба/бенчмарк вимагає якихось инших параметрів, то це має бути явно підтверджено користувачем.
 
 ## Утиліти
+
+При створенні однофайлових утиліт в apps/probe-підкаталогах не поглиблюємо файлову ієрархію. Напркилад, замість .../apps/<utility_name>/main.cpp
+створюємо .../apps/<utility_name>.cpp
 
 В кожній утиліті (і C++, і в sh-скриптах) після старту слід коротко написати список фактичних параметрів, з якими вона починає роботу (це, зазвичай, 
 комбінація дефолтів і CLI-аргументів). Параметри слід виводити кожен з нового рядка з tab-відступом; після їх списку — порожній рядок.
