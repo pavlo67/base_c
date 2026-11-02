@@ -3,7 +3,6 @@
 #include "lib/filelib.h"
 
 #include <algorithm>
-#include <charconv>
 #include <cstdio>
 #include <filesystem>
 #include <limits>
@@ -37,12 +36,6 @@ namespace {
 
 }
 
-bool configScalarValueIsInt32(const std::string& value) {
-    int32_t parsed = 0;
-    const auto result = std::from_chars(value.data(), value.data() + value.size(), parsed);
-    return result.ec == std::errc{} && result.ptr == value.data() + value.size();
-}
-
 bool rebuildConfigScalarIdsFile(const std::string& configPath, const std::string& idsPath,
         const std::vector<std::string>& includedSections, std::vector<ConfigScalarField>& fields, std::string& error) {
     fields.clear();
@@ -70,7 +63,7 @@ bool rebuildConfigScalarIdsFile(const std::string& configPath, const std::string
                 const std::string name = fieldEntry.first.Scalar();
                 const std::string value = fieldEntry.second.Scalar();
                 const auto id = static_cast<uint8_t>(fields.size());
-                fields.push_back({id, section, name, value, configScalarValueIsInt32(value)});
+                fields.push_back({id, section, name, value});
                 ids[section][name] = static_cast<unsigned>(id);
             }
         }

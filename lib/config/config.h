@@ -20,10 +20,8 @@ struct ConfigScalarField {
     std::string section_;
     std::string name_;
     std::string value_;
-    bool editableAsInt32_ = false;
 };
 
-bool configScalarValueIsInt32(const std::string& value);
 bool rebuildConfigScalarIdsFile(const std::string& configPath, const std::string& idsPath,
     const std::vector<std::string>& includedSections, std::vector<ConfigScalarField>& fields, std::string& error);
 bool findConfigScalarFieldById(const std::string& idsPath, uint8_t id, ConfigScalarField& field,

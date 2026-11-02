@@ -42,7 +42,8 @@ bool fieldType(const std::string& jsonType, size_t& size) {
         {"char160byte", 160},
         {"char192byte", 192},
         {"char224byte", 224},
-        {"char240byte", 240}
+        {"char240byte", 240},
+        {"yamlScalar", 0}
     };
     const auto it = types.find(jsonType);
     if (it == types.end()) return false;
