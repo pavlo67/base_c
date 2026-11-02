@@ -30,6 +30,7 @@ public:
     virtual ~ComponentState() = default;
 
     virtual bool load(const Config& cfg) = 0;
+    [[nodiscard]] virtual std::vector<std::string> getConfigSections() const = 0;
     [[nodiscard]] virtual config_values_t get() const = 0;
     virtual void show() const = 0;
     virtual void test() = 0;

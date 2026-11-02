@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "lib/config/config_component.h"
 
@@ -12,6 +13,7 @@ public:
     explicit ComponentStateServerHTTP(std::string section);
 
     bool load(const Config& cfg) final;
+    [[nodiscard]] std::vector<std::string> getConfigSections() const final;
     [[nodiscard]] config_values_t get() const final;
     void show() const final;
     void test() final;

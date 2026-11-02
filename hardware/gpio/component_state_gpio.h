@@ -5,6 +5,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "gpio.h"
 #include "lib/config/config_component.h"
@@ -14,6 +15,7 @@ public:
     ComponentStateGPIO(std::string section, std::set<unsigned> reservedPins);
 
     virtual bool load(const Config& cfg);
+    [[nodiscard]] std::vector<std::string> getConfigSections() const final;
     [[nodiscard]] config_values_t get() const final;
     void show() const final;
     void test() final;

@@ -21,6 +21,7 @@ public:
     ComponentStateMove(std::string panSection, std::string tiltSection);
 
     bool load(const Config& cfg) final;
+    [[nodiscard]] std::vector<std::string> getConfigSections() const final;
     config_values_t get() const final;
     void show() const final;
     void test() final;

@@ -10,6 +10,8 @@
 
 const std::string ON_STEPPER_OPTIONS_OK = "[stepperMotorOptionsOk()] ERROR: ";
 
+std::vector<std::string> ComponentStateMove::getConfigSections() const { return {panSection_, tiltSection_}; }
+
 bool stepperMotorOptionsOk(stepper_motor_options_t& options, std::string& error) {
     error.clear();
     if (!isFinitePositive(options.freqMax)) {

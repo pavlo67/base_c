@@ -12,6 +12,8 @@ namespace {
 
 ComponentStateServerHTTP::ComponentStateServerHTTP(std::string section) : section_(std::move(section)) {}
 
+std::vector<std::string> ComponentStateServerHTTP::getConfigSections() const { return {section_}; }
+
 bool ComponentStateServerHTTP::load(const Config& cfg) {
     if (!cfg.loadedOk()) {
         printf("%s ERROR: configuration is unavailable\n", ON_LOAD);

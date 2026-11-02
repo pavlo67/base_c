@@ -2,6 +2,7 @@
 
 #include "lib/filelib.h"
 
+#include <algorithm>
 #include <charconv>
 #include <cstdio>
 #include <filesystem>
@@ -43,7 +44,7 @@ bool configScalarValueIsInt32(const std::string& value) {
 }
 
 bool rebuildConfigScalarIdsFile(const std::string& configPath, const std::string& idsPath,
-        std::vector<ConfigScalarField>& fields, std::string& error) {
+        const std::vector<std::string>& includedSections, std::vector<ConfigScalarField>& fields, std::string& error) {
     fields.clear();
     error.clear();
     try {
@@ -56,6 +57,9 @@ bool rebuildConfigScalarIdsFile(const std::string& configPath, const std::string
         for (const auto& sectionEntry : root) {
             if (!sectionEntry.first.IsScalar() || !sectionEntry.second.IsMap()) { continue; }
             const std::string section = sectionEntry.first.Scalar();
+            if (std::find(includedSections.begin(), includedSections.end(), section) == includedSections.end()) {
+                continue;
+            }
             for (const auto& fieldEntry : sectionEntry.second) {
                 if (!fieldEntry.first.IsScalar() || !fieldEntry.second.IsScalar()) { continue; }
                 if (fields.size() > std::numeric_limits<uint8_t>::max()) {

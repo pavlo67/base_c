@@ -19,6 +19,16 @@ REMOTE_HOSTS=(
     "10.42.0.174"
 )
 
+if (( $# > 1 )); then
+    printf 'ERROR: usage: remote_host.sh [address]\n' >&2
+    exit 1
+fi
+
+requested_host=''
+if (( $# == 1 )); then
+    requested_host="$1"
+fi
+
 is_access_point_active() {
     local active_profile
 
@@ -47,6 +57,11 @@ try_remote_host() {
     return 1
 }
 
+if [[ -n "$requested_host" ]] && try_remote_host "$requested_host"; then
+    printf '%s\n' "$requested_host"
+    exit 0
+fi
+
 access_point_active=false
 if is_access_point_active; then
     access_point_active=true
@@ -57,7 +72,8 @@ if is_access_point_active; then
 fi
 
 for host in "${REMOTE_HOSTS[@]}"; do
-    if [[ "$host" == "$PREFERRED_HOST" && "$access_point_active" == true ]]; then
+    if [[ "$host" == "$requested_host" ||
+          ( "$host" == "$PREFERRED_HOST" && "$access_point_active" == true ) ]]; then
         continue
     fi
     if try_remote_host "$host"; then

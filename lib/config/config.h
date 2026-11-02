@@ -25,7 +25,7 @@ struct ConfigScalarField {
 
 bool configScalarValueIsInt32(const std::string& value);
 bool rebuildConfigScalarIdsFile(const std::string& configPath, const std::string& idsPath,
-    std::vector<ConfigScalarField>& fields, std::string& error);
+    const std::vector<std::string>& includedSections, std::vector<ConfigScalarField>& fields, std::string& error);
 bool findConfigScalarFieldById(const std::string& idsPath, uint8_t id, ConfigScalarField& field,
     std::string& error);
 

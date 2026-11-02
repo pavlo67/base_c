@@ -15,6 +15,8 @@ namespace {
 ComponentStateGPIO::ComponentStateGPIO(std::string section, std::set<unsigned> reservedPins)
     : section_(std::move(section)), reservedPins_(std::move(reservedPins)) {}
 
+std::vector<std::string> ComponentStateGPIO::getConfigSections() const { return {section_}; }
+
 bool ComponentStateGPIO::load(const Config& cfg) {
     if (!cfg.loadedOk()) {
         printf("%s ERROR: configuration is unavailable\n", ON_LOAD);
