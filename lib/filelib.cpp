@@ -81,6 +81,30 @@ std::filesystem::path filePathWithStemSuffix(const std::filesystem::path& filepa
     return filepath.parent_path() / (filepath.stem().string() + stemSuffix + filepath.extension().string());
 }
 
+bool collectFiles(const std::filesystem::path& directory, std::vector<std::filesystem::path>& files) {
+    constexpr const char* context = "[collectFiles()]";
+    std::error_code error;
+    if (!std::filesystem::is_directory(directory, error)) {
+        printf("%s ERROR: not a directory: %s\n", context, directory.c_str());
+        return false;
+    }
+    for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(directory, error)) {
+        if (error) {
+            printf("%s ERROR: cannot enumerate %s: %s\n", context, directory.c_str(), error.message().c_str());
+            return false;
+        }
+        if (entry.is_regular_file(error)) {
+            files.push_back(entry.path());
+        }
+        if (error) {
+            printf("%s ERROR: cannot inspect %s: %s\n", context, entry.path().c_str(), error.message().c_str());
+            return false;
+        }
+    }
+    std::sort(files.begin(), files.end());
+    return true;
+}
+
 
 const std::string ON_NEW_FILE = "[newFile()]";
 FILE* newFile(const std::string& filepath) {

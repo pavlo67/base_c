@@ -22,6 +22,7 @@ FILE*       newFile(const std::string& filepath); // new_path doesn't add a time
 
 int         findExtension(std::string path, const std::string* exts, int extsCnt);
 bool        hasSubdirs(std::filesystem::path path);
+bool        collectFiles(const std::filesystem::path& directory, std::vector<std::filesystem::path>& files);
 
 std::list<std::string> listOfFiles(const std::string& path, const std::string* exts, int extsCnt, bool dirs = true, bool files = true, const std::string& prefix = "");
 
