@@ -3,6 +3,7 @@
 #define __FILELIB_H
 
 #include <cstdio>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -23,6 +24,13 @@ FILE*       newFile(const std::string& filepath); // new_path doesn't add a time
 int         findExtension(std::string path, const std::string* exts, int extsCnt);
 bool        hasSubdirs(std::filesystem::path path);
 bool        collectFiles(const std::filesystem::path& directory, std::vector<std::filesystem::path>& files);
+bool        isImagePath(const std::filesystem::path& path);
+bool        parseImageNumber(const std::filesystem::path& path, uint64_t& number);
+bool        parsePathNumberPrefix(const std::filesystem::path& path, uint64_t& number, unsigned& width);
+std::string makeTimestamp();
+std::string makeNumberedName(uint64_t number, const std::string& extension, unsigned width);
+bool        isNameUsed(const std::string& name, const std::vector<std::filesystem::path>& firstPaths,
+            const std::vector<std::filesystem::path>& secondPaths);
 
 std::list<std::string> listOfFiles(const std::string& path, const std::string* exts, int extsCnt, bool dirs = true, bool files = true, const std::string& prefix = "");
 

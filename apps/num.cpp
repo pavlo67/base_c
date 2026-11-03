@@ -18,35 +18,46 @@ struct RenameEntry {
     fs::path target;
 };
 
-static bool findNextFileNumber(const fs::path& directory, uint64_t& firstNumber);
-static bool prepareRenameEntries(const fs::path& directory, const std::vector<fs::path>& files, uint64_t firstNumber, std::vector<RenameEntry>& entries);
+static bool findReferenceNumbering(const fs::path& directory, uint64_t& firstNumber, unsigned& numberWidth);
+static bool prepareRenameEntries(const fs::path& directory, const std::vector<fs::path>& files, uint64_t firstNumber,
+    unsigned numberWidth, std::vector<RenameEntry>& entries);
 static bool renameEntries(std::vector<RenameEntry>& entries);
 
 int main(int argc, char* argv[]) {
     if (argc > 2) {
-        printf("ERROR: expected at most one parameter\n");
+        printf("ERROR: usage: %s [FIRST_NUMBER|SOURCE_DIRECTORY]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    fs::path directory = fs::current_path();
+    const fs::path directory = fs::current_path();
+    fs::path sourceDirectory;
     uint64_t firstNumber = 1;
+    unsigned numberWidth = 0;
     if (argc == 2) {
         if (!parseUnsigned(argv[1], firstNumber)) {
-            directory = argv[1];
-            if (!findNextFileNumber(directory, firstNumber)) {
+            sourceDirectory = argv[1];
+            if (!findReferenceNumbering(sourceDirectory, firstNumber, numberWidth)) {
                 return EXIT_FAILURE;
             }
         }
     }
-    printf("Parameters:\n\tDIRECTORY: %s\n\tFIRST_NUMBER: %llu\n\n", directory.c_str(),
-           static_cast<unsigned long long>(firstNumber));
 
     std::vector<fs::path> files;
     if (!collectFiles(directory, files)) {
         return EXIT_FAILURE;
     }
+    if (!files.empty() && firstNumber > UINT64_MAX - (files.size() - 1)) {
+        printf("ERROR: file number range overflows\n");
+        return EXIT_FAILURE;
+    }
+    const uint64_t lastNumber = files.empty() ? firstNumber : firstNumber + files.size() - 1;
+    numberWidth = numberWidth ? std::max(numberWidth, static_cast<unsigned>(std::to_string(lastNumber).size())) : static_cast<unsigned>(std::to_string(lastNumber).size()) + 2;
+    printf("Parameters:\n\tTARGET_DIRECTORY: %s\n\tSOURCE_DIRECTORY: %s\n\tFIRST_NUMBER: %llu\n\tNUMBER_WIDTH: %u\n\n",
+        directory.c_str(), sourceDirectory.empty() ? "(none)" : sourceDirectory.c_str(),
+        static_cast<unsigned long long>(firstNumber), numberWidth);
+
     std::vector<RenameEntry> entries;
-    if (!prepareRenameEntries(directory, files, firstNumber, entries)) {
+    if (!prepareRenameEntries(directory, files, firstNumber, numberWidth, entries)) {
         return EXIT_FAILURE;
     }
     if (!renameEntries(entries)) {
@@ -56,7 +67,7 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
 }
 
-static bool findNextFileNumber(const fs::path& directory, uint64_t& firstNumber) {
+static bool findReferenceNumbering(const fs::path& directory, uint64_t& firstNumber, unsigned& numberWidth) {
     std::vector<fs::path> files;
     if (!collectFiles(directory, files)) {
         return false;
@@ -64,19 +75,13 @@ static bool findNextFileNumber(const fs::path& directory, uint64_t& firstNumber)
     uint64_t maximumNumber = 0;
     bool numberFound = false;
     for (const fs::path& file : files) {
-        const std::string name = file.filename().string();
-        size_t digitsEnd = 0;
-        while (digitsEnd < name.size() && name[digitsEnd] >= '0' && name[digitsEnd] <= '9') {
-            ++digitsEnd;
-        }
-        if (digitsEnd == 0) {
-            continue;
-        }
         uint64_t number = 0;
-        if (!parseUnsigned(name.substr(0, digitsEnd), number)) {
+        unsigned width = 0;
+        if (!parsePathNumberPrefix(file, number, width)) {
             continue;
         }
         maximumNumber = std::max(maximumNumber, number);
+        numberWidth = std::max(numberWidth, width);
         numberFound = true;
     }
     if (!numberFound) {
@@ -84,7 +89,7 @@ static bool findNextFileNumber(const fs::path& directory, uint64_t& firstNumber)
         return true;
     }
     if (maximumNumber == UINT64_MAX) {
-        printf("[findNextFileNumber()] ERROR: maximum file number cannot be incremented in %s\n", directory.c_str());
+        printf("[findReferenceNumbering()] ERROR: maximum file number cannot be incremented in %s\n", directory.c_str());
         return false;
     }
     firstNumber = maximumNumber + 1;
@@ -92,7 +97,7 @@ static bool findNextFileNumber(const fs::path& directory, uint64_t& firstNumber)
 }
 
 static bool prepareRenameEntries(const fs::path& directory, const std::vector<fs::path>& files, uint64_t firstNumber,
-                                 std::vector<RenameEntry>& entries) {
+                                 unsigned numberWidth, std::vector<RenameEntry>& entries) {
     const uint64_t timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     uint64_t number = firstNumber;
@@ -104,7 +109,7 @@ static bool prepareRenameEntries(const fs::path& directory, const std::vector<fs
         RenameEntry entry;
         entry.source = files[index];
         entry.temporary = directory / (".num_" + std::to_string(timestamp) + "_" + std::to_string(index));
-        entry.target = directory / (std::to_string(number) + files[index].extension().string());
+        entry.target = directory / makeNumberedName(number, files[index].extension().string(), numberWidth);
         for (const RenameEntry& other : entries) {
             if (entry.target == other.target) {
                 printf("[prepareRenameEntries()] ERROR: duplicate target %s\n", entry.target.c_str());

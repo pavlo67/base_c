@@ -2,6 +2,7 @@
 #include <array>
 #include <charconv>
 #include <chrono>
+#include <cctype>
 #include <cstring>
 #include <cerrno>
 #include <fstream>
@@ -14,6 +15,63 @@
 namespace fs = std::filesystem;
 
 #include "filelib.h"
+
+bool isImagePath(const std::filesystem::path& path) {
+    std::string extension = path.extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char character) {
+        return static_cast<char>(std::tolower(character));
+    });
+    return extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".bmp" ||
+        extension == ".tif" || extension == ".tiff";
+}
+
+bool parseImageNumber(const std::filesystem::path& path, uint64_t& number) {
+    const std::string stem = path.stem().string();
+    if (stem.empty() || !std::all_of(stem.begin(), stem.end(), [](unsigned char character) { return std::isdigit(character); })) {
+        return false;
+    }
+    const auto result = std::from_chars(stem.data(), stem.data() + stem.size(), number);
+    return result.ec == std::errc{} && result.ptr == stem.data() + stem.size();
+}
+
+bool parsePathNumberPrefix(const std::filesystem::path& path, uint64_t& number, unsigned& width) {
+    const std::string stem = path.stem().string();
+    size_t digitsEnd = 0;
+    while (digitsEnd < stem.size() && std::isdigit(static_cast<unsigned char>(stem[digitsEnd]))) {
+        ++digitsEnd;
+    }
+    if (digitsEnd == 0) {
+        return false;
+    }
+    const auto result = std::from_chars(stem.data(), stem.data() + digitsEnd, number);
+    if (result.ec != std::errc{} || result.ptr != stem.data() + digitsEnd) {
+        return false;
+    }
+    width = static_cast<unsigned>(digitsEnd);
+    return true;
+}
+
+std::string makeTimestamp() {
+    const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    return std::to_string(timestamp);
+}
+
+std::string makeNumberedName(uint64_t number, const std::string& extension, unsigned width) {
+    std::ostringstream stream;
+    stream << std::setw(static_cast<int>(width)) << std::setfill('0') << number << extension;
+    return stream.str();
+}
+
+bool isNameUsed(const std::string& name, const std::vector<std::filesystem::path>& firstPaths,
+                const std::vector<std::filesystem::path>& secondPaths) {
+    const auto contains = [&name](const std::vector<std::filesystem::path>& paths) {
+        return std::any_of(paths.begin(), paths.end(), [&name](const std::filesystem::path& path) {
+            return path.filename().string() == name;
+        });
+    };
+    return contains(firstPaths) || contains(secondPaths);
+}
 
 std::string nameOfFile(const std::string& filepath) {
 

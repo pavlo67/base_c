@@ -124,5 +124,4 @@ if(NOT TARGET num)
             lib/filelib.cpp
             lib/parselib.cpp
     )
-    set_target_properties(num PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
 endif()
