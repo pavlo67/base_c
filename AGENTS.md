@@ -28,12 +28,12 @@ AGENTS.md в git-підмодулях — це копії кореневого A
 
 Не показуй diffs.
 
+Після внесення змін — перевіряй не тільки білд, а й те, що, цільовий процес запускається і, якщо можливо це перевірити без зайвих труднощів, що він відпрацьовує зміни.
+
 Документація створюється тільки по запиту користувача, мінімальна.
 
 При виконанні завдання на віддаленому компʼютері працюй тільки там. Якщо потрібні будуть локальні перевірки змін — не роби їх, але повідом користувачеві.
 Це, якщо так, буде окремим завданням. І, аналогічно, коли вносяться зміни в локальний репозиторій — не можна одночасно змінювати віддалений.
-
-Надавай перевагу паттернам, які вже присутні в проєкті, над можливими новими конвенціями.
 
 Всі наступні правила стосується виключно роботи з програмним кодом цього репозиторію і не чинні при роботі з CAD, кресленнями, зображеннями та іншими
 некодовими артефактами та тимчасовими скриптами автоматизації таких задач.
@@ -41,11 +41,13 @@ AGENTS.md в git-підмодулях — це копії кореневого A
 
 ## Coding style
 
-Перед написанням або зміною програмного коду спочатку шукай відповідні готові helper-функції в `lib/` і `hardware/`.
+Перед написанням або зміною програмного коду спочатку шукай відповідні готові helper-функції в `lib/` і `hardware/`. 
 
 For every new function, ask: - Is it's not tightly coupled to one function and reusable outside this file? If the answer is yes,
 move it to `lib/` or `hardware/` as appropriate. In particular, CSV/text helpers, bool/string conversion helpers, math helpers,
 filesystem helpers, and small formatting helpers are reusable and should be moved to common directories by default unless proven otherwise.
+
+Надавай перевагу паттернам, які вже присутні в проєкті, над можливими новими конвенціями.
 
 Before finalizing, move all new reusable helpers from app/local files to `lib/` or `hardware/`. Treat string conversion, math, filesystem, and formatting
 helpers as reusable by default. 
