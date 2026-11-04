@@ -10,6 +10,8 @@
 #include <chrono>
 #include <numbers>
 
+#include "lib/parselib.h"
+
 TEST(PlatformMotor, MechanicsAndPulseDisplacement) {
     printf("[PLT] Convert pan and tilt mechanics to platform units\n");
     std::string error;

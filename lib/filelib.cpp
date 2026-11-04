@@ -163,6 +163,22 @@ bool collectFiles(const std::filesystem::path& directory, std::vector<std::files
     return true;
 }
 
+// std::vector<std::filesystem::path> collectDirectoryFiles(const std::filesystem::path& directory) {
+//     std::vector<std::filesystem::path> files;
+//     std::error_code error;
+//     for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(directory, error)) {
+//         if (error) {
+//             return {};
+//         }
+//         if (entry.is_regular_file(error) && !error) {
+//             files.push_back(entry.path().lexically_normal());
+//         }
+//         error.clear();
+//     }
+//     std::sort(files.begin(), files.end());
+//     return files;
+// }
+
 
 const std::string ON_NEW_FILE = "[newFile()]";
 FILE* newFile(const std::string& filepath) {

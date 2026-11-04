@@ -66,10 +66,16 @@ add_library(stepper_platform
 )
 target_link_libraries(stepper_platform PUBLIC stepper_motor yaml-cpp::yaml-cpp)
 # Programs may override their source path constant with a machina.yaml path.
-add_executable(platform_probe stepper_motor/probes/platform_probe.cpp)
+add_executable(platform_probe
+        ../lib/parselib.cpp
+        stepper_motor/probes/platform_probe.cpp
+)
 set_target_properties(platform_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_probe>")
 target_link_libraries(platform_probe PRIVATE stepper_platform)
-add_executable(stepper_platform_test stepper_motor/config/platform_config_test.cpp)
+add_executable(stepper_platform_test
+        stepper_motor/config/platform_config_test.cpp
+        ../lib/parselib.cpp
+)
 set_target_properties(stepper_platform_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${BIN_BASE_DIR}/_test>")
 target_link_libraries(stepper_platform_test PRIVATE stepper_platform GTest::gtest_main)
 add_test(NAME stepper_platform_test COMMAND stepper_platform_test)

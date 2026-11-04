@@ -51,16 +51,3 @@ std::string tail(std::string const& src, size_t const length) {
 }
 
 
-void logger(FILE* fLog, const char* format, ...) {
-    va_list args;
-
-    va_start(args, format);
-    vprintf(format, args);
-    va_end(args); // Clean up
-
-    if (fLog) {
-        va_start(args, format);
-        vfprintf(fLog, format, args);
-        va_end(args); // Clean up
-    }
-}

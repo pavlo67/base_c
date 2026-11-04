@@ -1,43 +1,40 @@
 #ifndef STRLIB_H
 #define STRLIB_H
 
-#include <cstdint>
+#include <algorithm>
+#include <cmath>
 #include <map>
 #include <vector>
 #include <string>
+#include <string_view>
 
 const std::string WHITESPACE = " \n\r\t\f\v ";
 
 std::vector<std::string> split(std::string s, const std::string& delimiter);
-std::string tail(std::string const& src, size_t const length);
-void trim(std::string& str);
+std::string              tail(std::string const& src, size_t const length);
+void                     trim(std::string& str);
+
+
+// using cv lib
+// inline void              toLowerCase(std::string& str) {
+//     std::transform(
+//                    str.begin(), str.end(), str.begin(),
+//                    [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+// }
+// inline void              toUpperCase(std::string& str) {
+//     std::transform(
+//                    str.begin(), str.end(), str.begin(),
+//                    [](unsigned char character) { return static_cast<char>(std::toupper(character)); });
+// }
+
 
 std::string stringMapToMultilineString(const std::map<std::string, std::string>& values);
 
-void logger(FILE* fLog, const char* format, ...);
 
-#include <charconv>
-#include <cmath>
-#include <cstdio>
-#include <string_view>
 
-// Strict signed decimal/scientific notation; finite representable float only.
-inline constexpr const char* ON_PARSE_FINITE_FLOAT = "[parseFiniteFloat()]";
-inline bool parseFiniteFloat(std::string_view text, float& value) {
-    const bool explicitPlus = !text.empty() && text.front() == '+';
-    if (explicitPlus) { text.remove_prefix(1); }
-    float candidate = 0;
-    if (text.empty() || text.front() == '+' || (explicitPlus && text.front() == '-')) {
-        printf("%s ERROR: expected a signed number\n", ON_PARSE_FINITE_FLOAT);
-        return false;
-    }
-    const auto result = std::from_chars(text.data(), text.data() + text.size(), candidate);
-    if (result.ec != std::errc{} || result.ptr != text.data() + text.size() || !std::isfinite(candidate)) {
-        printf("%s ERROR: expected a finite decimal number\n", ON_PARSE_FINITE_FLOAT);
-        return false;
-    }
-    value = candidate;
-    return true;
-}
+
+
+
+
 
 #endif //STRLIB_H
