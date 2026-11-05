@@ -654,14 +654,47 @@ bool moveFileReplacing(const std::filesystem::path& srcPath, const std::filesyst
 }
 
 const std::string ON_COPY_FILE_REPLACING = "[copyFileReplacing()]";
+constexpr const char* ERROR_COLOR = "\033[31m";
+constexpr const char* COLOR_RESET = "\033[0m";
 
 bool copyFileReplacing(const std::filesystem::path& srcPath, const std::filesystem::path& dstPath) {
     std::error_code error;
     std::filesystem::copy_file(srcPath, dstPath, std::filesystem::copy_options::overwrite_existing, error);
     if (error) {
-        printf("%s ERROR: failed to copy %s -> %s: %s\n", ON_COPY_FILE_REPLACING.c_str(), srcPath.c_str(),
-            dstPath.c_str(), error.message().c_str());
+        printf("%s%s ERROR: failed to copy %s -> %s: %s%s\n", ERROR_COLOR, ON_COPY_FILE_REPLACING.c_str(),
+            srcPath.c_str(), dstPath.c_str(), error.message().c_str(), COLOR_RESET);
         return false;
+    }
+    return true;
+}
+
+bool removeFilesWithExtension(const std::filesystem::path& directory, const std::string& extension,
+        std::string& error) {
+    error.clear();
+    std::error_code filesystemError;
+    std::filesystem::directory_iterator entries(directory, filesystemError);
+    if (filesystemError) {
+        error = "cannot enumerate " + directory.string() + ": " + filesystemError.message();
+        return false;
+    }
+    for (const std::filesystem::directory_entry& entry : entries) {
+        if (!entry.is_regular_file(filesystemError)) {
+            if (filesystemError) {
+                error = "cannot inspect " + entry.path().string() + ": " + filesystemError.message();
+                return false;
+            }
+            continue;
+        }
+        if (entry.path().extension() != extension) {
+            continue;
+        }
+        if (!std::filesystem::remove(entry.path(), filesystemError)) {
+            error = "cannot remove " + entry.path().string();
+            if (filesystemError) {
+                error += ": " + filesystemError.message();
+            }
+            return false;
+        }
     }
     return true;
 }
