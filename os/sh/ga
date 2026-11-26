@@ -1,5 +1,12 @@
 #!/bin/sh
 
+LIBRARY="/home/admin/bin/lib.sh"
+if [ ! -r "$LIBRARY" ]; then
+    printf "ERROR: library helper is missing or unreadable: %s\n" "$LIBRARY"
+    exit 1
+fi
+. "$LIBRARY"
+enable_rpi_client_network || exit $?
 ga_commands='
 echo ""
 git add . || exit $?

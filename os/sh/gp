@@ -2,6 +2,13 @@
 
 set -e
 exec 2>&1
+LIBRARY="/home/admin/bin/lib.sh"
+if [ ! -r "$LIBRARY" ]; then
+    printf "ERROR: library helper is missing or unreadable: %s\n" "$LIBRARY"
+    exit 1
+fi
+. "$LIBRARY"
+enable_rpi_client_network || exit $?
 
 # This check belongs to gp: it validates the index that submodule update uses.
 gp_validate_modules() (
