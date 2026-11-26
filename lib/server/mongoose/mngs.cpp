@@ -1,8 +1,10 @@
 #include "mngs.h"
 
 #include <chrono>
+#include <arpa/inet.h>
 #include <condition_variable>
 #include <cstdio>
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -60,6 +62,14 @@ namespace {
             request.method.assign(message->method.buf, message->method.len);
             request.uri.assign(message->uri.buf, message->uri.len);
             request.body.assign(message->body.buf, message->body.len);
+            if (!connection->rem.is_ip6) {
+                in_addr address{};
+                std::memcpy(&address, connection->rem.addr.ip, sizeof(address));
+                char peerIPv4[INET_ADDRSTRLEN]{};
+                if (inet_ntop(AF_INET, &address, peerIPv4, sizeof(peerIPv4)) != nullptr) {
+                    request.peerIPv4 = peerIPv4;
+                }
+            }
 
             ServerResponse response;
             route.callback(request, response);

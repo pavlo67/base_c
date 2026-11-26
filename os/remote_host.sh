@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -u
 
-AP_PROFILE="Pan-Tilt-AP"
-PREFERRED_HOST="10.42.0.163"
+AP_PROFILE="PRI_pan_tilt"
+PREFERRED_HOST="10.42.0.1"
 REMOTE_USER="admin"
 SSH_CONNECT_TIMEOUT_SECONDS=2
 REMOTE_HOSTS=(
@@ -29,16 +29,38 @@ if (( $# == 1 )); then
     requested_host="$1"
 fi
 
-is_access_point_active() {
-    local active_profile
+active_wifi_profile() {
+    nmcli -t -f NAME,TYPE connection show --active 2>/dev/null |
+        while IFS=: read -r profile type; do
+            if [[ "$type" == "wifi" ]]; then
+                printf '%s\n' "$profile"
+                return 0
+            fi
+        done
+}
 
-    while IFS= read -r active_profile; do
-        if [[ "$active_profile" == "$AP_PROFILE" ]]; then
-            return 0
-        fi
-    done < <(nmcli -t -f NAME connection show --active 2>/dev/null)
+wifi_device() {
+    nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null |
+        while IFS=: read -r device type state; do
+            if [[ "$type" == "wifi" && "$state" == "connected" ]]; then
+                printf '%s\n' "$device"
+                return 0
+            fi
+        done
+}
 
-    return 1
+activate_access_point_client() {
+    local device
+    device=$(wifi_device)
+    if [[ -z "$device" ]]; then
+        printf '%s unavailable: no connected Wi-Fi device\n' "$AP_PROFILE" >&2
+        return 1
+    fi
+    if ! nmcli -w 8 connection up id "$AP_PROFILE" ifname "$device" >&2; then
+        printf '%s unavailable: cannot activate local Wi-Fi profile\n' "$AP_PROFILE" >&2
+        return 1
+    fi
+    return 0
 }
 
 try_remote_host() {
@@ -57,23 +79,27 @@ try_remote_host() {
     return 1
 }
 
-if [[ -n "$requested_host" ]] && try_remote_host "$requested_host"; then
-    printf '%s\n' "$requested_host"
-    exit 0
-fi
-
-access_point_active=false
-if is_access_point_active; then
-    access_point_active=true
+previous_wifi_profile=$(active_wifi_profile)
+if activate_access_point_client; then
     if try_remote_host "$PREFERRED_HOST"; then
         printf '%s\n' "$PREFERRED_HOST"
         exit 0
     fi
 fi
 
+if [[ -n "$previous_wifi_profile" && "$previous_wifi_profile" != "$AP_PROFILE" ]]; then
+    if ! nmcli -w 8 connection up id "$previous_wifi_profile" >&2; then
+        printf '%s fail: cannot reactivate client Wi-Fi profile\n' "$previous_wifi_profile" >&2
+    fi
+fi
+
+if [[ -n "$requested_host" ]] && try_remote_host "$requested_host"; then
+    printf '%s\n' "$requested_host"
+    exit 0
+fi
+
 for host in "${REMOTE_HOSTS[@]}"; do
-    if [[ "$host" == "$requested_host" ||
-          ( "$host" == "$PREFERRED_HOST" && "$access_point_active" == true ) ]]; then
+    if [[ "$host" == "$requested_host" || "$host" == "$PREFERRED_HOST" ]]; then
         continue
     fi
     if try_remote_host "$host"; then

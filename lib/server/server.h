@@ -21,6 +21,7 @@ struct ServerRequest {
     std::string method;
     std::string uri;
     std::string body;
+    std::string peerIPv4;
 };
 
 struct ServerResponse {

@@ -29,6 +29,11 @@ bool isIPv4Address(std::string_view address) {
     return false;
 }
 
+std::string ipV4HostToString(uint32_t address) {
+    return std::to_string((address >> 24) & 0xff) + "." + std::to_string((address >> 16) & 0xff) + "." +
+        std::to_string((address >> 8) & 0xff) + "." + std::to_string(address & 0xff);
+}
+
 namespace {
     #if BASE_USE_GETIFADDRS || BASE_USE_ADAPTER_ADDRESSES
         std::string formatIPv4Address(const sockaddr_in& address) {
