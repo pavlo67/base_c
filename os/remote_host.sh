@@ -4,7 +4,8 @@ set -u
 AP_PROFILE="PRI_pan_tilt"
 PREFERRED_HOST="10.42.0.1"
 REMOTE_USER="admin"
-SSH_CONNECT_TIMEOUT_SECONDS=2
+SSH_CONNECT_TIMEOUT_SECONDS=3
+NMCLI_ACTIVATION_TIMEOUT_SECONDS=5
 REMOTE_HOSTS=(
     "10.42.0.120"
     "192.168.0.120"
@@ -42,21 +43,37 @@ active_wifi_profile() {
 wifi_device() {
     nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null |
         while IFS=: read -r device type state; do
-            if [[ "$type" == "wifi" && "$state" == "connected" ]]; then
+            if [[ "$type" == "wifi" ]]; then
                 printf '%s\n' "$device"
                 return 0
             fi
         done
 }
 
+is_access_point_client_active() {
+    local active_profile
+
+    while IFS= read -r active_profile; do
+        if [[ "$active_profile" == "$AP_PROFILE" ]]; then
+            return 0
+        fi
+    done < <(nmcli -t -f NAME connection show --active 2>/dev/null)
+
+    return 1
+}
+
 activate_access_point_client() {
     local device
+    if is_access_point_client_active; then
+        printf '%s already active\n' "$AP_PROFILE" >&2
+        return 0
+    fi
     device=$(wifi_device)
     if [[ -z "$device" ]]; then
-        printf '%s unavailable: no connected Wi-Fi device\n' "$AP_PROFILE" >&2
+        printf '%s unavailable: no Wi-Fi device\n' "$AP_PROFILE" >&2
         return 1
     fi
-    if ! nmcli -w 8 connection up id "$AP_PROFILE" ifname "$device" >&2; then
+    if ! nmcli -w "$NMCLI_ACTIVATION_TIMEOUT_SECONDS" connection up id "$AP_PROFILE" ifname "$device" >&2; then
         printf '%s unavailable: cannot activate local Wi-Fi profile\n' "$AP_PROFILE" >&2
         return 1
     fi
@@ -88,7 +105,7 @@ if activate_access_point_client; then
 fi
 
 if [[ -n "$previous_wifi_profile" && "$previous_wifi_profile" != "$AP_PROFILE" ]]; then
-    if ! nmcli -w 8 connection up id "$previous_wifi_profile" >&2; then
+    if ! nmcli -w "$NMCLI_ACTIVATION_TIMEOUT_SECONDS" connection up id "$previous_wifi_profile" >&2; then
         printf '%s fail: cannot reactivate client Wi-Fi profile\n' "$previous_wifi_profile" >&2
     fi
 fi
