@@ -1,5 +1,4 @@
 # Configs
-*.json
 *.yaml
 defines.h
 defines_base.h
