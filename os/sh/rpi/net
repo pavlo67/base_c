@@ -3,7 +3,7 @@
 set -eu
 
 context='[net]'
-library='/home/admin/bin/lib.sh'
+library="$HOME/bin/lib"
 
 printf '%s parameters:\n' "$context"
 printf '\tlibrary: %s\n\n' "$library"

@@ -2,7 +2,7 @@
 
 set -e
 exec 2>&1
-LIBRARY="/home/admin/bin/lib.sh"
+LIBRARY="$HOME/bin/lib"
 if [ ! -r "$LIBRARY" ]; then
     printf "ERROR: library helper is missing or unreadable: %s\n" "$LIBRARY"
     exit 1
