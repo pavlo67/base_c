@@ -8,7 +8,6 @@ if [ ! -r "$LIBRARY" ]; then
     exit 1
 fi
 . "$LIBRARY"
-enable_rpi_client_network || exit $?
 
 # This check belongs to gp: it validates the index that submodule update uses.
 gp_validate_modules() (

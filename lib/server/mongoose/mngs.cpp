@@ -44,6 +44,14 @@ namespace {
         return actualUri.len == route.size() && std::string(actualUri.buf, actualUri.len) == route;
     }
 
+    bool sameRoute(const mg_str& actualUri, const HTTPRoute& route) {
+        if (route.prefix_) {
+            return actualUri.len >= route.route.size() &&
+                std::string(actualUri.buf, route.route.size()) == route.route;
+        }
+        return sameRoute(actualUri, route.route);
+    }
+
     void handleHTTP(mg_connection* connection, mg_http_message* message) {
         for (WebSocketRoute& route : webSocketRoutes) {
             if (sameRoute(message->uri, route.route)) {
@@ -54,7 +62,7 @@ namespace {
         }
 
         for (const HTTPRoute& route : httpRoutes) {
-            if (!sameMethod(route.method, message->method) || !sameRoute(message->uri, route.route)) {
+            if (!sameMethod(route.method, message->method) || !sameRoute(message->uri, route)) {
                 continue;
             }
 
@@ -224,6 +232,16 @@ void addServerHTTPHandler(HTTP_METHOD method, const std::string& route, ServerHT
 }
 
 const std::string ON_ADD_SERVER_WEBSOCKET_HANDLER = "[addServerWebSocketHandler()]";
+
+void addServerHTTPPrefixHandler(HTTP_METHOD method, const std::string& prefix, ServerHTTPHandler callback) {
+    std::lock_guard<std::mutex> lock(serverMutex);
+    if (serverThread.joinable()) {
+        fprintf(stdout, "%s ERROR: handlers must be added before server start\n", ON_ADD_SERVER_HTTP_HANDLER.c_str());
+        return;
+    }
+    httpRoutes.push_back({method, prefix, std::move(callback), true});
+    printf("added HTTP prefix handler: %u %s\n", static_cast<unsigned int>(method), prefix.c_str());
+}
 
 void addServerWebSocketHandler(const std::string& route, ServerWebSocketHandler callback) {
     std::lock_guard<std::mutex> lock(serverMutex);

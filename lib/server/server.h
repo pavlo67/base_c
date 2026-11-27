@@ -41,6 +41,7 @@ struct HTTPRoute {
     HTTP_METHOD method;
     std::string        route;
     ServerHTTPHandler  callback;
+    bool               prefix_ = false;
 };
 
 struct WebSocketRoute {

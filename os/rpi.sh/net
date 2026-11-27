@@ -1,0 +1,22 @@
+#!/bin/sh
+
+set -eu
+
+context='[net]'
+library='/home/admin/bin/lib.sh'
+
+printf '%s parameters:\n' "$context"
+printf '\tlibrary: %s\n\n' "$library"
+
+if [ ! -r "$library" ]; then
+    printf '%s ERROR: library helper is missing or unreadable: %s\n' "$context" "$library"
+    exit 1
+fi
+. "$library"
+
+if ! enable_rpi_client_network; then
+    printf '%s ERROR: failed to activate an Internet client profile on wlan1\n' "$context"
+    exit 1
+fi
+
+printf '%s Internet client profile is active on wlan1\n' "$context"

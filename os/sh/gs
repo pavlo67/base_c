@@ -6,7 +6,6 @@ if [ ! -r "$LIBRARY" ]; then
     exit 1
 fi
 . "$LIBRARY"
-enable_rpi_client_network || exit $?
 gi_commands='echo "" && git status'
 
 git submodule foreach "$gi_commands" || exit $?
